@@ -35,6 +35,11 @@ impl LaunchMode {
 
 impl MenuMode for LaunchMode {
     fn search(&self, query: &str) -> Vec<String> {
+        // TODO: This pre-processing should be done outside of the modes (e.g trim)
+        if query.trim().is_empty() {
+            return Vec::new();
+        }
+
         let mut options: Vec<LaunchApp> = self.data.apps.clone();
 
         options.sort_by(|a, b| {
@@ -53,21 +58,26 @@ impl MenuMode for LaunchMode {
     }
 
     fn finish(&self, query: &str) {
-        self.search(query);
+        if let Some(result) = self.search(query).get(0) {
+            let cmd = self
+                .data
+                .apps
+                .iter()
+                .find_map(|a| {
+                    if a.name == *result {
+                        Some(&a.cmd)
+                    } else {
+                        None
+                    }
+                })
+                .expect("Result has to be in self.data.apps.");
 
-        let cmd = self
-            .data
-            .apps
-            .get(0)
-            .map_or(String::new(), |o| o.cmd.clone());
+            let mut cmd_iter = cmd.split_whitespace();
 
-        let mut cmd_iter = cmd.split_whitespace();
-
-        let cmd = Command::new(cmd_iter.next().unwrap())
-            .args(cmd_iter.collect::<Vec<&str>>())
-            .spawn();
-
-        print!("{:#?}", cmd)
+            let _ = Command::new(cmd_iter.next().unwrap())
+                .args(cmd_iter.collect::<Vec<&str>>())
+                .spawn();
+        }
     }
 }
 
