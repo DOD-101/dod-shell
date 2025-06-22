@@ -1,0 +1,13 @@
+name: "Build Packgage"
+
+on:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@v26
+      - name: Building package
+        run: nix build
