@@ -1,5 +1,5 @@
 {
-  description = "Build a cargo project";
+  description = "Flake for dod-shell";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -30,7 +30,23 @@
 
         inherit (pkgs) lib;
 
-        craneLib = crane.mkLib pkgs;
+        craneLib = (crane.mkLib pkgs).overrideScope (
+          final: prev: {
+            # We override the behavior of `mkCargoDerivation` by adding a wrapper which
+            # will set a default value of `CARGO_PROFILE` when not set by the caller.
+            # This change will automatically be propagated to any other functions built
+            # on top of it (like `buildPackage`, `cargoBuild`, etc.)
+            mkCargoDerivation =
+              args:
+              prev.mkCargoDerivation (
+                {
+                  CARGO_PROFILE = "dev";
+                }
+                // args
+              );
+          }
+        );
+
         src = craneLib.cleanCargoSource ./.;
 
         # Common arguments can be set here to avoid repeating them later
@@ -68,17 +84,25 @@
 
         # Build the actual crate itself, reusing the dependency
         # artifacts from above.
-        my-crate = craneLib.buildPackage (
+        shell-crate = craneLib.buildPackage (
           commonArgs
           // {
             inherit cargoArtifacts;
+          }
+        );
+
+        shell-crate-release = craneLib.buildPackage (
+          commonArgs
+          // {
+            inherit cargoArtifacts;
+            CARGO_PROFILE = "release";
           }
         );
       in
       {
         checks = {
           # Build the crate as part of `nix flake check` for convenience
-          inherit my-crate;
+          shell-crate = shell-crate;
 
           # Run clippy (and deny all warnings) on the crate source,
           # again, reusing the dependency artifacts from above.
@@ -124,11 +148,13 @@
         };
 
         packages = {
-          default = my-crate;
+          inherit shell-crate shell-crate-release;
+
+          default = shell-crate;
         };
 
         apps.default = flake-utils.lib.mkApp {
-          drv = my-crate;
+          drv = shell-crate;
         };
 
         devShells.default = craneLib.devShell {
