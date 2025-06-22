@@ -24,6 +24,10 @@
 		{
 			"name": "Heroic Launcher",
 			"cmd": "heroic"
+		},
+		{
+			"name": "Signal",
+			"cmd": "signal-desktop"
 		}
 	]
 }

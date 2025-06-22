@@ -4,11 +4,11 @@ use relm4::prelude::*;
 
 mod mode;
 
-use mode::ModePicker;
+use mode::{AllMode, MenuMode};
 
 struct App {
     options: FactoryVecDeque<LaunchOption>,
-    mode_picker: ModePicker,
+    mode: AllMode,
 }
 
 #[derive(Debug)]
@@ -101,7 +101,7 @@ impl SimpleComponent for App {
 
         let model = App {
             options,
-            mode_picker: ModePicker::new(),
+            mode: AllMode::new(),
         };
 
         let options_box = model.options.widget();
@@ -116,16 +116,12 @@ impl SimpleComponent for App {
             AppMsg::SearchUpdate(text) => {
                 let mut options = self.options.guard();
                 options.clear();
-                self.mode_picker
-                    .pick_mode(&text)
-                    .search(&text)
-                    .into_iter()
-                    .for_each(|o| {
-                        options.push_back(o);
-                    });
+                self.mode.search(&text).into_iter().for_each(|o| {
+                    options.push_back(o);
+                });
             }
             AppMsg::SearchFinish(text) => {
-                self.mode_picker.pick_mode(&text).finish(&text);
+                self.mode.finish(&text);
                 relm4::main_application().quit();
             }
         }
@@ -133,6 +129,7 @@ impl SimpleComponent for App {
 }
 
 fn main() {
+    simple_logger::SimpleLogger::new().env().init().unwrap();
     let app = RelmApp::new("dod-shell.launcher");
     app.run::<App>(());
 }

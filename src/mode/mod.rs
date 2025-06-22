@@ -1,36 +1,51 @@
 mod launch;
 mod math;
-
-use std::rc::Rc;
+mod search;
 
 pub use launch::LaunchMode;
 pub use math::MathMode;
+pub use search::SearchMode;
 
 pub trait MenuMode {
     fn search(&self, query: &str) -> Vec<String>;
     fn finish(&self, query: &str);
 }
 
-pub struct ModePicker {
-    launch: Rc<LaunchMode>,
-    math: Rc<MathMode>,
+pub struct AllMode {
+    launch: LaunchMode,
+    math: MathMode,
+    search: SearchMode,
 }
 
-impl ModePicker {
+impl AllMode {
     pub fn new() -> Self {
         Self {
-            launch: Rc::new(LaunchMode::new().unwrap()),
-            math: Rc::new(MathMode::new()),
+            launch: LaunchMode::new(),
+            math: MathMode::new(),
+            search: SearchMode::new(),
         }
     }
 
-    pub fn pick_mode(&self, query: &str) -> Rc<dyn MenuMode> {
+    fn pick_mode<'a>(&self, query: &'a str) -> (Box<&dyn MenuMode>, &'a str) {
+        let query = query.trim();
+
         match query.chars().next() {
-            // HACK: I dislike the disconnect between deciding
-            // the mode here via the first char, but then removing
-            // that first char in the Mode itself instead of in the picker
-            Some(c) if c == '=' => self.math.clone(),
-            _ => self.launch.clone(),
+            Some(c) if c == '=' => (Box::new(&self.math), query.strip_prefix('=').unwrap()),
+            Some(c) if c == '?' => (Box::new(&self.search), query.strip_prefix('?').unwrap()),
+            _ => (Box::new(&self.launch), query),
         }
+    }
+}
+
+impl MenuMode for AllMode {
+    fn search(&self, query: &str) -> Vec<String> {
+        let (mode, query) = self.pick_mode(query);
+
+        mode.search(query)
+    }
+    fn finish(&self, query: &str) {
+        let (mode, query) = self.pick_mode(query);
+
+        mode.finish(query);
     }
 }

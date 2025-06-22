@@ -23,8 +23,6 @@ impl MathMode {
 
 impl MenuMode for MathMode {
     fn search(&self, query: &str) -> Vec<String> {
-        let query = query.trim().replacen("=", "", 1);
-
         if query.is_empty() {
             return vec![String::from("0")];
         }

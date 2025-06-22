@@ -3,7 +3,6 @@ use std::{fs, path::Path, process::Command};
 use crate::mode::MenuMode;
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use serde::{Deserialize, Serialize};
-use serde_json::Result;
 
 pub struct LaunchMode {
     matcher: SkimMatcherV2,
@@ -11,11 +10,11 @@ pub struct LaunchMode {
 }
 
 impl LaunchMode {
-    pub fn new() -> Result<Self> {
-        Ok(LaunchMode {
+    pub fn new() -> Self {
+        LaunchMode {
             matcher: SkimMatcherV2::default(),
-            data: LaunchMode::load_data()?,
-        })
+            data: LaunchMode::load_data().unwrap_or_default(),
+        }
     }
 
     fn load_data() -> Result<LaunchData> {
@@ -24,19 +23,34 @@ impl LaunchMode {
 
         #[cfg(not(debug_assertions))]
         let path = dirs::config_dir()
-            .unwrap()
+            .expect("Failed to get config dir.")
             .join(Path::new("dod-shell/data/launch.json"));
 
-        let data = fs::read_to_string(path).unwrap();
+        match fs::read_to_string(&path) {
+            Ok(json) => serde_json::from_str(&json).map_err(|err| {
+                log::error!(
+                    "Failed to parse LaunchMode config at: {}. Serde Err: {}",
+                    path.display(),
+                    err.to_string()
+                );
+                err.into()
+            }),
+            Err(e) => {
+                log::error!(
+                    "Failed to read LaunchMode config at: {}. Os Err: {}",
+                    path.display(),
+                    e.to_string()
+                );
 
-        return serde_json::from_str(&data);
+                Err(e.into())
+            }
+        }
     }
 }
 
 impl MenuMode for LaunchMode {
     fn search(&self, query: &str) -> Vec<String> {
-        // TODO: This pre-processing should be done outside of the modes (e.g trim)
-        if query.trim().is_empty() {
+        if query.is_empty() {
             return Vec::new();
         }
 
@@ -81,15 +95,37 @@ impl MenuMode for LaunchMode {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 struct LaunchData {
     version: u8,
     apps: Vec<LaunchApp>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 struct LaunchApp {
     name: String,
     cmd: String,
     description: Option<String>,
+}
+
+type Result<T> = std::result::Result<T, LaunchError>;
+
+#[derive(Debug)]
+pub enum LaunchError {
+    #[allow(dead_code)]
+    SerdeErr(serde_json::Error),
+    #[allow(dead_code)]
+    IoErr(std::io::Error),
+}
+
+impl From<serde_json::Error> for LaunchError {
+    fn from(value: serde_json::Error) -> Self {
+        Self::SerdeErr(value)
+    }
+}
+
+impl From<std::io::Error> for LaunchError {
+    fn from(value: std::io::Error) -> Self {
+        Self::IoErr(value)
+    }
 }
