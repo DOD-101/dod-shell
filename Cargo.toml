@@ -16,3 +16,8 @@ relm4 = "0.9.1"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 simple_logger = "5.0.0"
+
+[lints.clippy]
+pedantic = "warn"
+restriction = "allow" # maybe change to warn in the future
+style = "warn"

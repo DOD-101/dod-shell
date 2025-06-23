@@ -27,7 +27,7 @@ impl MenuMode for MathMode {
             return vec![String::from("0")];
         }
 
-        match evalexpr::eval_with_context(&query, &self.context) {
+        match evalexpr::eval_with_context(query, &self.context) {
             Ok(val) => vec![val.to_string()],
             Err(e) => vec![e.to_string()],
         }

@@ -25,7 +25,7 @@ impl LaunchMode {
                 log::error!(
                     "Failed to parse LaunchMode config at: {}. Serde Err: {}",
                     path.display(),
-                    err.to_string()
+                    err
                 );
                 err.into()
             }),
@@ -33,7 +33,7 @@ impl LaunchMode {
                 log::error!(
                     "Failed to read LaunchMode config at: {}. Os Err: {}",
                     path.display(),
-                    e.to_string()
+                    e
                 );
 
                 Err(e.into())
@@ -52,21 +52,16 @@ impl MenuMode for LaunchMode {
 
         options.sort_by(|a, b| {
             self.matcher
-                .fuzzy_match(&b.name, &query)
+                .fuzzy_match(&b.name, query)
                 .unwrap_or_default()
-                .cmp(
-                    &self
-                        .matcher
-                        .fuzzy_match(&a.name, &query)
-                        .unwrap_or_default(),
-                )
+                .cmp(&self.matcher.fuzzy_match(&a.name, query).unwrap_or_default())
         });
 
-        return options.into_iter().map(|o| o.name).collect();
+        options.into_iter().map(|o| o.name).collect()
     }
 
     fn finish(&self, query: &str) {
-        if let Some(result) = self.search(query).get(0) {
+        if let Some(result) = self.search(query).first() {
             let cmd = self
                 .data
                 .apps

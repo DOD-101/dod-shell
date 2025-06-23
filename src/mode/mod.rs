@@ -26,13 +26,13 @@ impl AllMode {
         }
     }
 
-    fn pick_mode<'a>(&self, query: &'a str) -> (Box<&dyn MenuMode>, &'a str) {
+    fn pick_mode<'a>(&self, query: &'a str) -> (&dyn MenuMode, &'a str) {
         let query = query.trim();
 
         match query.chars().next() {
-            Some(c) if c == '=' => (Box::new(&self.math), query.strip_prefix('=').unwrap()),
-            Some(c) if c == '?' => (Box::new(&self.search), query.strip_prefix('?').unwrap()),
-            _ => (Box::new(&self.launch), query),
+            Some('=') => (&self.math, query.strip_prefix('=').unwrap()),
+            Some('?') => (&self.search, query.strip_prefix('?').unwrap()),
+            _ => (&self.launch, query),
         }
     }
 }

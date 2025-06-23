@@ -13,8 +13,9 @@ impl SearchMode {
 
 impl MenuMode for SearchMode {
     fn search(&self, query: &str) -> Vec<String> {
-        return vec![query.to_string()];
+        vec![query.to_string()]
     }
+
     fn finish(&self, query: &str) {
         let _ = Command::new("xdg-open")
             .arg(format!(
