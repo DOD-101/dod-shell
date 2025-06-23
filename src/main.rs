@@ -2,7 +2,10 @@ use std::{fs, path::PathBuf, sync::LazyLock};
 
 use gtk::prelude::*;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell}; // Import the additional types
-use relm4::prelude::*;
+use relm4::{
+    actions::{AccelsPlus, RelmAction, RelmActionGroup},
+    prelude::*,
+};
 
 static CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
     if cfg!(debug_assertions) {
@@ -23,15 +26,13 @@ struct App {
     mode: AllMode,
 }
 
+relm4::new_action_group!(LauncherActionGroup, "launcher");
+relm4::new_stateless_action!(ExitAction, LauncherActionGroup, "exit");
+
 #[derive(Debug)]
 struct LaunchOption {
     label: String,
 }
-
-// #[derive(Debug)]
-// struct LaunchMsg {}
-//
-//
 
 #[relm4::factory]
 impl FactoryComponent for LaunchOption {
@@ -66,6 +67,7 @@ impl SimpleComponent for App {
     type Output = ();
 
     view! {
+        #[name(main_window)]
         gtk::Window {
             init_layer_shell: (), // Do gtk4_layer_shell stuff here
             set_layer: Layer::Overlay,
@@ -108,18 +110,27 @@ impl SimpleComponent for App {
     ) -> ComponentParts<Self> {
         let options = FactoryVecDeque::builder()
             .launch(gtk::Box::default())
-            .forward(sender.input_sender(), |output| match output {
-                _ => todo!(),
-            });
+            .detach();
 
         let model = App {
             options,
             mode: AllMode::new(),
         };
-
         let options_box = model.options.widget();
-        // Insert the code generation of the view! macro here
         let widgets = view_output!();
+
+        // Make launcher exit on pressing Escape
+        let app = relm4::main_application();
+
+        app.set_accelerators_for_action::<ExitAction>(&["Escape"]);
+        let action: RelmAction<ExitAction> = RelmAction::new_stateless(move |_| {
+            app.quit();
+        });
+
+        let mut group: RelmActionGroup<LauncherActionGroup> = RelmActionGroup::new();
+        group.add_action(action);
+
+        group.register_for_widget(&widgets.main_window);
 
         ComponentParts { model, widgets }
     }
