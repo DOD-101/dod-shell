@@ -1,4 +1,4 @@
-use std::{fs, path::Path, process::Command};
+use std::{fs, process::Command};
 
 use crate::mode::MenuMode;
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
@@ -18,13 +18,7 @@ impl LaunchMode {
     }
 
     fn load_data() -> Result<LaunchData> {
-        #[cfg(debug_assertions)]
-        let path = Path::new("test/data/launch.json").to_path_buf();
-
-        #[cfg(not(debug_assertions))]
-        let path = dirs::config_dir()
-            .expect("Failed to get config dir.")
-            .join(Path::new("dod-shell/data/launch.json"));
+        let path = crate::CONFIG_PATH.join("data/launch.json");
 
         match fs::read_to_string(&path) {
             Ok(json) => serde_json::from_str(&json).map_err(|err| {

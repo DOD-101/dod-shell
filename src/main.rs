@@ -1,6 +1,18 @@
+use std::{fs, path::PathBuf, sync::LazyLock};
+
 use gtk::prelude::*;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell}; // Import the additional types
 use relm4::prelude::*;
+
+static CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
+    if cfg!(debug_assertions) {
+        return PathBuf::from("test");
+    }
+
+    return dirs::config_dir()
+        .expect("Failed to get config dir.")
+        .join("dod-shell");
+});
 
 mod mode;
 
@@ -70,20 +82,21 @@ impl SimpleComponent for App {
                 set_orientation: gtk::Orientation::Vertical,
                 set_spacing: 5,
                 set_margin_all: 5,
+                set_css_classes: &["outer_box"],
 
                 #[name(main_entry)]
                 gtk::Entry {
                     set_placeholder_text: Some("Enter text..."),
                     connect_changed[sender] => move |this| { sender.input(AppMsg::SearchUpdate(this.text().to_string())); },
                     connect_activate[sender] => move |this| { sender.input(AppMsg::SearchFinish(this.text().to_string())); },
+                    set_css_classes: &["main-entry"],
                 },
 
                 #[local_ref]
                 options_box -> gtk::Box {
                     set_orientation: gtk::Orientation::Vertical,
-                }
-
-
+                    set_css_classes: &["options_box"],
+                },
             }
         }
     }
@@ -128,8 +141,28 @@ impl SimpleComponent for App {
     }
 }
 
+fn get_css() -> String {
+    match fs::read_to_string(CONFIG_PATH.join("style.scss")) {
+        Ok(scss) => grass::from_string(scss, &grass::Options::default()).unwrap_or_else(|e| {
+            log::error!(
+                "Failed to parse scss. Not applying any css. SassError: {}",
+                *e
+            );
+            String::new()
+        }),
+        Err(e) => {
+            log::error!(
+                "Failed to read style.scss. Not applying any css. IoError: {}",
+                e
+            );
+            String::new()
+        }
+    }
+}
+
 fn main() {
     simple_logger::SimpleLogger::new().env().init().unwrap();
     let app = RelmApp::new("dod-shell.launcher");
+    relm4::set_global_css(&get_css());
     app.run::<App>(());
 }
