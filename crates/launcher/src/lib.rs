@@ -21,7 +21,7 @@ mod mode;
 
 use mode::{AllMode, MenuMode};
 
-struct App {
+pub struct App {
     options: FactoryVecDeque<LaunchOption>,
     mode: AllMode,
 }
@@ -55,12 +55,12 @@ impl FactoryComponent for LaunchOption {
 }
 
 #[derive(Debug)]
-enum AppMsg {
+pub enum AppMsg {
     SearchUpdate(String),
     SearchFinish(String),
 }
 
-#[relm4::component]
+#[relm4::component(pub)]
 impl SimpleComponent for App {
     type Init = ();
     type Input = AppMsg;
@@ -132,6 +132,7 @@ impl SimpleComponent for App {
 
         group.register_for_widget(&widgets.main_window);
 
+        relm4::set_global_css(&get_css());
         ComponentParts { model, widgets }
     }
 
@@ -163,11 +164,4 @@ fn get_css() -> String {
             String::new()
         }
     }
-}
-
-fn main() {
-    simple_logger::SimpleLogger::new().env().init().unwrap();
-    let app = RelmApp::new("dod-shell.launcher");
-    relm4::set_global_css(&get_css());
-    app.run::<App>(());
 }

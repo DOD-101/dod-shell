@@ -49,7 +49,6 @@
 
         src = craneLib.cleanCargoSource ./.;
 
-        # Common arguments can be set here to avoid repeating them later
         commonArgs = {
           inherit src;
           strictDeps = true;
@@ -78,39 +77,48 @@
           # MY_CUSTOM_VAR = "some value";
         };
 
-        # Build *just* the cargo dependencies, so we can reuse
-        # all of that work (e.g. via cachix) when running in CI
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
-        # Build the actual crate itself, reusing the dependency
-        # artifacts from above.
-        shell-crate = craneLib.buildPackage (
-          commonArgs
-          // {
-            inherit cargoArtifacts;
-          }
-        );
+        individualCrateArgs = commonArgs // {
+          inherit cargoArtifacts;
+          inherit (craneLib.crateNameFromCargoToml { inherit src; }) version;
+        };
 
-        shell-crate-release = craneLib.buildPackage (
-          commonArgs
-          // {
-            inherit cargoArtifacts;
+        fileSetForCrate =
+          crate:
+          lib.fileset.toSource {
+            root = ./.;
+            fileset = lib.fileset.unions [
+              ./Cargo.toml
+              ./Cargo.lock
+              # (craneLib.fileset.commonCargoSources ./crates/my-common)
+              # (craneLib.fileset.commonCargoSources ./crates/my-workspace-hack)
+              (craneLib.fileset.commonCargoSources crate)
+            ];
+          };
+
+        make-release =
+          drv:
+          drv.overrideAttrs (old: {
             CARGO_PROFILE = "release";
+          });
+
+        launcher = craneLib.buildPackage (
+          individualCrateArgs
+          // {
+            pname = "launcher";
+            cargoExtraArgs = "-p launcher";
+            src = fileSetForCrate ./crates/launcher;
           }
         );
+        launcher-release = make-release launcher;
+
       in
       {
         checks = {
-          # Build the crate as part of `nix flake check` for convenience
-          shell-crate = shell-crate;
+          inherit launcher;
 
-          # Run clippy (and deny all warnings) on the crate source,
-          # again, reusing the dependency artifacts from above.
-          #
-          # Note that this is done as a separate derivation so that
-          # we can block the CI if there are issues here, but not
-          # prevent downstream consumers from building our crate by itself.
-          my-crate-clippy = craneLib.cargoClippy (
+          clippy = craneLib.cargoClippy (
             commonArgs
             // {
               inherit cargoArtifacts;
@@ -118,43 +126,40 @@
             }
           );
 
-          my-crate-doc = craneLib.cargoDoc (
+          docs = craneLib.cargoDoc (
             commonArgs
             // {
               inherit cargoArtifacts;
             }
           );
 
-          # Check formatting
-          my-crate-fmt = craneLib.cargoFmt {
+          fmt = craneLib.cargoFmt {
             inherit src;
           };
 
-          my-crate-toml-fmt = craneLib.taploFmt {
+          toml-fmt = craneLib.taploFmt {
             src = pkgs.lib.sources.sourceFilesBySuffices src [ ".toml" ];
             # taplo arguments can be further customized below as needed
             # taploExtraArgs = "--config ./taplo.toml";
           };
 
-          # Audit dependencies
-          my-crate-audit = craneLib.cargoAudit {
+          audit = craneLib.cargoAudit {
             inherit src advisory-db;
           };
 
-          # Audit licenses
-          my-crate-deny = craneLib.cargoDeny {
+          deny = craneLib.cargoDeny {
             inherit src;
           };
         };
 
         packages = {
-          inherit shell-crate shell-crate-release;
+          inherit launcher launcher-release;
 
-          default = shell-crate;
+          default = launcher;
         };
 
         apps.default = flake-utils.lib.mkApp {
-          drv = shell-crate;
+          drv = launcher;
         };
 
         devShells.default = craneLib.devShell {

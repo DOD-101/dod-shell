@@ -1,0 +1,18 @@
+[package]
+name = "launcher"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+dirs.workspace = true
+evalexpr = "12.0.2"
+fuzzy-matcher = "0.3.7"
+grass.workspace = true
+gtk4-layer-shell.workspace = true
+log.workspace = true
+percent-encoding = "2.3.1"
+relm4.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+simple_logger.workspace = true

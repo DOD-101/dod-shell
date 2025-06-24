@@ -237,23 +237,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dod-shell"
-version = "0.1.0"
-dependencies = [
- "dirs",
- "evalexpr",
- "fuzzy-matcher",
- "grass",
- "gtk4-layer-shell",
- "log",
- "percent-encoding",
- "relm4",
- "serde",
- "serde_json",
- "simple_logger",
-]
-
-[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -799,6 +782,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e14eda50a3494b3bf7b9ce51c52434a761e383d7238ce1dd5dcec2fbc13e9fb"
 dependencies = [
  "hashbrown 0.14.5",
+]
+
+[[package]]
+name = "launcher"
+version = "0.1.0"
+dependencies = [
+ "dirs",
+ "evalexpr",
+ "fuzzy-matcher",
+ "grass",
+ "gtk4-layer-shell",
+ "log",
+ "percent-encoding",
+ "relm4",
+ "serde",
+ "serde_json",
+ "simple_logger",
 ]
 
 [[package]]
