@@ -1,9 +1,9 @@
-use core::fmt;
-use prettytable::{row, Table};
-use std::{ffi::OsStr, process::Command};
+use clap::{Parser, Subcommand, ValueEnum};
+use prettytable::{Table, row};
 use sysinfo::{Process, ProcessRefreshKind, System};
 
-use clap::{Parser, Subcommand, ValueEnum};
+use core::fmt;
+use std::{ffi::OsStr, process::Command};
 
 #[derive(Parser, Debug)]
 struct Cli {
