@@ -106,17 +106,36 @@
         launcher = craneLib.buildPackage (
           individualCrateArgs
           // {
-            pname = "launcher";
+            pname = "dod-shell-launcher";
             cargoExtraArgs = "-p launcher";
             src = fileSetForCrate ./crates/launcher;
           }
         );
         launcher-release = make-release launcher;
 
+        cli = craneLib.buildPackage (
+          individualCrateArgs
+          // {
+            pname = "dod-shell-cli";
+            cargoExtraArgs = "-p cli";
+            # Custom src since the cli depends on all other components
+            src = lib.fileset.toSource {
+              root = ./.;
+              fileset = lib.fileset.unions [
+                ./Cargo.toml
+                ./Cargo.toml
+                (craneLib.fileset.commonCargoSources ./crates)
+                # (craneLib.fileset.commonCargoSources ./crates/cli)
+              ];
+            };
+          }
+        );
+        cli-release = make-release cli;
+
       in
       {
         checks = {
-          inherit launcher;
+          inherit launcher cli;
 
           clippy = craneLib.cargoClippy (
             commonArgs
@@ -139,8 +158,6 @@
 
           toml-fmt = craneLib.taploFmt {
             src = pkgs.lib.sources.sourceFilesBySuffices src [ ".toml" ];
-            # taplo arguments can be further customized below as needed
-            # taploExtraArgs = "--config ./taplo.toml";
           };
 
           audit = craneLib.cargoAudit {
@@ -153,7 +170,12 @@
         };
 
         packages = {
-          inherit launcher launcher-release;
+          inherit
+            launcher
+            launcher-release
+            cli
+            cli-release
+            ;
 
           default = launcher;
         };
@@ -162,17 +184,30 @@
           drv = launcher;
         };
 
-        devShells.default = craneLib.devShell {
-          # Inherit inputs from checks.
-          checks = self.checks.${system};
+        devShells = {
+          default = craneLib.devShell {
+            # Inherit inputs from checks.
+            checks = self.checks.${system};
 
-          # Additional dev-shell environment variables can be set directly
-          # MY_CUSTOM_DEVELOPMENT_VAR = "something else";
+            # Additional dev-shell environment variables can be set directly
+            # MY_CUSTOM_DEVELOPMENT_VAR = "something else";
 
-          # Extra inputs can be added here; cargo and rustc are provided by default.
-          packages = with pkgs; [
-            # pkgs.ripgrep
-          ];
+            packages = [ ];
+          };
+
+          full = craneLib.devShell {
+            checks = self.checks.${system};
+            packages = lib.attrsets.mapAttrsToList (n: v: v) (
+              lib.attrsets.filterAttrs (n: v: !(lib.strings.hasSuffix "-release" n)) self.packages.${system}
+            );
+          };
+
+          full-release = craneLib.devShell {
+            checks = self.checks.${system};
+            packages = lib.attrsets.mapAttrsToList (n: v: v) (
+              lib.attrsets.filterAttrs (n: v: (lib.strings.hasSuffix "-release" n)) self.packages.${system}
+            );
+          };
         };
       }
     );

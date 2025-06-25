@@ -1,0 +1,20 @@
+[package]
+name = "cli"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+clap = { version = "4.5.40", features = ["derive"] }
+clap_complete = "4.5.54"
+launcher = { version = "0.1.0", path = "../launcher" }
+log.workspace = true
+prettytable = { version = "0.10.0", default-features = false }
+relm4.workspace = true
+simple_logger.workspace = true
+sysinfo = "0.35.2"
+term = "1.0.2"
+
+[[bin]]
+name = "dod-shell-cli"
+path = "src/main.rs"
