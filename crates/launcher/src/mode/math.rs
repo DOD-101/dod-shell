@@ -33,7 +33,7 @@ impl MenuMode for MathMode {
         }
     }
 
-    fn finish(&self, query: &str) {
+    fn finish(&self, query: &str, _index: usize) {
         let result = &self.search(query)[0];
 
         let _ = Command::new("wl-copy").arg(result).spawn();

@@ -60,8 +60,8 @@ impl MenuMode for LaunchMode {
         options.into_iter().map(|o| o.name).collect()
     }
 
-    fn finish(&self, query: &str) {
-        if let Some(result) = self.search(query).first() {
+    fn finish(&self, query: &str, index: usize) {
+        if let Some(result) = self.search(query).get(index) {
             let cmd = self
                 .data
                 .apps

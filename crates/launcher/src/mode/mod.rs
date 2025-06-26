@@ -8,7 +8,7 @@ pub use search::SearchMode;
 
 pub trait MenuMode {
     fn search(&self, query: &str) -> Vec<String>;
-    fn finish(&self, query: &str);
+    fn finish(&self, query: &str, index: usize);
 }
 
 pub struct AllMode {
@@ -43,9 +43,9 @@ impl MenuMode for AllMode {
 
         mode.search(query)
     }
-    fn finish(&self, query: &str) {
+    fn finish(&self, query: &str, index: usize) {
         let (mode, query) = self.pick_mode(query);
 
-        mode.finish(query);
+        mode.finish(query, index);
     }
 }

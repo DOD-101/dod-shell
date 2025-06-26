@@ -16,7 +16,7 @@ impl MenuMode for SearchMode {
         vec![query.to_string()]
     }
 
-    fn finish(&self, query: &str) {
+    fn finish(&self, query: &str, _index: usize) {
         let _ = Command::new("xdg-open")
             .arg(format!(
                 "https://duck.com?q={}",

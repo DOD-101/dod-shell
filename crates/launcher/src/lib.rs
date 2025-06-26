@@ -1,11 +1,17 @@
-use std::{fs, path::PathBuf, sync::LazyLock};
-
+use core::str;
 use gtk::prelude::*;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell}; // Import the additional types
 use relm4::{
     actions::{AccelsPlus, RelmAction, RelmActionGroup},
     prelude::*,
 };
+use std::{fs, path::PathBuf, sync::LazyLock};
+
+mod mode;
+mod results;
+
+use mode::{AllMode, MenuMode};
+use results::LauncherResults;
 
 static CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
     if cfg!(debug_assertions) {
@@ -17,47 +23,23 @@ static CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
         .join("dod-shell")
 });
 
-mod mode;
-
-use mode::{AllMode, MenuMode};
-
 pub struct App {
-    options: FactoryVecDeque<LaunchOption>,
+    results: LauncherResults,
     mode: AllMode,
 }
 
 relm4::new_action_group!(LauncherActionGroup, "launcher");
 relm4::new_stateless_action!(ExitAction, LauncherActionGroup, "exit");
+relm4::new_stateless_action!(ResultsMoveUpAction, LauncherActionGroup, "up");
 
-#[derive(Debug)]
-struct LaunchOption {
-    label: String,
-}
-
-#[relm4::factory]
-impl FactoryComponent for LaunchOption {
-    type Init = String;
-    type Input = ();
-    type Output = ();
-    type CommandOutput = ();
-    type ParentWidget = gtk::Box;
-
-    view! {
-        #[name(launch_option_label)]
-        gtk::Label {
-            set_label: &self.label,
-        }
-    }
-
-    fn init_model(label: Self::Init, _index: &Self::Index, _sender: FactorySender<Self>) -> Self {
-        Self { label }
-    }
-}
+relm4::new_stateless_action!(ResultsMoveDownAction, LauncherActionGroup, "down");
 
 #[derive(Debug)]
 pub enum AppMsg {
     SearchUpdate(String),
     SearchFinish(String),
+    ResultsMoveUp,
+    ResultsMoveDown,
 }
 
 #[relm4::component(pub)]
@@ -84,7 +66,7 @@ impl SimpleComponent for App {
                 set_orientation: gtk::Orientation::Vertical,
                 set_spacing: 5,
                 set_margin_all: 5,
-                set_css_classes: &["outer_box"],
+                set_css_classes: &["outer-box"],
 
                 #[name(main_entry)]
                 gtk::Entry {
@@ -95,42 +77,56 @@ impl SimpleComponent for App {
                 },
 
                 #[local_ref]
-                options_box -> gtk::Box {
+                results_box -> gtk::Box {
                     set_orientation: gtk::Orientation::Vertical,
-                    set_css_classes: &["options_box"],
+                    set_css_classes: &["results-box"],
                 },
             }
         }
     }
 
     fn init(
-        _created_options: Self::Init,
+        _: Self::Init,
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let options = FactoryVecDeque::builder()
-            .launch(gtk::Box::default())
-            .detach();
-
         let model = App {
-            options,
+            results: LauncherResults::default(),
             mode: AllMode::new(),
         };
-        let options_box = model.options.widget();
+
+        let results_box = model.results.results.widget();
         let widgets = view_output!();
 
         // Make launcher exit on pressing Escape
         let app = relm4::main_application();
 
         app.set_accelerators_for_action::<ExitAction>(&["Escape"]);
-        let action: RelmAction<ExitAction> = RelmAction::new_stateless(move |_| {
+        app.set_accelerators_for_action::<ResultsMoveUpAction>(&["Up"]);
+        app.set_accelerators_for_action::<ResultsMoveDownAction>(&["Down"]);
+
+        let exit_action: RelmAction<ExitAction> = RelmAction::new_stateless(move |_| {
             app.quit();
         });
 
-        let mut group: RelmActionGroup<LauncherActionGroup> = RelmActionGroup::new();
-        group.add_action(action);
+        let mut action_group: RelmActionGroup<LauncherActionGroup> = RelmActionGroup::new();
+        action_group.add_action(exit_action);
 
-        group.register_for_widget(&widgets.main_window);
+        // Move up or down in the results when pressing the arrow keys
+        let up_sender = sender.clone();
+        let up_action: RelmAction<ResultsMoveUpAction> = RelmAction::new_stateless(move |_| {
+            let _ = up_sender.input_sender().send(AppMsg::ResultsMoveUp);
+        });
+
+        let down_sender = sender.clone();
+        let down_action: RelmAction<ResultsMoveDownAction> = RelmAction::new_stateless(move |_| {
+            let _ = down_sender.input_sender().send(AppMsg::ResultsMoveDown);
+        });
+
+        action_group.add_action(up_action);
+        action_group.add_action(down_action);
+
+        action_group.register_for_widget(&widgets.main_window);
 
         relm4::set_global_css(&get_css());
         ComponentParts { model, widgets }
@@ -139,15 +135,25 @@ impl SimpleComponent for App {
     fn update(&mut self, msg: Self::Input, _sender: ComponentSender<Self>) {
         match msg {
             AppMsg::SearchUpdate(text) => {
-                let mut options = self.options.guard();
-                options.clear();
-                self.mode.search(&text).into_iter().for_each(|o| {
-                    options.push_back(o);
-                });
+                {
+                    let mut results = self.results.results.guard();
+                    results.clear();
+                    self.mode.search(&text).into_iter().for_each(|o| {
+                        results.push_back(o);
+                    });
+                }
+
+                self.results.reset_and_set();
             }
             AppMsg::SearchFinish(text) => {
-                self.mode.finish(&text);
+                self.mode.finish(&text, self.results.get_selected_index());
                 relm4::main_application().quit();
+            }
+            AppMsg::ResultsMoveUp => {
+                self.results.decrease_and_set();
+            }
+            AppMsg::ResultsMoveDown => {
+                self.results.increase_and_set();
             }
         }
     }
