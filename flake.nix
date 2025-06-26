@@ -32,10 +32,6 @@
 
         craneLib = (crane.mkLib pkgs).overrideScope (
           final: prev: {
-            # We override the behavior of `mkCargoDerivation` by adding a wrapper which
-            # will set a default value of `CARGO_PROFILE` when not set by the caller.
-            # This change will automatically be propagated to any other functions built
-            # on top of it (like `buildPackage`, `cargoBuild`, etc.)
             mkCargoDerivation =
               args:
               prev.mkCargoDerivation (
@@ -102,6 +98,14 @@
           drv.overrideAttrs (old: {
             CARGO_PROFILE = "release";
           });
+
+        filter-packages =
+          release:
+          lib.attrsets.mapAttrsToList (n: v: v) (
+            lib.attrsets.filterAttrs (
+              n: v: (lib.strings.hasSuffix "-release" n) == release
+            ) self.packages.${system}
+          );
 
         launcher = craneLib.buildPackage (
           individualCrateArgs
@@ -197,18 +201,21 @@
 
           full = craneLib.devShell {
             checks = self.checks.${system};
-            packages = lib.attrsets.mapAttrsToList (n: v: v) (
-              lib.attrsets.filterAttrs (n: v: !(lib.strings.hasSuffix "-release" n)) self.packages.${system}
-            );
+            packages = filter-packages false;
+
           };
 
           full-release = craneLib.devShell {
             checks = self.checks.${system};
-            packages = lib.attrsets.mapAttrsToList (n: v: v) (
-              lib.attrsets.filterAttrs (n: v: (lib.strings.hasSuffix "-release" n)) self.packages.${system}
-            );
+            packages = filter-packages true;
           };
         };
       }
-    );
+    )
+    // {
+      homeManagerModules = rec {
+        default = dod-shell;
+        dod-shell = import ./nix/hm-module.nix self;
+      };
+    };
 }
