@@ -87,8 +87,7 @@
             fileset = lib.fileset.unions [
               ./Cargo.toml
               ./Cargo.lock
-              # (craneLib.fileset.commonCargoSources ./crates/my-common)
-              # (craneLib.fileset.commonCargoSources ./crates/my-workspace-hack)
+              (craneLib.fileset.commonCargoSources ./crates/common)
               (craneLib.fileset.commonCargoSources crate)
             ];
           };
@@ -117,6 +116,16 @@
         );
         launcher-release = make-release launcher;
 
+        bar = craneLib.buildPackage (
+          individualCrateArgs
+          // {
+            pname = "dod-shell-bar";
+            cargoExtraArgs = "-p bar";
+            src = fileSetForCrate ./crates/bar;
+          }
+        );
+        bar-release = make-release bar;
+
         cli = craneLib.buildPackage (
           individualCrateArgs
           // {
@@ -129,7 +138,6 @@
                 ./Cargo.toml
                 ./Cargo.toml
                 (craneLib.fileset.commonCargoSources ./crates)
-                # (craneLib.fileset.commonCargoSources ./crates/cli)
               ];
             };
           }
@@ -177,6 +185,8 @@
           inherit
             launcher
             launcher-release
+            bar
+            bar-release
             cli
             cli-release
             ;

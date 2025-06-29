@@ -18,7 +18,7 @@ impl LaunchMode {
     }
 
     fn load_data() -> Result<LaunchData> {
-        let path = crate::CONFIG_PATH.join("data/launch.json");
+        let path = common::CONFIG_PATH.join("data/launch.json");
 
         match fs::read_to_string(&path) {
             Ok(json) => serde_json::from_str(&json).map_err(|err| {

@@ -5,23 +5,12 @@ use relm4::{
     actions::{AccelsPlus, RelmAction, RelmActionGroup},
     prelude::*,
 };
-use std::{fs, path::PathBuf, sync::LazyLock};
 
 mod mode;
 mod results;
 
 use mode::{AllMode, MenuMode};
 use results::LauncherResults;
-
-static CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
-    if cfg!(debug_assertions) {
-        return PathBuf::from("test");
-    }
-
-    dirs::config_dir()
-        .expect("Failed to get config dir.")
-        .join("dod-shell")
-});
 
 pub struct App {
     results: LauncherResults,
@@ -128,7 +117,7 @@ impl SimpleComponent for App {
 
         action_group.register_for_widget(&widgets.main_window);
 
-        relm4::set_global_css(&get_css());
+        relm4::set_global_css(&common::get_css());
         ComponentParts { model, widgets }
     }
 
@@ -155,19 +144,6 @@ impl SimpleComponent for App {
             AppMsg::ResultsMoveDown => {
                 self.results.increase_and_set();
             }
-        }
-    }
-}
-
-fn get_css() -> String {
-    match fs::read_to_string(CONFIG_PATH.join("style.scss")) {
-        Ok(scss) => grass::from_string(scss, &grass::Options::default()).unwrap_or_else(|e| {
-            log::error!("Failed to parse scss. Not applying any css. SassError: {e}");
-            String::new()
-        }),
-        Err(e) => {
-            log::error!("Failed to read style.scss. Not applying any css. IoError: {e}");
-            String::new()
         }
     }
 }

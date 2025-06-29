@@ -180,7 +180,7 @@ fn main() {
     match args.action {
         Action::Launch { component } => match component {
             Component::Launcher => launch("launcher"),
-            Component::Bar => todo!(),
+            Component::Bar => launch("bar"),
         },
         Action::List => list(),
         Action::Installed { component } => installed(component),

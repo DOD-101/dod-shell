@@ -1,0 +1,13 @@
+[package]
+name = "common"
+license.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+grass.workspace = true
+dirs.workspace = true
+log.workspace = true
+
+[lints]
+workspace = true
