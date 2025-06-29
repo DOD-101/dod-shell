@@ -20,4 +20,8 @@
 
 .bar-main-window {
   margin: 10px;
+
+  button.active {
+    color: red;
+  }
 }

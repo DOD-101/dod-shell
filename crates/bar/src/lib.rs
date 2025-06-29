@@ -1,20 +1,32 @@
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
+use hyprland::shared::HyprData;
 use relm4::{
     gtk::{
         gdk::{Monitor, prelude::DisplayExt},
-        gio::prelude::ListModelExt,
-        gio::prelude::ListModelExtManual,
+        gio::prelude::{ListModelExt, ListModelExtManual},
         glib::object::CastNone,
         prelude::{GtkApplicationExt, OrientableExt, WidgetExt},
     },
     prelude::*,
 };
+use time::{OffsetDateTime, macros::format_description};
+
+#[cfg(debug_assertions)]
+use gtk4_layer_shell::KeyboardMode;
+
+mod workspaces;
+use workspaces::Workspaces;
 
 #[derive(Debug)]
-pub struct App {}
+pub struct App {
+    workspaces: Controller<Workspaces>,
+    time: String,
+}
 
 #[derive(Debug)]
-pub enum AppMsg {}
+pub enum AppMsg {
+    UpdateTime(String),
+}
 
 #[relm4::component(pub)]
 impl SimpleComponent for App {
@@ -28,7 +40,6 @@ impl SimpleComponent for App {
         gtk::Window {
             init_layer_shell: (),
             set_layer: Layer::Top,
-            set_focusable: false,
             set_anchor: (Edge::Top, true),
             set_anchor: (Edge::Right, true),
             set_anchor: (Edge::Left, true),
@@ -39,16 +50,19 @@ impl SimpleComponent for App {
 
             gtk::CenterBox {
                 set_orientation: gtk::Orientation::Horizontal,
-                #[wrap(Some)]
-                set_start_widget = &gtk::Box {
-                    gtk::Label {
-                        set_label: &format!("Hello from Monitor: {monitor_id}"),
-                    }
-                },
+                // #[wrap(Some)]
+                // set_start_widget = &gtk::Box {
+                //     gtk::Label {
+                //         set_label: &format!("Hello from Monitor: {monitor_id}"),
+                //     }
+                // },
+                set_start_widget: Some(model.workspaces.widget()),
+
                 #[wrap(Some)]
                 set_center_widget = &gtk::Box {
                     gtk::Label {
-                        set_label: "Hello"
+                        #[watch]
+                        set_label: &model.time
                     }
                 },
                 #[wrap(Some)]
@@ -66,12 +80,36 @@ impl SimpleComponent for App {
     fn init(
         init: Self::Init,
         root: Self::Root,
-        _sender: ComponentSender<Self>,
+        sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let monitor_id = init.1;
+        let workspaces = hyprland::data::Workspaces::get()
+            .unwrap()
+            .iter()
+            .filter_map(|w| {
+                // HACK: The check if the id is greater than 0 is a hack, because hyprland-rs
+                // doesn't have a way to check if a workspace is special. This only works because
+                // of my convention to have special workspaces be less than 0. !! UPSTREAM PR NEEDED !!
+                if w.monitor_id.is_some_and(|w| w == init.1 as i128) && w.id > 0 {
+                    return Some(w.id);
+                }
+                None
+            })
+            .collect();
 
-        let model = App {};
+        let model = Self {
+            workspaces: Workspaces::builder().launch(workspaces).detach(),
+            time: String::new(),
+        };
+
         let widgets = view_output!();
+
+        #[cfg(debug_assertions)]
+        {
+            widgets.bar_main_window.set_focusable(true);
+            widgets
+                .bar_main_window
+                .set_keyboard_mode(KeyboardMode::OnDemand);
+        }
 
         if init.2 {
             let monitor_list = relm4::gtk::gdk::Display::default()
@@ -92,8 +130,29 @@ impl SimpleComponent for App {
             }
         }
 
+        let time_sender = sender.input_sender().clone();
+        relm4::spawn_blocking(move || {
+            let format = format_description!("[hour]:[minute]:[second] | [year]-[month]-[day]");
+            loop {
+                let now = OffsetDateTime::now_local().unwrap();
+                let formatted = now.format(&format).unwrap();
+
+                time_sender
+                    .send(AppMsg::UpdateTime(formatted))
+                    .expect("Failed to send updated time to Bar.");
+
+                std::thread::sleep(std::time::Duration::from_millis(500));
+            }
+        });
+
         relm4::set_global_css(&common::get_css());
         ComponentParts { model, widgets }
+    }
+
+    fn update(&mut self, msg: Self::Input, _sender: ComponentSender<Self>) {
+        match msg {
+            AppMsg::UpdateTime(t) => self.time = t,
+        }
     }
 }
 
