@@ -1,3 +1,6 @@
+//! Different modes of the launcher
+//!
+//! See [AllMode] for more information.
 mod launch;
 mod math;
 mod search;
@@ -6,11 +9,23 @@ pub use launch::LaunchMode;
 pub use math::MathMode;
 pub use search::SearchMode;
 
-pub trait MenuMode {
+/// Trait representing a mode of the launcher
+///
+/// See the module level documentation for more information.
+pub trait LauncherMode {
+    /// Function called each time the search query is updated
+    ///
+    /// Returns a list of results.
     fn search(&self, query: &str) -> Vec<String>;
+    /// Function called when the users accepts the result
+    ///
+    /// `index`: The index of the result in the results list.
     fn finish(&self, query: &str, index: usize);
 }
 
+/// The default mode of the Launcher
+///
+/// By itself this mode doesn't do anything, but allows the selection of other modes via prefixes.
 pub struct AllMode {
     launch: LaunchMode,
     math: MathMode,
@@ -18,6 +33,15 @@ pub struct AllMode {
 }
 
 impl AllMode {
+    /// Create a new instance of the default mode
+    ///
+    /// Creates instances of all other modes, that can be selected from this mode.
+    ///
+    /// ## Performance
+    ///
+    /// Since this function creates instances of all other modes, it should only be called once in
+    /// the lifetime of the application. Dropping the returned [AllMode] will therefore also loose
+    /// all state of the other modes.
     pub fn new() -> Self {
         Self {
             launch: LaunchMode::new(),
@@ -26,7 +50,8 @@ impl AllMode {
         }
     }
 
-    fn pick_mode<'a>(&self, query: &'a str) -> (&dyn MenuMode, &'a str) {
+    /// Helper function to pick the correct mode based on the prefix of the search query
+    fn pick_mode<'a>(&self, query: &'a str) -> (&dyn LauncherMode, &'a str) {
         let query = query.trim();
 
         match query.chars().next() {
@@ -37,7 +62,7 @@ impl AllMode {
     }
 }
 
-impl MenuMode for AllMode {
+impl LauncherMode for AllMode {
     fn search(&self, query: &str) -> Vec<String> {
         let (mode, query) = self.pick_mode(query);
 

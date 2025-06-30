@@ -1,3 +1,19 @@
+//! The launcher component of the shell
+//!
+//! The launcher functionality is based on the idea of different [LauncherMode]s. (Modes for short)
+//!
+//! ## Modes
+//!
+//! Each mode represents a different functionality of the launcher.
+//!
+//! Modes are chosen based on a prefix of the search query.  
+//!
+//! WIP: Or in the future by command line arguments.
+//!
+//! The default mode is [AllMode], which is less so a mode of it's own, but more so a mode to allow
+//! the selection of other modes via the prefixes.
+
+// TODO: Decide: Should we even have a lib target?
 use core::str;
 use gtk::prelude::*;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell}; // Import the additional types
@@ -9,28 +25,38 @@ use relm4::{
 mod mode;
 mod results;
 
-use mode::{AllMode, MenuMode};
+pub use mode::{AllMode, LauncherMode};
 use results::LauncherResults;
 
+/// The main [relm4::Component] for the launcher
 pub struct App {
+    /// The results of the search
     results: LauncherResults,
+    /// The instance of [AllMode] for the launcher
     mode: AllMode,
 }
 
 relm4::new_action_group!(LauncherActionGroup, "launcher");
 relm4::new_stateless_action!(ExitAction, LauncherActionGroup, "exit");
 relm4::new_stateless_action!(ResultsMoveUpAction, LauncherActionGroup, "up");
-
 relm4::new_stateless_action!(ResultsMoveDownAction, LauncherActionGroup, "down");
 
+/// Input messages for [App]
 #[derive(Debug)]
 pub enum AppMsg {
+    /// Sent when the search query is updated
     SearchUpdate(String),
+    /// Sent when the search query is accepted
     SearchFinish(String),
+    /// Move the selected result up by one
     ResultsMoveUp,
+    /// Move the selected result down by one
     ResultsMoveDown,
 }
 
+/// Widget associated with the [App] component
+///
+/// Generated with [macro@relm4::component].
 #[relm4::component(pub)]
 impl SimpleComponent for App {
     type Init = ();

@@ -1,11 +1,19 @@
+//! Launch mode for the launcher
+//!
+//! This mode allows the user to launch different applications.
+//!
+//! The applications are stored in JSON format in the [config directory](common::CONFIG_PATH) at `data/launch.json`.
 use std::{fs, process::Command};
 
-use crate::mode::MenuMode;
+use crate::mode::LauncherMode;
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use serde::{Deserialize, Serialize};
 
+/// See module level documentation
 pub struct LaunchMode {
+    /// The fuzzy matcher used to filter results
     matcher: SkimMatcherV2,
+    /// The data from the config file
     data: LaunchData,
 }
 
@@ -17,6 +25,7 @@ impl LaunchMode {
         }
     }
 
+    /// Helper function to load the data from the config file
     fn load_data() -> Result<LaunchData> {
         let path = common::CONFIG_PATH.join("data/launch.json");
 
@@ -42,7 +51,7 @@ impl LaunchMode {
     }
 }
 
-impl MenuMode for LaunchMode {
+impl LauncherMode for LaunchMode {
     fn search(&self, query: &str) -> Vec<String> {
         if query.is_empty() {
             return Vec::new();
@@ -84,12 +93,14 @@ impl MenuMode for LaunchMode {
     }
 }
 
+/// Format for the config file
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 struct LaunchData {
     version: u8,
     apps: Vec<LaunchApp>,
 }
 
+/// Format for each app, that can be launched, in the config file
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 struct LaunchApp {
     name: String,
@@ -99,6 +110,7 @@ struct LaunchApp {
 
 type Result<T> = std::result::Result<T, LaunchError>;
 
+/// Errors that can occur when loading the config file
 #[derive(Debug)]
 pub enum LaunchError {
     #[allow(dead_code)]

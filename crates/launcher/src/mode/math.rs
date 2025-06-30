@@ -1,10 +1,14 @@
+//! Math mode for the launcher
+//!
+//! This mode allows the user to do math with the help of [evalexpr](https://docs.rs/evalexpr/latest/evalexpr/).
 use std::f64::consts::{E, PI};
 use std::process::Command;
 
 use evalexpr::{HashMapContext, context_map};
 
-use crate::mode::MenuMode;
+use crate::mode::LauncherMode;
 
+/// See crate level documentation
 pub struct MathMode {
     context: HashMapContext,
 }
@@ -21,7 +25,7 @@ impl MathMode {
     }
 }
 
-impl MenuMode for MathMode {
+impl LauncherMode for MathMode {
     fn search(&self, query: &str) -> Vec<String> {
         if query.is_empty() {
             return vec![String::from("0")];
