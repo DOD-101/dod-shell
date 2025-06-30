@@ -1,3 +1,6 @@
+//! CLI to go along with the dod-shell
+//!
+//! This CLI is used to interact with the different components of the shell.
 use clap::{Parser, Subcommand, ValueEnum};
 use prettytable::{Table, row};
 use sysinfo::{Process, ProcessRefreshKind, System};
@@ -6,18 +9,30 @@ use core::fmt;
 use std::{ffi::OsStr, process::Command};
 
 #[derive(Parser, Debug)]
+/// The CLI for the dod-shell
+///
+/// All interaction with the different components of the shell should be done through this CLI.
+/// Although it is possible to launch the components directly.
 struct Cli {
+    /// The [Action] to perform
     #[command(subcommand)]
     action: Action,
 }
 
 #[derive(Subcommand, Clone, Debug)]
+/// Different things the CLI can do
 enum Action {
-    /// Launch a specific part of the shell
-    Launch { component: Component },
-    /// List information about all running parts of the shell
+    /// Launch a specific part of the shell. See [launch]
+    #[command(about = "Launch a specific part of the shell")]
+    Launch {
+        /// The component to launch
+        component: Component,
+    },
+    /// List information about all running parts of the shell. See [list]
+    #[command(about = "List information about all running parts of the shell")]
     List,
-    /// Check what parts of the shell are installed
+    /// Check what parts of the shell are installed. See [installed]
+    #[command(about = "Check what parts of the shell are installed")]
     Installed {
         /// Check for one specific part
         component: Option<Component>,
@@ -25,8 +40,11 @@ enum Action {
 }
 
 #[derive(Clone, ValueEnum, Debug)]
+/// The different components of the shell
 enum Component {
+    /// The launcher component. See `launcher` crate.
     Launcher,
+    /// The bar component. See `bar` crate.
     Bar,
 }
 
@@ -42,31 +60,46 @@ impl fmt::Display for Component {
     }
 }
 
+/// Launch a specific component of the shell
+///
+/// ## Output
+///
+/// None of it's own, but the output of the launched component is passed.
 fn launch(component: &str) {
-    if cfg!(debug_assertions) {
-        if let Err(e) = Command::new("cargo").args(["run", "-p", component]).spawn() {
-            log::error!("Failed to launch {}. Error: {}", component, e);
-        }
-        return;
-    }
+    let cmd = if cfg!(debug_assertions) {
+        Command::new("cargo").args(["run", "-p", component]).spawn()
+    } else {
+        Command::new("dod-shell-".to_string() + component).spawn()
+    };
 
-    if let Err(e) = Command::new("dod-shell-".to_string() + component).spawn() {
+    if let Err(e) = cmd {
         log::error!("Failed to launch {}. Error: {}", component, e);
     };
 }
 
+/// Wrapper type to indicate Bytes
+// NOTE: Do we even need this type?
 struct Bytes(u64);
 
 impl Bytes {
+    /// Convert to kilobytes
     fn to_kb(&self) -> u64 {
         self.0 / 1048576 // 1024 * 1024
     }
 }
 
+/// Struct for holding information about a process
+///
+/// Fields are mostly gathered from [sysinfo::Process]
+// NOTE: Do we even need this type?
 struct ProcessInfo {
+    /// The name of the process
     name: Option<String>,
+    /// The memory usage of the process
     mem_usage: Bytes,
+    /// The CPU usage of the process
     cpu_usage: f32,
+    /// The PID of the process
     pid: u32,
 }
 
@@ -94,6 +127,16 @@ impl From<&Process> for ProcessInfo {
     }
 }
 
+/// List all running components of the shell
+///
+/// ## Output
+///
+/// The output is a table with the following columns:
+/// - Name: The name of the process
+/// - Memory (MB): The memory usage of the process
+/// - CPU (%): The CPU usage of the process
+/// - PID: The PID of the process
+// TODO: Add filtering to prevent the same component showing up multiple times
 fn list() {
     let mut sys = System::new();
 
@@ -126,6 +169,13 @@ fn list() {
     table.printstd();
 }
 
+/// Check which parts of the shell are installed
+///
+/// If the component is installed also returns the path to the binary.
+///
+/// ## Output
+///
+/// For output format see [print_installed]. Each result is printed on a new line.
 fn installed(component: Option<Component>) {
     let components: Vec<String> = component.map_or_else(
         || {
@@ -155,6 +205,17 @@ fn installed(component: Option<Component>) {
     }
 }
 
+/// Helper function to print individual results of [installed]
+///
+/// ## Output
+///
+/// If installed:
+///
+/// name: <span style="color:green;">Yes</span> @ /path/to/binary
+///
+/// If not installed:
+///
+/// name: <span style="color:red;">No</span>
 fn print_installed(component: &str, path: Option<String>) {
     let log_term_err = |e: term::Error| log::error!("Failed to set term color. Error: {}", e);
     let mut t = term::stdout().unwrap();
