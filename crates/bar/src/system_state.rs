@@ -48,7 +48,7 @@ pub struct DiskData {
     /// How much space is free on the disk (in bytes)
     pub free: u64,
     /// How much space is used on the disk (in % of size)
-    pub used: u64,
+    pub used: f64,
 }
 
 impl Default for SystemState {
@@ -92,9 +92,10 @@ impl SystemState {
             .list()
             .iter()
             .map(|d| {
+                println!("{}", d.name().display());
                 let size = d.total_space();
                 let free = d.available_space();
-                let used = (size - free).checked_div(size).unwrap_or(0);
+                let used = (size as f64 - free as f64) / size as f64;
                 DiskData {
                     name: d.name().to_os_string(),
                     size,
