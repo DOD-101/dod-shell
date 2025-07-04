@@ -14,9 +14,11 @@ use time::macros::format_description;
 #[cfg(debug_assertions)]
 use gtk4_layer_shell::KeyboardMode;
 
+mod label_icon;
 mod system_state;
 mod workspaces;
 
+use label_icon::LabelIcon;
 use system_state::{SYSTEM_STATE, SystemStateData, init_update_loop};
 use workspaces::Workspaces;
 
@@ -57,10 +59,26 @@ impl SimpleComponent for App {
             gtk::CenterBox {
                 set_orientation: gtk::Orientation::Horizontal,
 
-                set_start_widget: Some(model.workspaces.widget()),
+                #[wrap(Some)]
+                set_start_widget = &gtk::Box {
+
+                    LabelIcon {
+                        #[watch]
+                        set_label: &format!("{}%", model.system_state.cpu_usage.round()),
+                        set_icon: "󰻠"
+                    },
+
+
+                    #[local_ref]
+                    workspaces_widget -> gtk::Box {
+
+                    }
+                },
+                // set_start_widget: Some(model.workspaces.widget()),
 
                 #[wrap(Some)]
                 set_center_widget = &gtk::Box {
+                    #[name(tester)]
                     gtk::Label {
                         #[watch]
                         set_label: &model.system_state.time.format(&DATE_TIME_FORMAT).unwrap()
@@ -106,7 +124,10 @@ impl SimpleComponent for App {
             Some(AppMsg::UpdatedSystemState(d.get_data().clone()))
         });
 
+        let workspaces_widget = model.workspaces.widget();
         let widgets = view_output!();
+
+        // println!("Good: {:?}", widgets.tester.parent());
 
         #[cfg(debug_assertions)]
         {

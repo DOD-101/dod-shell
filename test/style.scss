@@ -24,4 +24,15 @@
   button.active {
     color: red;
   }
+
+  .label-icon {
+    * {
+      color: orangered;
+    }
+
+    ._icon {
+      margin: 0 1px;
+      color: mix(blue, white, 60);
+    }
+  }
 }
