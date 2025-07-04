@@ -1,5 +1,9 @@
 use std::{fs, path::PathBuf, sync::LazyLock};
 
+pub mod config;
+
+pub use config::load_config;
+
 pub static CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
     if cfg!(debug_assertions) {
         return PathBuf::from("test");

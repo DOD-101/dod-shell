@@ -1,3 +1,4 @@
+use common::config::APP_CONFIG;
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
 use hyprland::shared::HyprData;
 use relm4::{
@@ -79,8 +80,15 @@ impl SimpleComponent for App {
                     #[name(drive)]
                     LabelIcon {
                         #[watch]
-                    // TODO: Temporarily picking the first disc until the config system is set up
-                        set_label: &format!("{}%", model.system_state.disks.first().map_or("Err".to_string(),|d| d.used.to_string())),
+                        set_label: &format!(
+                                        "{}%",
+                                        model
+                                            .system_state
+                                            .disks
+                                            .iter()
+                                            .find(|d| *d.name == *APP_CONFIG.disk)
+                                            .map_or("Err".to_string(), |d| (d.used * 100.0).round().to_string())
+                                    ),
                         set_icon: "󱛟"
                     },
 
@@ -141,8 +149,6 @@ impl SimpleComponent for App {
 
         let workspaces_widget = model.workspaces.widget();
         let widgets = view_output!();
-
-        // println!("Good: {:?}", widgets.tester.parent());
 
         #[cfg(debug_assertions)]
         {
