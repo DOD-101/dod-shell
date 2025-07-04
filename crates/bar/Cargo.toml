@@ -15,6 +15,7 @@ simple_logger.workspace = true
 common.workspace = true
 hyprland = { git = "https://github.com/hyprland-community/hyprland-rs", branch = "master" }
 time = { version = "0.3.41", features = ["formatting"] }
+sysinfo.workspace = true
 
 [lints]
 workspace = true

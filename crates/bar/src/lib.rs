@@ -9,23 +9,29 @@ use relm4::{
     },
     prelude::*,
 };
-use time::{OffsetDateTime, macros::format_description};
+use time::macros::format_description;
 
 #[cfg(debug_assertions)]
 use gtk4_layer_shell::KeyboardMode;
 
+mod system_state;
 mod workspaces;
+
+use system_state::{SYSTEM_STATE, SystemStateData, init_update_loop};
 use workspaces::Workspaces;
+
+const DATE_TIME_FORMAT: &[time::format_description::BorrowedFormatItem<'_>] =
+    format_description!("[hour]:[minute]:[second] | [year]-[month]-[day]");
 
 #[derive(Debug)]
 pub struct App {
     workspaces: Controller<Workspaces>,
-    time: String,
+    system_state: SystemStateData,
 }
 
 #[derive(Debug)]
 pub enum AppMsg {
-    UpdateTime(String),
+    UpdatedSystemState(SystemStateData),
 }
 
 #[relm4::component(pub)]
@@ -50,19 +56,14 @@ impl SimpleComponent for App {
 
             gtk::CenterBox {
                 set_orientation: gtk::Orientation::Horizontal,
-                // #[wrap(Some)]
-                // set_start_widget = &gtk::Box {
-                //     gtk::Label {
-                //         set_label: &format!("Hello from Monitor: {monitor_id}"),
-                //     }
-                // },
+
                 set_start_widget: Some(model.workspaces.widget()),
 
                 #[wrap(Some)]
                 set_center_widget = &gtk::Box {
                     gtk::Label {
                         #[watch]
-                        set_label: &model.time
+                        set_label: &model.system_state.time.format(&DATE_TIME_FORMAT).unwrap()
                     }
                 },
                 #[wrap(Some)]
@@ -98,8 +99,12 @@ impl SimpleComponent for App {
 
         let model = Self {
             workspaces: Workspaces::builder().launch(workspaces).detach(),
-            time: String::new(),
+            system_state: SYSTEM_STATE.read().get_data().clone(),
         };
+
+        SYSTEM_STATE.subscribe_optional(sender.input_sender(), |d| {
+            Some(AppMsg::UpdatedSystemState(d.get_data().clone()))
+        });
 
         let widgets = view_output!();
 
@@ -130,28 +135,22 @@ impl SimpleComponent for App {
             }
         }
 
-        let time_sender = sender.input_sender().clone();
-        relm4::spawn_blocking(move || {
-            let format = format_description!("[hour]:[minute]:[second] | [year]-[month]-[day]");
-            loop {
-                let now = OffsetDateTime::now_local().unwrap();
-                let formatted = now.format(&format).unwrap();
-
-                time_sender
-                    .send(AppMsg::UpdateTime(formatted))
-                    .expect("Failed to send updated time to Bar.");
-
-                std::thread::sleep(std::time::Duration::from_millis(500));
-            }
-        });
-
         relm4::set_global_css(&common::get_css());
         ComponentParts { model, widgets }
     }
 
     fn update(&mut self, msg: Self::Input, _sender: ComponentSender<Self>) {
         match msg {
-            AppMsg::UpdateTime(t) => self.time = t,
+            AppMsg::UpdatedSystemState(data) => {
+                self.system_state = data;
+
+                self.workspaces
+                    .sender()
+                    .send(workspaces::WorkspacesMsg::UpdateActiveWorkspace(
+                        self.system_state.workspace,
+                    ))
+                    .expect("Failed to send WorkspaceMsg to component.");
+            }
         }
     }
 }
@@ -167,6 +166,8 @@ pub fn launch_on_all_monitors() {
     let monitor = relm4::gtk::gdk::Display::default()
         .and_then(|d| d.monitors().item(0).and_downcast::<Monitor>())
         .expect("Failed to get primary Monitor.");
+
+    init_update_loop();
 
     app.run::<App>((monitor, 0, true));
 }

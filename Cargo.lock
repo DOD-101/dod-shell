@@ -142,6 +142,7 @@ dependencies = [
  "relm4",
  "serde",
  "simple_logger",
+ "sysinfo",
  "time",
 ]
 

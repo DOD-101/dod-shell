@@ -1,7 +1,6 @@
 use hyprland::{
     dispatch,
     dispatch::{Dispatch, DispatchType},
-    shared::HyprDataActive,
 };
 
 use gtk::prelude::*;
@@ -45,7 +44,7 @@ impl SimpleComponent for Workspaces {
     fn init(
         workspace_ids: Self::Init,
         root: Self::Root,
-        sender: ComponentSender<Self>,
+        _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let workspaces = FactoryVecDeque::builder()
             .launch(gtk::Box::default())
@@ -60,25 +59,6 @@ impl SimpleComponent for Workspaces {
                 wps.push_back(i);
             }
         }
-
-        let ws_sender = sender.input_sender().clone();
-        relm4::spawn_blocking(move || {
-            let mut last_id = None;
-            loop {
-                let active_id = hyprland::data::Workspace::get_active().unwrap().id;
-
-                // Only send updates when needed
-                if last_id.is_none_or(|i| i != active_id) {
-                    log::trace!("Worspace changed. Now: {active_id}");
-                    ws_sender
-                        .send(WorkspacesMsg::UpdateActiveWorkspace(active_id))
-                        .expect("Failed to send updated Workspace to Bar.");
-                    last_id = Some(active_id);
-                }
-
-                std::thread::sleep(std::time::Duration::from_millis(500));
-            }
-        });
 
         let workspace_box = model.workspaces.widget();
         let widgets = view_output!();
