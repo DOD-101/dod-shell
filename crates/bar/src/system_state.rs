@@ -1,9 +1,9 @@
-use std::time::Duration;
+use std::{ffi::OsString, sync::Arc, time::Duration};
 
 use hyprland::shared::HyprDataActive;
 
 use relm4::SharedState;
-use sysinfo::System;
+use sysinfo::{Disks, System};
 use time::OffsetDateTime;
 
 pub static SYSTEM_STATE: SharedState<SystemState> = SharedState::new();
@@ -24,6 +24,7 @@ pub fn init_update_loop() {
 #[derive(Debug)]
 pub struct SystemState {
     sys: System,
+    disks: Disks,
     data: SystemStateData,
 }
 
@@ -35,6 +36,19 @@ pub struct SystemStateData {
     pub used_mem: u64,
     pub time: OffsetDateTime,
     pub workspace: i32,
+    pub disks: Arc<[DiskData]>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DiskData {
+    /// The name of the disk
+    pub name: OsString,
+    /// The total space on the disk (in bytes)
+    pub size: u64,
+    /// How much space is free on the disk (in bytes)
+    pub free: u64,
+    /// How much space is used on the disk (in % of size)
+    pub used: u64,
 }
 
 impl Default for SystemState {
@@ -42,6 +56,7 @@ impl Default for SystemState {
         let sys = System::new_all();
         let mut state = Self {
             sys,
+            disks: Disks::new(),
             data: SystemStateData {
                 total_mem: 0,
                 cpu_usage: 0.0,
@@ -49,6 +64,7 @@ impl Default for SystemState {
                 used_mem: 0,
                 time: OffsetDateTime::UNIX_EPOCH,
                 workspace: 0,
+                disks: Arc::new([]),
             },
         };
 
@@ -68,6 +84,25 @@ impl SystemState {
         self.data.mem_usage = self.data.used_mem as f32 / self.data.total_mem as f32;
         self.data.time = OffsetDateTime::now_local().expect("Failed to get time offset.");
         self.data.workspace = hyprland::data::Workspace::get_active().unwrap().id;
+
+        self.disks.refresh(true);
+
+        self.data.disks = self
+            .disks
+            .list()
+            .iter()
+            .map(|d| {
+                let size = d.total_space();
+                let free = d.available_space();
+                let used = (size - free).checked_div(size).unwrap_or(0);
+                DiskData {
+                    name: d.name().to_os_string(),
+                    size,
+                    free,
+                    used,
+                }
+            })
+            .collect();
 
         log::trace!("State updated");
     }

@@ -62,12 +62,27 @@ impl SimpleComponent for App {
                 #[wrap(Some)]
                 set_start_widget = &gtk::Box {
 
+                    #[name(cpu)]
                     LabelIcon {
                         #[watch]
                         set_label: &format!("{}%", model.system_state.cpu_usage.round()),
                         set_icon: "󰻠"
                     },
 
+                    #[name(ram)]
+                    LabelIcon {
+                        #[watch]
+                        set_label: &format!("{}%", (model.system_state.mem_usage * 100.0).round()),
+                        set_icon: ""
+                    },
+
+                    #[name(drive)]
+                    LabelIcon {
+                        #[watch]
+                    // TODO: Temporarily picking the first disc until the config system is set up
+                        set_label: &format!("{}%", model.system_state.disks.first().map_or("Err".to_string(),|d| d.used.to_string())),
+                        set_icon: "󱛟"
+                    },
 
                     #[local_ref]
                     workspaces_widget -> gtk::Box {
