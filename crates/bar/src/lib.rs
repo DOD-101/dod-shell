@@ -6,7 +6,7 @@ use relm4::{
         gdk::{Monitor, prelude::DisplayExt},
         gio::prelude::{ListModelExt, ListModelExtManual},
         glib::object::CastNone,
-        prelude::{GtkApplicationExt, OrientableExt, WidgetExt},
+        prelude::{BoxExt, GtkApplicationExt, OrientableExt, WidgetExt},
     },
     prelude::*,
 };
@@ -22,6 +22,8 @@ mod workspaces;
 use label_icon::LabelIcon;
 use system_state::{SYSTEM_STATE, SystemStateData, init_update_loop};
 use workspaces::Workspaces;
+
+use crate::system_state::BatteryStatus;
 
 const DATE_TIME_FORMAT: &[time::format_description::BorrowedFormatItem<'_>] =
     format_description!("[hour]:[minute]:[second] | [year]-[month]-[day]");
@@ -108,11 +110,9 @@ impl SimpleComponent for App {
                     }
                 },
                 #[wrap(Some)]
+                #[name(end_box)]
                 set_end_widget = &gtk::Box {
-                    gtk::Label {
-                        set_label: "Hello"
-                    }
-                },
+                    set_orientation: gtk::Orientation::Horizontal,
 
             }
         }
@@ -157,6 +157,28 @@ impl SimpleComponent for App {
                 .bar_main_window
                 .set_keyboard_mode(KeyboardMode::OnDemand);
         }
+
+        // -- Optional Widgets --
+        if APP_CONFIG.battery.is_some() {
+            let battery_widget = LabelIcon::default();
+            battery_widget.set_widget_name("battery");
+            battery_widget.set_label(&model.system_state.battery.to_string());
+            battery_widget.set_icon(
+                if model.system_state.battery_status == BatteryStatus::Charging {
+                    "󰂄"
+                } else {
+                    match model.system_state.battery {
+                        100 => "",
+                        75.. => "",
+                        50.. => "",
+                        25.. => "",
+                        0.. => "",
+                    }
+                },
+            );
+            widgets.end_box.append(&battery_widget);
+        }
+        // -- END --
 
         if init.2 {
             let monitor_list = relm4::gtk::gdk::Display::default()

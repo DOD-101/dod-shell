@@ -1,5 +1,6 @@
 use std::{
     fs::{self, create_dir_all},
+    path::PathBuf,
     process::exit,
     sync::LazyLock,
 };
@@ -13,6 +14,7 @@ pub static APP_CONFIG: LazyLock<Config> = LazyLock::new(load_config);
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Config {
     pub disk: String,
+    pub battery: Option<PathBuf>,
 }
 
 /// Load the [Config] from file
