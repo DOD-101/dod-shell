@@ -4,8 +4,13 @@ allow = [
   "Apache-2.0 WITH LLVM-exception",
   "Apache-2.0",
   "BSD-3-Clause",
+  "GPL-3.0",
   "MIT",
   "MPL-2.0",
   "Unicode-3.0",
   "Zlib",
+]
+[advisories]
+ignore = [
+  { id = "RUSTSEC-2024-0436", reason = "TODO: Temporary untill I can make a PR upstream." },
 ]

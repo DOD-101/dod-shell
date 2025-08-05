@@ -1,10 +1,11 @@
 [package]
-name = "launcher"
 edition.workspace = true
-version.workspace = true
 license.workspace = true
+name = "launcher"
+version.workspace = true
 
 [dependencies]
+common.workspace = true
 dirs.workspace = true
 evalexpr = "12.0.2"
 fuzzy-matcher = "0.3.7"
@@ -16,7 +17,6 @@ relm4.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 simple_logger.workspace = true
-common.workspace = true
 
 [[bin]]
 name = "dod-shell-launcher"

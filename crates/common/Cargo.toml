@@ -1,12 +1,12 @@
 [package]
-name = "common"
-license.workspace = true
-version.workspace = true
 edition.workspace = true
+license.workspace = true
+name = "common"
+version.workspace = true
 
 [dependencies]
-grass.workspace = true
 dirs.workspace = true
+grass.workspace = true
 log.workspace = true
 serde.workspace = true
 toml = "0.8.23"
