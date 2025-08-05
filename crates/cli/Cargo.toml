@@ -1,8 +1,8 @@
 [package]
-name = "cli"
 edition.workspace = true
-version.workspace = true
 license.workspace = true
+name = "cli"
+version.workspace = true
 
 [dependencies]
 clap = { version = "4.5.40", features = ["derive"] }

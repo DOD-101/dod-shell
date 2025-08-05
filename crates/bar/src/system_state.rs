@@ -4,15 +4,16 @@ use std::{
     fs,
     io::{Read, Write},
     net::TcpStream,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::Arc,
     time::Duration,
 };
 
 use common::config::APP_CONFIG;
-use hyprland::shared::HyprDataActive;
 
+use hyprland::shared::HyprDataActive;
+use regex::Regex;
 use relm4::SharedState;
 use sysinfo::{Disks, System};
 use time::OffsetDateTime;
@@ -57,6 +58,8 @@ impl Default for SystemState {
                 battery_status: BatteryStatus::default(),
                 disks: Arc::new([]),
                 bluetooth: false,
+                capslock: false,
+                numlock: false,
             },
         };
 
@@ -165,6 +168,8 @@ impl SystemState {
             .status()
             .is_ok_and(|v| v.success());
 
+        (self.data.capslock, self.data.numlock) = get_key_states().unwrap_or_default();
+
         log::trace!("State updated");
     }
 
@@ -189,6 +194,10 @@ pub struct SystemStateData {
     pub disks: Arc<[DiskData]>,
     /// If there are currently any devices connected via Bluetooth
     pub bluetooth: bool,
+    /// If capslock is active
+    pub capslock: bool,
+    /// If numlock is active
+    pub numlock: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -234,4 +243,45 @@ pub enum BatteryStatus {
     Charging,
     #[default]
     Unknown,
+}
+
+fn read_brightness(path: &str) -> Result<u32, std::io::Error> {
+    let content = fs::read_to_string(path)?;
+    content
+        .trim()
+        .parse::<u32>()
+        .map_err(|_| std::io::ErrorKind::Other.into())
+}
+
+fn get_key_states() -> Result<(bool, bool), std::io::Error> {
+    let capslock_pattern = Regex::new(r"input\d+::capslock").unwrap();
+    let numlock_pattern = Regex::new(r"input\d+::numlock").unwrap();
+
+    let led_dir = Path::new("/sys/class/leds");
+    let entries = fs::read_dir(led_dir)?;
+
+    let mut capslock_brightness_sum = 0;
+    let mut numlock_brightness_sum = 0;
+
+    for entry in entries {
+        let entry = entry?;
+        let path = entry.path();
+        if let Some(file_name) = path.file_name() {
+            let file_name_str = file_name.to_string_lossy();
+            let brightness_path = path.join("brightness");
+
+            // Check if the directory name matches the Caps Lock or Num Lock pattern
+            if capslock_pattern.is_match(&file_name_str) && brightness_path.exists() {
+                if let Ok(brightness) = read_brightness(&brightness_path.display().to_string()) {
+                    capslock_brightness_sum += brightness;
+                }
+            } else if numlock_pattern.is_match(&file_name_str) && brightness_path.exists() {
+                if let Ok(brightness) = read_brightness(&brightness_path.display().to_string()) {
+                    numlock_brightness_sum += brightness;
+                }
+            }
+        }
+    }
+
+    Ok((capslock_brightness_sum > 0, numlock_brightness_sum > 0))
 }

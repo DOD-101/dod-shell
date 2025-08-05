@@ -108,6 +108,7 @@ impl SimpleComponent for App {
                         set_label: &model.system_state.time.format(&DATE_TIME_FORMAT).unwrap()
                     }
                 },
+
                 #[wrap(Some)]
                 #[name(end_box)]
                 set_end_widget = &gtk::Box {
@@ -142,7 +143,23 @@ impl SimpleComponent for App {
                         #[watch]
                         set_class_active: ("active", model.system_state.bluetooth),
                         set_label: "",
-                    }
+                    },
+
+                    #[name(capslock_icon)]
+                    gtk::Label {
+                        set_visible: APP_CONFIG.toggles.show_capslock,
+                        #[watch]
+                        set_class_active: ("active", model.system_state.capslock),
+                        set_label: "󰘲",
+                    },
+
+                    #[name(numlock_icon)]
+                    gtk::Label {
+                        set_visible: APP_CONFIG.toggles.show_numlock,
+                        #[watch]
+                        set_class_active: ("active", model.system_state.numlock),
+                        set_label: "󰎡",
+                    },
                 }
             }
         }
