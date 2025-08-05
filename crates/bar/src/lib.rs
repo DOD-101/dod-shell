@@ -99,7 +99,6 @@ impl SimpleComponent for App {
 
                     }
                 },
-                // set_start_widget: Some(model.workspaces.widget()),
 
                 #[wrap(Some)]
                 set_center_widget = &gtk::Box {
@@ -114,6 +113,30 @@ impl SimpleComponent for App {
                 set_end_widget = &gtk::Box {
                     set_orientation: gtk::Orientation::Horizontal,
 
+                    #[name(internet_revealer)]
+                    gtk::Revealer {
+                        set_transition_type: gtk::RevealerTransitionType::SlideRight,
+                        gtk::Label {
+                            #[watch]
+                            set_label: model.system_state.network.name.as_ref().map_or("", |name| name.trim()),
+                        }
+                    },
+                    #[name(internet_icon)]
+                    gtk::Label {
+                        #[watch]
+                        set_class_active: ("active", model.system_state.network.internet),
+                        #[watch]
+                        set_label: if model.system_state.network.internet {
+                                        match model.system_state.network.connection_strengh {
+                                            _ if !model.system_state.network.wireless() => "󰈁",
+                                            0.75.. => "󰤨",
+                                            0.50.. => "󰤥",
+                                            0.35.. => "󰤢",
+                                            _ => "󰤟",
+                                        }
+                                    } else { "󰤭" }
+                    },
+                }
             }
         }
 
@@ -149,6 +172,17 @@ impl SimpleComponent for App {
 
         let workspaces_widget = model.workspaces.widget();
         let widgets = view_output!();
+
+        let internet_controller = gtk::EventControllerMotion::new();
+        let ir1 = widgets.internet_revealer.clone();
+        internet_controller.connect_enter(move |_, _, _| {
+            ir1.set_reveal_child(true);
+        });
+        let ir2 = widgets.internet_revealer.clone();
+        internet_controller.connect_leave(move |_| {
+            ir2.set_reveal_child(false);
+        });
+        widgets.internet_icon.add_controller(internet_controller);
 
         #[cfg(debug_assertions)]
         {

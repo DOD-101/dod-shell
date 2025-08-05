@@ -21,7 +21,8 @@
 .bar-main-window {
   margin: 10px;
 
-  button.active {
+  button.active,
+  *.active {
     color: red;
   }
 
