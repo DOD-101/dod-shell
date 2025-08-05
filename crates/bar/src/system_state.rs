@@ -5,7 +5,7 @@ use std::{
     io::{Read, Write},
     net::TcpStream,
     path::PathBuf,
-    process::Command,
+    process::{Command, Stdio},
     sync::Arc,
     time::Duration,
 };
@@ -56,6 +56,7 @@ impl Default for SystemState {
                 battery: 0,
                 battery_status: BatteryStatus::default(),
                 disks: Arc::new([]),
+                bluetooth: false,
             },
         };
 
@@ -157,6 +158,13 @@ impl SystemState {
             },
         };
 
+        self.data.bluetooth = Command::new("bluetoothctl")
+            .arg("info")
+            .stdout(Stdio::null())
+            .stdin(Stdio::null())
+            .status()
+            .is_ok_and(|v| v.success());
+
         log::trace!("State updated");
     }
 
@@ -179,6 +187,8 @@ pub struct SystemStateData {
     /// Battery Status
     pub battery_status: BatteryStatus,
     pub disks: Arc<[DiskData]>,
+    /// If there are currently any devices connected via Bluetooth
+    pub bluetooth: bool,
 }
 
 #[derive(Debug, Clone)]

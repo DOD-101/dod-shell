@@ -136,6 +136,13 @@ impl SimpleComponent for App {
                                         }
                                     } else { "󰤭" }
                     },
+
+                    #[name(bluetooth_icon)]
+                    gtk::Label {
+                        #[watch]
+                        set_class_active: ("active", model.system_state.bluetooth),
+                        set_label: "",
+                    }
                 }
             }
         }
