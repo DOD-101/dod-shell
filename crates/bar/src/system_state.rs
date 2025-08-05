@@ -42,6 +42,7 @@ impl Default for SystemState {
                 used_mem: 0,
                 time: OffsetDateTime::UNIX_EPOCH,
                 workspace: 0,
+                network: NetworkConnection::default(),
                 battery: 0,
                 battery_status: BatteryStatus::default(),
                 disks: Arc::new([]),
@@ -108,6 +109,61 @@ impl SystemState {
                 }
             }
         }
+
+        let network_device_cmd = Command::new("ip")
+            .arg("route")
+            .output()
+            .map_or(String::from("NONE"), |o| {
+                String::from_utf8_lossy(&o.stdout).to_string()
+            });
+
+        let network_device = if network_device_cmd.contains(&APP_CONFIG.wifi_device) {
+            APP_CONFIG.wifi_device.clone()
+        } else if network_device_cmd.contains(&APP_CONFIG.ethernet_device) {
+            APP_CONFIG.ethernet_device.clone()
+        } else {
+            String::from("NONE")
+        };
+
+        // TODO: I don't think I need to explain why this is bad. A native rust solution (aka. lib)
+        // would be much better
+        self.data.network = NetworkConnection {
+            device: network_device,
+            network_name: Command::new("iwgetid")
+                .arg("-r")
+                .output()
+                .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+                .ok(),
+            connection_strengh: {
+                let iwconfig_info = Command::new("iwconfig")
+                    .arg(&config::APP_CONFIG.wifi_device)
+                    .output()
+                    .map(|o| String::from_utf8_lossy(&o.stdout).to_string());
+
+                if let Ok(info) = iwconfig_info {
+                    info.lines()
+                        .nth(5)
+                        // Link Quality=56/70  Signal level=-54 dBm
+                        .and_then(|s| s.split('=').nth(1))
+                        // 54/70 Signal Level
+                        .and_then(|s| {
+                            s.split_once(' ').and_then(|parts| {
+                                // 54/70
+                                parts.0.split_once('/').map(|num_parts| {
+                                    num_parts.0.parse::<f32>().unwrap()
+                                        / num_parts.1.parse::<f32>().unwrap()
+                                })
+                            })
+                        })
+                        .unwrap_or_default()
+                } else {
+                    0.0
+                }
+            },
+        };
+
+        println!("{:#?}", self.data.network);
+
         log::trace!("State updated");
     }
 
@@ -124,6 +180,7 @@ pub struct SystemStateData {
     pub used_mem: u64,
     pub time: OffsetDateTime,
     pub workspace: i32,
+    pub network: NetworkConnection,
     /// Battery Charge (in %)
     pub battery: u8,
     /// Battery Status
@@ -142,6 +199,21 @@ pub struct DiskData {
     /// How much space is used on the disk (in % of size)
     pub used: f64,
 }
+
+#[derive(Default, Debug, Clone)]
+pub struct NetworkConnection {
+    pub device: String,
+    pub network_name: Option<String>,
+    pub connection_strengh: f32,
+}
+
+impl NetworkConnection {
+    // TODO: Can't use a fun here bc of watch
+    pub fn wireless(&self) -> bool {
+        self.network_name.is_some()
+    }
+}
+
 #[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BatteryStatus {
     Discharging,

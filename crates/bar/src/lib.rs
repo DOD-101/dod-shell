@@ -114,7 +114,25 @@ impl SimpleComponent for App {
                 set_end_widget = &gtk::Box {
                     set_orientation: gtk::Orientation::Horizontal,
 
+                    LabelIcon {
+                        #[watch]
+                        set_label: model.system_state.network.network_name.as_ref().map_or("", |name| name.trim()),
+                        #[watch]
+                        set_icon: [("F", 0.8), ("M", 0.0)]
+                                    .iter()
+                                    .filter_map(|e| {
+                                        if e.1 < model.system_state.network.connection_strengh {
+                                            Some(e.0)
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .nth(0)
+                                    .expect("Error in connection icon selection.")
+                    },
+                },
             }
+
         }
 
     }

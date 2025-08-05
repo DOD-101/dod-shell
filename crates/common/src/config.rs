@@ -14,7 +14,19 @@ pub static APP_CONFIG: LazyLock<Config> = LazyLock::new(load_config);
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Config {
     pub disk: String,
+    pub wifi_device: String,
+    pub ethernet_device: String,
     pub battery: Option<PathBuf>,
+
+    pub toggles: Toggles,
+}
+
+#[derive(Serialize, Deserialize, Default, Debug)]
+pub struct Toggles {
+    pub touchscreen: bool,
+    pub show_caps_lock: bool,
+    pub show_num_lock: bool,
+    pub internet_device: String,
 }
 
 /// Load the [Config] from file

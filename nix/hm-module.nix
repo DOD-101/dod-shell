@@ -8,6 +8,8 @@ self:
 let
   cfg = config.dod-shell;
 
+  tomlFormat = pkgs.formats.toml { };
+
   filter-packages =
     release:
     lib.attrsets.mapAttrsToList (n: v: v) (
@@ -33,10 +35,24 @@ in
       default = "";
       description = "SCSS for style.scss";
     };
+
+    settings = lib.mkOption {
+      type = tomlFormat.type;
+      default = { };
+      description = ''
+        Configuration written to 
+        {file}`$XDG_CONFIG_HOME/dod-shell/config.toml`.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
     home.packages = cfg.components;
-    xdg.configFile."dod-shell/style.scss".text = cfg.scss;
+    xdg.configFile = {
+      "dod-shell/style.scss".text = cfg.scss;
+      "dod-shell/config.toml" = lib.mkIf (cfg.settings != { }) {
+        source = tomlFormat.generate "config.toml" cfg.settings;
+      };
+    };
   };
 }
