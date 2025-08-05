@@ -160,6 +160,22 @@ impl SimpleComponent for App {
                         set_class_active: ("active", model.system_state.numlock),
                         set_label: "󰎡",
                     },
+
+                    #[name(volume_label_icon)]
+                    LabelIcon {
+                        #[watch]
+                        set_label: &(model.system_state.volume * 100.0).round().to_string(),
+                        #[watch]
+                        set_icon: match model.system_state.volume {
+                                    -1.0 => "󰖁",
+                                    _ if model.system_state.bluetooth => "󰂰",
+                                    0.0 => "󰝟",
+                                    0.66.. => "",
+                                    0.33.. => "",
+                                    0.0.. => "",
+                                    _ => unreachable!("Invalid volume level."),
+                                  }
+                    }
                 }
             }
         }

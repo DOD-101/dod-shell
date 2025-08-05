@@ -60,6 +60,7 @@ impl Default for SystemState {
                 bluetooth: false,
                 capslock: false,
                 numlock: false,
+                volume: 0.0,
             },
         };
 
@@ -170,6 +171,22 @@ impl SystemState {
 
         (self.data.capslock, self.data.numlock) = get_key_states().unwrap_or_default();
 
+        self.data.volume = Command::new("wpctl")
+            .args(["get-volume", "@DEFAULT_AUDIO_SINK@"])
+            .output()
+            .ok()
+            .and_then(|o| {
+                let output = String::from_utf8_lossy(&o.stdout).to_string();
+                let parts = output.split_once(' ').expect("Volume format invalid.");
+
+                if parts.1.contains("MUTED") {
+                    return Some(-1.0);
+                }
+
+                parts.1.trim().parse::<f32>().ok()
+            })
+            .unwrap_or_default();
+
         log::trace!("State updated");
     }
 
@@ -198,6 +215,8 @@ pub struct SystemStateData {
     pub capslock: bool,
     /// If numlock is active
     pub numlock: bool,
+    /// Volume of the default audio output
+    pub volume: f32,
 }
 
 #[derive(Debug, Clone)]
