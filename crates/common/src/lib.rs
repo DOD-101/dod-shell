@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf, sync::LazyLock};
+use std::{path::PathBuf, sync::LazyLock};
 
 pub mod config;
 
@@ -15,14 +15,10 @@ pub static CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
 });
 
 pub fn get_css() -> String {
-    match fs::read_to_string(CONFIG_PATH.join("style.scss")) {
-        Ok(scss) => grass::from_string(scss, &grass::Options::default()).unwrap_or_else(|e| {
+    grass::from_path(CONFIG_PATH.join("style.scss"), &grass::Options::default()).unwrap_or_else(
+        |e| {
             log::error!("Failed to parse scss. Not applying any css. SassError: {e}");
             String::new()
-        }),
-        Err(e) => {
-            log::error!("Failed to read style.scss. Not applying any css. IoError: {e}");
-            String::new()
-        }
-    }
+        },
+    )
 }
