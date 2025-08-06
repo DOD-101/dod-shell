@@ -90,8 +90,8 @@ mod imp {
             self.icon.set_parent(obj.widget_ref());
 
             obj.widget_ref().set_css_classes(&["label-icon"]);
-            self.label.set_css_classes(&["label-icon-label", "_label"]);
-            self.icon.set_css_classes(&["label-icon-icon", "_icon"]);
+            self.label.set_css_classes(&["label-icon-label", "label"]);
+            self.icon.set_css_classes(&["label-icon-icon", "icon"]);
         }
 
         fn dispose(&self) {

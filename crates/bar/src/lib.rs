@@ -39,6 +39,7 @@ pub enum AppMsg {
     UpdatedSystemState(SystemStateData),
 }
 
+#[allow(clippy::float_cmp)]
 #[relm4::component(pub)]
 impl SimpleComponent for App {
     type Init = (Monitor, usize, bool);
@@ -61,48 +62,55 @@ impl SimpleComponent for App {
 
             gtk::CenterBox {
                 set_orientation: gtk::Orientation::Horizontal,
+                set_css_classes: &["main-centerbox"],
 
                 #[wrap(Some)]
                 set_start_widget = &gtk::Box {
+                    set_css_classes: &["left"],
 
-                    #[name(cpu)]
-                    LabelIcon {
-                        #[watch]
-                        set_label: &format!("{}%", model.system_state.cpu_usage.round()),
-                        set_icon: "󰻠"
-                    },
+                    gtk::Box {
+                        set_css_classes: &["hardware-info"],
 
-                    #[name(ram)]
-                    LabelIcon {
-                        #[watch]
-                        set_label: &format!("{}%", (model.system_state.mem_usage * 100.0).round()),
-                        set_icon: ""
-                    },
+                        #[name(cpu)]
+                        LabelIcon {
+                            set_css_classes: &["cpu"],
+                            #[watch]
+                            set_label: &format!("{}%", model.system_state.cpu_usage.round()),
+                            set_icon: "󰻠"
+                        },
 
-                    #[name(drive)]
-                    LabelIcon {
-                        #[watch]
-                        set_label: &format!(
-                                        "{}%",
-                                        model
-                                            .system_state
-                                            .disks
-                                            .iter()
-                                            .find(|d| *d.name == *APP_CONFIG.disk)
-                                            .map_or("Err".to_string(), |d| (d.used * 100.0).round().to_string())
-                                    ),
-                        set_icon: "󱛟"
+                        #[name(ram)]
+                        LabelIcon {
+                            set_css_classes: &["ram"],
+                            #[watch]
+                            set_label: &format!("{}%", (model.system_state.mem_usage * 100.0).round()),
+                            set_icon: ""
+                        },
+
+                        #[name(drive)]
+                        LabelIcon {
+                            #[watch]
+                            set_label: &format!(
+                                            "{}%",
+                                            model
+                                                .system_state
+                                                .disks
+                                                .iter()
+                                                .find(|d| *d.name == *APP_CONFIG.disk)
+                                                .map_or("Err".to_string(), |d| (d.used * 100.0).round().to_string())
+                                        ),
+                            set_icon: "󱛟"
+                        },
                     },
 
                     #[local_ref]
-                    workspaces_widget -> gtk::Box {
-
-                    }
+                    workspaces_widget -> gtk::Box {}
                 },
 
                 #[wrap(Some)]
                 set_center_widget = &gtk::Box {
-                    #[name(tester)]
+                    set_css_classes: &["center"],
+                    #[name(date_time)]
                     gtk::Label {
                         #[watch]
                         set_label: &model.system_state.time.format(&DATE_TIME_FORMAT).unwrap()
@@ -112,10 +120,12 @@ impl SimpleComponent for App {
                 #[wrap(Some)]
                 #[name(end_box)]
                 set_end_widget = &gtk::Box {
+                    set_css_classes: &["right"],
                     set_orientation: gtk::Orientation::Horizontal,
 
                     #[name(internet_revealer)]
                     gtk::Revealer {
+                        set_css_classes: &["internet-name-revealer"],
                         set_transition_type: gtk::RevealerTransitionType::SlideRight,
                         gtk::Label {
                             #[watch]
@@ -124,6 +134,7 @@ impl SimpleComponent for App {
                     },
                     #[name(internet_icon)]
                     gtk::Label {
+                        set_css_classes: &["icon"],
                         #[watch]
                         set_class_active: ("active", model.system_state.network.internet),
                         #[watch]
@@ -140,6 +151,7 @@ impl SimpleComponent for App {
 
                     #[name(bluetooth_icon)]
                     gtk::Label {
+                        set_css_classes: &["icon"],
                         #[watch]
                         set_class_active: ("active", model.system_state.bluetooth),
                         set_label: "",
@@ -147,6 +159,7 @@ impl SimpleComponent for App {
 
                     #[name(capslock_icon)]
                     gtk::Label {
+                        set_css_classes: &["icon"],
                         set_visible: APP_CONFIG.toggles.show_capslock,
                         #[watch]
                         set_class_active: ("active", model.system_state.capslock),
@@ -155,6 +168,7 @@ impl SimpleComponent for App {
 
                     #[name(numlock_icon)]
                     gtk::Label {
+                        set_css_classes: &["icon"],
                         set_visible: APP_CONFIG.toggles.show_numlock,
                         #[watch]
                         set_class_active: ("active", model.system_state.numlock),
@@ -164,7 +178,9 @@ impl SimpleComponent for App {
                     #[name(volume_label_icon)]
                     LabelIcon {
                         #[watch]
-                        set_label: &(model.system_state.volume * 100.0).round().to_string(),
+                        set_label: &(if model.system_state.volume > 0.0 { (model.system_state.volume * 100.0).round().to_string() } else { String::new() }),
+                        #[watch]
+                        set_class_active: ("muted", model.system_state.volume == -1.0),
                         #[watch]
                         set_icon: match model.system_state.volume {
                                     -1.0 => "󰖁",

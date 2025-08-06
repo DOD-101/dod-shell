@@ -34,8 +34,10 @@ impl SimpleComponent for Workspaces {
     view! {
         #[name(workspaces)]
         gtk::Box {
+            set_css_classes: &["workspaces"],
             #[local_ref]
             workspace_box -> gtk::Box {
+                set_css_classes: &["__workspaces_inner"],
                 set_orientation: gtk::Orientation::Horizontal,
             },
         }
@@ -99,6 +101,7 @@ impl FactoryComponent for WorkspaceButton {
     view! {
         #[name(workspace_btn)]
         gtk::Button {
+            set_css_classes: &["workspace-btn"],
             set_label: self.number.to_string().as_str(),
             connect_clicked => WorkspaceButtonMsg::Clicked,
             #[watch]

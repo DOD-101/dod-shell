@@ -83,6 +83,7 @@ impl SystemState {
 
         self.disks.refresh(true);
 
+        // TODO: There should be a way for the user to know which disks are available
         self.data.disks = self
             .disks
             .list()
