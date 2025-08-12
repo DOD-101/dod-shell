@@ -19,6 +19,8 @@ serde.workspace = true
 simple_logger.workspace = true
 sysinfo.workspace = true
 time = { version = "0.3.41", features = ["formatting"] }
+tokio = { version = "1.47.1", features = ["full"] }
+zbus = { version = "5.9.0", features = ["tokio"], default-features = false }
 
 [lints]
 workspace = true

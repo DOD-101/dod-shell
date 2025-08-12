@@ -1,11 +1,12 @@
 // TODO: Improve performance
+// Baseline ~84ms
 use std::{
+    collections::HashMap,
+    convert::TryInto,
     ffi::OsString,
     fs,
-    io::{Read, Write},
-    net::TcpStream,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::Command,
     sync::Arc,
     time::Duration,
 };
@@ -17,17 +18,37 @@ use regex::Regex;
 use relm4::SharedState;
 use sysinfo::{Disks, System};
 use time::OffsetDateTime;
+use zbus::{
+    Proxy,
+    fdo::PropertiesProxy,
+    names::InterfaceName,
+    zvariant::{Array, ObjectPath, OwnedObjectPath, OwnedValue, Value},
+};
+
+const NM_SERVICE_NAME: &str = "org.freedesktop.NetworkManager";
 
 pub static SYSTEM_STATE: SharedState<SystemState> = SharedState::new();
 
 pub fn init_update_loop() {
-    relm4::spawn_blocking(|| {
-        loop {
-            SYSTEM_STATE.write().update();
+    #[allow(clippy::redundant_closure_call)]
+    relm4::spawn_local((async || {
+        let mut update_interval = tokio::time::interval(Duration::from_millis(500));
 
-            std::thread::sleep(Duration::from_millis(500));
+        loop {
+            let start = tokio::time::Instant::now();
+            let mut lock = SYSTEM_STATE.write();
+
+            lock.update().await;
+
+            let end = tokio::time::Instant::now();
+
+            let delta = (end - start).as_millis();
+
+            log::trace!("State updated. Took {delta}ms");
+
+            update_interval.tick().await;
         }
-    });
+    })());
 }
 
 // Struct  containing all of the system state
@@ -43,6 +64,7 @@ pub struct SystemState {
 impl Default for SystemState {
     fn default() -> Self {
         let sys = System::new_all();
+
         let mut state = Self {
             sys,
             disks: Disks::new(),
@@ -53,7 +75,7 @@ impl Default for SystemState {
                 used_mem: 0,
                 time: OffsetDateTime::UNIX_EPOCH,
                 workspace: 0,
-                network: NetworkData::default(),
+                network: ConnectionData::default(),
                 battery: 0,
                 battery_status: BatteryStatus::default(),
                 disks: Arc::new([]),
@@ -65,7 +87,10 @@ impl Default for SystemState {
         };
 
         state.data.total_mem = state.sys.total_memory();
-        state.update();
+
+        // NOTE: Not sure if there is a better way
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(state.update());
 
         state
     }
@@ -73,7 +98,7 @@ impl Default for SystemState {
 
 impl SystemState {
     #[allow(clippy::cast_precision_loss)]
-    fn update(&mut self) {
+    async fn update(&mut self) {
         self.sys.refresh_all();
         self.data.cpu_usage = self.sys.global_cpu_usage();
         self.data.used_mem = self.sys.used_memory();
@@ -127,48 +152,15 @@ impl SystemState {
             }
         }
 
-        // TODO: I don't think I need to explain why this is bad. A native rust solution (aka. lib)
-        // would be much better
-        self.data.network = NetworkData {
-            internet: NetworkData::test_connection().unwrap_or_default(),
-            name: Command::new("iwgetid")
-                .arg("-r")
-                .output()
-                .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
-                .ok()
-                // If the network name is just empty make it [None]
-                .and_then(|name| if name.is_empty() { None } else { Some(name) }),
-            connection_strengh: {
-                Command::new("iwconfig")
-                    .output()
-                    .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
-                    .ok()
-                    .and_then(|info| {
-                        info.lines()
-                            .find(|l| l.contains("Link Quality"))
-                            // Link Quality=56/70  Signal level=-54 dBm
-                            .and_then(|s| s.split('=').nth(1))
-                            // 54/70 Signal Level
-                            .and_then(|s| {
-                                s.split_once(' ').and_then(|parts| {
-                                    // 54/70
-                                    parts.0.split_once('/').map(|num_parts| {
-                                        num_parts.0.parse::<f32>().unwrap()
-                                            / num_parts.1.parse::<f32>().unwrap()
-                                    })
-                                })
-                            })
-                    })
-                    .unwrap_or_default()
-            },
-        };
+        let (bluetooth, network) = tokio::join!(self.bluetooth(), self.network());
 
-        self.data.bluetooth = Command::new("bluetoothctl")
-            .arg("info")
-            .stdout(Stdio::null())
-            .stdin(Stdio::null())
-            .status()
-            .is_ok_and(|v| v.success());
+        self.data.bluetooth = bluetooth
+            .inspect_err(|e| log::error!("Failed to update bluetooth information: {e}"))
+            .unwrap_or_default();
+
+        self.data.network = network
+            .inspect_err(|e| log::error!("Failed to update network information: {e}"))
+            .unwrap_or_default();
 
         (self.data.capslock, self.data.numlock) = get_key_states().unwrap_or_default();
 
@@ -187,12 +179,145 @@ impl SystemState {
                 parts.1.trim().parse::<f32>().ok()
             })
             .unwrap_or_default();
-
-        log::trace!("State updated");
     }
 
     pub fn get_data(&self) -> &SystemStateData {
         &self.data
+    }
+
+    /// Checks if any devices are connected via bluetooth
+    async fn bluetooth(&self) -> zbus::Result<bool> {
+        let connection = zbus::Connection::system().await?;
+        // Create a proxy to interact with BlueZ's ObjectManager interface
+        // ObjectManager provides a way to discover all available objects and their interfaces
+        // BlueZ: https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/
+        let bluez_proxy = zbus::Proxy::new(
+            &connection,
+            "org.bluez",
+            "/",
+            "org.freedesktop.DBus.ObjectManager",
+        )
+        .await?;
+
+        // Call GetManagedObjects to retrieve all BlueZ objects (adapters, devices, etc.)
+        // This returns a complex nested structure containing all objects and their properties
+        let reply = bluez_proxy
+            .call_method("GetManagedObjects", &())
+            .await?
+            .body();
+
+        // Deserialize the D-Bus message body into a structured format
+        // Type signature: Dict<ObjectPath, Dict<InterfaceName, Dict<PropertyName, Variant>>>
+        let managed_objects: HashMap<OwnedObjectPath, HashMap<String, HashMap<String, Value<'_>>>> =
+            reply.deserialize()?;
+
+        // Iterate through all managed objects
+        for interfaces in managed_objects.values() {
+            // Check if this object implements the Device1 interface
+            if let Some(device_props) = interfaces.get("org.bluez.Device1") {
+                // Check if the device is connected
+                if let Some(connected_value) = device_props.get("Connected") {
+                    if let Ok(is_connected) = bool::try_from(connected_value) {
+                        if is_connected {
+                            return Ok(true);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(false)
+    }
+
+    /// Gathers information about the current internet connection
+    ///
+    /// See: [`ConnectionData`]
+    async fn network(&self) -> Result<ConnectionData, Box<dyn std::error::Error>> {
+        let connection = zbus::Connection::system().await?;
+        let nm_iface = InterfaceName::from_str_unchecked(NM_SERVICE_NAME);
+        let nm_proxy = Proxy::new(
+            &connection,
+            NM_SERVICE_NAME,
+            "/org/freedesktop/NetworkManager",
+            nm_iface,
+        )
+        .await?;
+
+        let state: u32 = nm_proxy.call("state", &()).await?;
+
+        // NMState = 70 means connected to the internet
+        // See: https://networkmanager.dev/docs/api/latest/nm-dbus-types.html#NMState
+        if state != 70 {
+            return Ok(ConnectionData::None);
+        }
+
+        let devices: Vec<ObjectPath> =
+            nm_proxy
+                .get_property::<OwnedValue>("Devices")
+                .await
+                .map(|devices| {
+                    devices
+                        .try_into()
+                        // See: https://networkmanager.dev/docs/api/latest/gdbus-org.freedesktop.NetworkManager.html#gdbus-property-org-freedesktop-NetworkManager.Devices
+                        .expect("Devices property should be a list of ObjectPaths")
+                })?;
+
+        for d in devices {
+            let device_proxy = PropertiesProxy::new(&connection, NM_SERVICE_NAME, &d).await?;
+
+            let device_iface =
+                InterfaceName::from_str_unchecked("org.freedesktop.NetworkManager.Device");
+            let device_type: u32 = device_proxy
+                .get(device_iface, "DeviceType")
+                .await?
+                .try_into()
+                // See docs link below
+                .expect("DeviceType should be u32");
+
+            // NMDeviceType = 2 is a Wi-Fi device
+            // See: https://networkmanager.dev/docs/api/latest/nm-dbus-types.html#NMDeviceType
+            if device_type == 2 {
+                let wireless_iface = InterfaceName::from_str_unchecked(
+                    "org.freedesktop.NetworkManager.Device.Wireless",
+                );
+                let wireless_properties = device_proxy.get_all(wireless_iface).await?;
+
+                if let Some(access_point_value) = wireless_properties.get("ActiveAccessPoint") {
+                    let access_point_path: ObjectPath = access_point_value.downcast_ref()?;
+                    let access_point_proxy =
+                        PropertiesProxy::new(&connection, NM_SERVICE_NAME, access_point_path)
+                            .await?;
+                    let acc_point_iface = InterfaceName::from_str_unchecked(
+                        "org.freedesktop.NetworkManager.AccessPoint",
+                    );
+
+                    let ssid: Option<String> = access_point_proxy
+                        .get(acc_point_iface.clone(), "Ssid")
+                        .await
+                        .map(|s| {
+                            s.downcast_ref::<Array>()
+                                // See: https://networkmanager.dev/docs/api/latest/gdbus-org.freedesktop.NetworkManager.AccessPoint.html#gdbus-property-org-freedesktop-NetworkManager-AccessPoint.Ssid
+                                .expect("Ssid should be list of bytes")
+                                .try_into()
+                                .expect("Should be able to convert Array of bytes to Vec<u8>")
+                        })
+                        .map(|v: Vec<u8>| String::from_utf8_lossy(&v).to_string())
+                        .ok();
+
+                    let signal: Option<u8> = access_point_proxy
+                        .get(acc_point_iface, "Strength")
+                        .await
+                        .ok()
+                        .and_then(|v| v.try_into().ok());
+
+                    if let (Some(ssid), Some(signal)) = (ssid, signal) {
+                        return Ok(ConnectionData::Wireless { signal, ssid });
+                    }
+                }
+            }
+        }
+
+        Ok(ConnectionData::Wired)
     }
 }
 
@@ -204,7 +329,7 @@ pub struct SystemStateData {
     pub used_mem: u64,
     pub time: OffsetDateTime,
     pub workspace: i32,
-    pub network: NetworkData,
+    pub network: ConnectionData,
     /// Battery Charge (in %)
     pub battery: u8,
     /// Battery Status
@@ -232,29 +357,21 @@ pub struct DiskData {
     pub used: f64,
 }
 
-#[derive(Default, Debug, Clone)]
-pub struct NetworkData {
-    pub internet: bool,
-    pub name: Option<String>,
-    pub connection_strengh: f32,
-}
-
-impl NetworkData {
-    // TODO: This seems to be a performance bottleneck
-    fn test_connection() -> std::io::Result<bool> {
-        let mut stream =
-            TcpStream::connect("52.142.124.215:80").inspect_err(|e| println!("Err here: {e}"))?; // ipv4 address for duck.com
-
-        stream.write_all(&[1])?;
-        stream.read_exact(&mut [0; 128])?;
-        Ok(true)
-    }
-}
-
-impl NetworkData {
-    pub fn wireless(&self) -> bool {
-        self.name.is_some()
-    }
+/// Data about the current internet connection
+#[derive(Debug, Default, Clone, PartialEq)]
+pub enum ConnectionData {
+    /// The connection to the internet is wired
+    Wired,
+    /// The connection to the internet is wireless
+    Wireless {
+        /// The signal strength as a percentage
+        signal: u8,
+        /// The SSID of the current Wi-Fi network connected to
+        ssid: String,
+    },
+    /// There is currently no connection to the internet
+    #[default]
+    None,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

@@ -23,7 +23,7 @@ use label_icon::LabelIcon;
 use system_state::{SYSTEM_STATE, SystemStateData, init_update_loop};
 use workspaces::Workspaces;
 
-use crate::system_state::BatteryStatus;
+use crate::system_state::{BatteryStatus, ConnectionData};
 
 const DATE_TIME_FORMAT: &[time::format_description::BorrowedFormatItem<'_>] =
     format_description!("[hour]:[minute]:[second] | [year]-[month]-[day]");
@@ -129,24 +129,27 @@ impl SimpleComponent for App {
                         set_transition_type: gtk::RevealerTransitionType::SlideRight,
                         gtk::Label {
                             #[watch]
-                            set_label: model.system_state.network.name.as_ref().map_or("", |name| name.trim()),
+                            set_label: if let ConnectionData::Wireless { ssid, .. } = &model.system_state.network {
+                                        &ssid } else { "" }
+
                         }
                     },
                     #[name(internet_icon)]
                     gtk::Label {
                         set_css_classes: &["icon"],
                         #[watch]
-                        set_class_active: ("active", model.system_state.network.internet),
+                        set_class_active: ("active", model.system_state.network != ConnectionData::None),
                         #[watch]
-                        set_label: if model.system_state.network.internet {
-                                        match model.system_state.network.connection_strengh {
-                                            _ if !model.system_state.network.wireless() => "󰈁",
-                                            0.75.. => "󰤨",
-                                            0.50.. => "󰤥",
-                                            0.35.. => "󰤢",
+                        set_label: match model.system_state.network {
+                                        ConnectionData::Wired => "󰈁",
+                                        ConnectionData::Wireless {signal, ..} => match signal {
+                                            75.. => "󰤨",
+                                            50.. => "󰤥",
+                                            35.. => "󰤢",
                                             _ => "󰤟",
-                                        }
-                                    } else { "󰤭" }
+                                        },
+                                        ConnectionData::None =>  "󰤭"
+                        },
                     },
 
                     #[name(bluetooth_icon)]
