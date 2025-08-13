@@ -1,5 +1,3 @@
-// TODO: Improve performance
-// Baseline ~84ms
 use std::{
     collections::HashMap,
     convert::TryInto,
@@ -18,7 +16,7 @@ use alsa::{
 use hyprland::shared::HyprDataActive;
 use regex::Regex;
 use relm4::SharedState;
-use sysinfo::{Disks, System};
+use sysinfo::{CpuRefreshKind, Disks, MemoryRefreshKind, RefreshKind, System};
 use time::OffsetDateTime;
 use tokio::fs;
 use zbus::{
@@ -107,7 +105,11 @@ impl Default for SystemState {
 impl SystemState {
     #[allow(clippy::cast_precision_loss)]
     async fn update(&mut self) {
-        self.sys.refresh_all();
+        self.sys.refresh_specifics(
+            RefreshKind::nothing()
+                .with_cpu(CpuRefreshKind::nothing().with_cpu_usage())
+                .with_memory(MemoryRefreshKind::nothing().with_ram()),
+        );
         self.data.cpu_usage = self.sys.global_cpu_usage();
         self.data.used_mem = self.sys.used_memory();
         self.data.mem_usage = self.data.used_mem as f32 / self.data.total_mem as f32;
@@ -116,7 +118,6 @@ impl SystemState {
 
         self.disks.refresh(true);
 
-        // TODO: There should be a way for the user to know which disks are available
         self.data.disks = self
             .disks
             .list()
@@ -141,7 +142,7 @@ impl SystemState {
             SystemState::battery()
         );
 
-        // TODO: Might be nice to use a macro here
+        // NOTE: Might be nice to use a macro here
 
         self.data.bluetooth = bluetooth
             .inspect_err(|e| log::error!("Failed to update bluetooth information: {e}"))
