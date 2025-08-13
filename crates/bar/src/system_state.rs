@@ -4,9 +4,8 @@ use std::{
     collections::HashMap,
     convert::TryInto,
     ffi::OsString,
-    fs,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, LazyLock},
     time::Duration,
 };
 
@@ -21,6 +20,7 @@ use regex::Regex;
 use relm4::SharedState;
 use sysinfo::{Disks, System};
 use time::OffsetDateTime;
+use tokio::fs;
 use zbus::{
     Proxy,
     fdo::PropertiesProxy,
@@ -29,6 +29,11 @@ use zbus::{
 };
 
 const NM_SERVICE_NAME: &str = "org.freedesktop.NetworkManager";
+
+static CAPSLOCK_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"input\d+::capslock").unwrap());
+static NUMLOCK_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"input\d+::numlock").unwrap());
 
 pub static SYSTEM_STATE: SharedState<SystemState> = SharedState::new();
 
@@ -129,33 +134,14 @@ impl SystemState {
             })
             .collect();
 
-        if let Some(bat) = &APP_CONFIG.battery {
-            let battery_path = PathBuf::from("/sys/class/power_supply/").join(bat);
+        let (bluetooth, network, key_states, battery_data) = tokio::join!(
+            self.bluetooth(),
+            self.network(),
+            SystemState::key_states(),
+            SystemState::battery()
+        );
 
-            self.data.battery =
-                fs::read_to_string(battery_path.join("capacity")).map_or(0, |percentage| {
-                    percentage
-                        .trim()
-                        .parse()
-                        .expect("Invalid battery percentage in /sys")
-                });
-
-            // TODO: Could need some error handling here
-            // TODO: This causes a hard to understand panic if the config isn't set correctly
-            self.data.battery_status = match fs::read_to_string(battery_path.join("status"))
-                .expect("Failed to read battery status")
-                .trim()
-            {
-                "Charging" => BatteryStatus::Charging,
-                "Discharging" => BatteryStatus::Discharging,
-                status => {
-                    log::warn!("Unknown battery status: {status}");
-                    BatteryStatus::Unknown
-                }
-            }
-        }
-
-        let (bluetooth, network) = tokio::join!(self.bluetooth(), self.network());
+        // TODO: Might be nice to use a macro here
 
         self.data.bluetooth = bluetooth
             .inspect_err(|e| log::error!("Failed to update bluetooth information: {e}"))
@@ -165,7 +151,15 @@ impl SystemState {
             .inspect_err(|e| log::error!("Failed to update network information: {e}"))
             .unwrap_or_default();
 
-        (self.data.capslock, self.data.numlock) = get_key_states().unwrap_or_default();
+        (self.data.capslock, self.data.numlock) = key_states
+            .inspect_err(|e| log::error!("Failed to update key state information: {e}"))
+            .unwrap_or_default();
+
+        if let Some(battery_data) = battery_data {
+            (self.data.battery, self.data.battery_status) = battery_data
+                .inspect_err(|e| log::error!("Failed to update battery information: {e}"))
+                .unwrap_or_default();
+        }
 
         self.data.volume = SystemState::volume()
             .inspect_err(|e| log::error!("Failed to update volume information: {e}"))
@@ -218,6 +212,33 @@ impl SystemState {
         }
 
         Ok(false)
+    }
+
+    /// Get's information about the battery, if one is set in the shell [Config](``common::config::Config``)
+    async fn battery() -> Option<std::io::Result<(u8, BatteryStatus)>> {
+        if let Some(bat) = &APP_CONFIG.battery {
+            let battery_path = PathBuf::from("/sys/class/power_supply/").join(bat);
+
+            let percentage: std::io::Result<u8> = fs::read_to_string(battery_path.join("capacity"))
+                .await
+                .map(|s| {
+                    s.trim()
+                        .parse()
+                        .expect("Value in capacity file should be number")
+                });
+
+            let status: std::io::Result<BatteryStatus> =
+                fs::read_to_string(battery_path.join("status"))
+                    .await
+                    .map(|s| s.trim().into());
+
+            return match (percentage, status) {
+                (Ok(p), Ok(s)) => Some(Ok((p, s))),
+                (Err(e), _) | (_, Err(e)) => Some(Err(e)),
+            };
+        }
+
+        None
     }
 
     /// Gathers information about the current internet connection
@@ -311,6 +332,45 @@ impl SystemState {
         Ok(ConnectionData::Wired)
     }
 
+    /// Checks if capslock / numlock are enabled
+    async fn key_states() -> std::io::Result<(bool, bool)> {
+        // Helper function to read the brightness of the given path
+        let read_brightness = async |path: &str| {
+            let content = fs::read_to_string(path).await?;
+            Ok::<u32, std::io::Error>(
+                content
+                    .trim()
+                    .parse()
+                    .expect("Value of brightness file should always be a number"),
+            )
+        };
+
+        let led_dir = Path::new("/sys/class/leds");
+        let mut entries = fs::read_dir(led_dir).await?;
+
+        let mut capslock_brightness_sum = 0;
+        let mut numlock_brightness_sum = 0;
+
+        while let Some(entry) = entries.next_entry().await? {
+            let path = entry.path();
+            if let Some(file_name) = path.file_name() {
+                let file_name_str = file_name.to_string_lossy();
+                let brightness_path = path.join("brightness");
+
+                // Check if the directory name matches the Caps Lock or Num Lock pattern
+                if CAPSLOCK_PATTERN.is_match(&file_name_str) && brightness_path.exists() {
+                    capslock_brightness_sum +=
+                        read_brightness(&brightness_path.to_string_lossy()).await?;
+                } else if NUMLOCK_PATTERN.is_match(&file_name_str) && brightness_path.exists() {
+                    numlock_brightness_sum +=
+                        read_brightness(&brightness_path.to_string_lossy()).await?;
+                }
+            }
+        }
+
+        Ok((capslock_brightness_sum > 0, numlock_brightness_sum > 0))
+    }
+
     /// Get's the current volume of the default audio output
     ///
     /// If the default audio sink is muted returns `-1`
@@ -401,43 +461,12 @@ pub enum BatteryStatus {
     Unknown,
 }
 
-fn read_brightness(path: &str) -> Result<u32, std::io::Error> {
-    let content = fs::read_to_string(path)?;
-    content
-        .trim()
-        .parse::<u32>()
-        .map_err(|_| std::io::ErrorKind::Other.into())
-}
-
-fn get_key_states() -> Result<(bool, bool), std::io::Error> {
-    let capslock_pattern = Regex::new(r"input\d+::capslock").unwrap();
-    let numlock_pattern = Regex::new(r"input\d+::numlock").unwrap();
-
-    let led_dir = Path::new("/sys/class/leds");
-    let entries = fs::read_dir(led_dir)?;
-
-    let mut capslock_brightness_sum = 0;
-    let mut numlock_brightness_sum = 0;
-
-    for entry in entries {
-        let entry = entry?;
-        let path = entry.path();
-        if let Some(file_name) = path.file_name() {
-            let file_name_str = file_name.to_string_lossy();
-            let brightness_path = path.join("brightness");
-
-            // Check if the directory name matches the Caps Lock or Num Lock pattern
-            if capslock_pattern.is_match(&file_name_str) && brightness_path.exists() {
-                if let Ok(brightness) = read_brightness(&brightness_path.display().to_string()) {
-                    capslock_brightness_sum += brightness;
-                }
-            } else if numlock_pattern.is_match(&file_name_str) && brightness_path.exists() {
-                if let Ok(brightness) = read_brightness(&brightness_path.display().to_string()) {
-                    numlock_brightness_sum += brightness;
-                }
-            }
+impl From<&str> for BatteryStatus {
+    fn from(value: &str) -> Self {
+        match value {
+            "Charging" => BatteryStatus::Charging,
+            "Discharging" => BatteryStatus::Discharging,
+            _ => BatteryStatus::Unknown,
         }
     }
-
-    Ok((capslock_brightness_sum > 0, numlock_brightness_sum > 0))
 }
