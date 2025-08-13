@@ -5,6 +5,7 @@ name = "bar"
 version.workspace = true
 
 [dependencies]
+alsa = "0.9.1"
 common.workspace = true
 dirs.workspace = true
 grass.workspace = true

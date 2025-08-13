@@ -52,6 +52,7 @@
           nativeBuildInputs = with pkgs; [
             pkg-config
             openssl
+            alsa-lib
             wrapGAppsHook
           ];
 

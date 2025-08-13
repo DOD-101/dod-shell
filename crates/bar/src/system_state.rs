@@ -6,13 +6,16 @@ use std::{
     ffi::OsString,
     fs,
     path::{Path, PathBuf},
-    process::Command,
     sync::Arc,
     time::Duration,
 };
 
 use common::config::APP_CONFIG;
 
+use alsa::{
+    Mixer,
+    mixer::{SelemChannelId, SelemId},
+};
 use hyprland::shared::HyprDataActive;
 use regex::Regex;
 use relm4::SharedState;
@@ -164,20 +167,8 @@ impl SystemState {
 
         (self.data.capslock, self.data.numlock) = get_key_states().unwrap_or_default();
 
-        self.data.volume = Command::new("wpctl")
-            .args(["get-volume", "@DEFAULT_AUDIO_SINK@"])
-            .output()
-            .ok()
-            .and_then(|o| {
-                let output = String::from_utf8_lossy(&o.stdout).to_string();
-                let parts = output.split_once(' ').expect("Volume format invalid.");
-
-                if parts.1.contains("MUTED") {
-                    return Some(-1.0);
-                }
-
-                parts.1.trim().parse::<f32>().ok()
-            })
+        self.data.volume = SystemState::volume()
+            .inspect_err(|e| log::error!("Failed to update volume information: {e}"))
             .unwrap_or_default();
     }
 
@@ -319,6 +310,34 @@ impl SystemState {
 
         Ok(ConnectionData::Wired)
     }
+
+    /// Get's the current volume of the default audio output
+    ///
+    /// If the default audio sink is muted returns `-1`
+    fn volume() -> alsa::Result<f64> {
+        let mixer = Mixer::new("default", true)?;
+
+        let selem_id = SelemId::new("Master", 0);
+        let selem = mixer
+            .find_selem(&selem_id)
+            .expect("Default card should have Master.");
+
+        let max = selem.get_playback_volume_range().1;
+        for o in SelemChannelId::all() {
+            if let Ok(volume) = selem.get_playback_volume(*o) {
+                let muted = selem.get_playback_switch(*o)? == 0;
+
+                if muted {
+                    return Ok(-1.0);
+                }
+
+                #[allow(clippy::cast_precision_loss)]
+                return Ok(volume as f64 / max as f64);
+            }
+        }
+
+        Ok(0.0)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -342,7 +361,7 @@ pub struct SystemStateData {
     /// If numlock is active
     pub numlock: bool,
     /// Volume of the default audio output
-    pub volume: f32,
+    pub volume: f64,
 }
 
 #[derive(Debug, Clone)]
