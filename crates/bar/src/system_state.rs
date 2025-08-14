@@ -7,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-use common::config::APP_CONFIG;
+use common::{config::APP_CONFIG, types::Percentage};
 
 use alsa::{
     Mixer,
@@ -76,19 +76,19 @@ impl Default for SystemState {
             disks: Disks::new(),
             data: SystemStateData {
                 total_mem: 0,
-                cpu_usage: 0.0,
-                mem_usage: 0.0,
+                cpu_usage: Percentage::default(),
+                mem_usage: Percentage::default(),
                 used_mem: 0,
                 time: OffsetDateTime::UNIX_EPOCH,
                 workspace: 0,
                 network: ConnectionData::default(),
-                battery: 0,
+                battery: Percentage::default(),
                 battery_status: BatteryStatus::default(),
                 disks: Arc::new([]),
                 bluetooth: false,
                 capslock: false,
                 numlock: false,
-                volume: 0.0,
+                volume: Percentage::default(),
             },
         };
 
@@ -104,15 +104,16 @@ impl Default for SystemState {
 
 impl SystemState {
     #[allow(clippy::cast_precision_loss)]
+    #[allow(clippy::cast_possible_truncation)]
     async fn update(&mut self) {
         self.sys.refresh_specifics(
             RefreshKind::nothing()
                 .with_cpu(CpuRefreshKind::nothing().with_cpu_usage())
                 .with_memory(MemoryRefreshKind::nothing().with_ram()),
         );
-        self.data.cpu_usage = self.sys.global_cpu_usage();
+        self.data.cpu_usage = self.sys.global_cpu_usage().into();
         self.data.used_mem = self.sys.used_memory();
-        self.data.mem_usage = self.data.used_mem as f32 / self.data.total_mem as f32;
+        self.data.mem_usage = (self.data.used_mem as f32 / self.data.total_mem as f32).into();
         self.data.time = OffsetDateTime::now_local().expect("Failed to get time offset.");
         self.data.workspace = hyprland::data::Workspace::get_active().unwrap().id;
 
@@ -125,7 +126,7 @@ impl SystemState {
             .map(|d| {
                 let size = d.total_space();
                 let free = d.available_space();
-                let used = (size as f64 - free as f64) / size as f64;
+                let used = (((size as f64 - free as f64) / size as f64) as f32).into();
                 DiskData {
                     name: d.name().to_os_string(),
                     size,
@@ -216,7 +217,7 @@ impl SystemState {
     }
 
     /// Get's information about the battery, if one is set in the shell [Config](``common::config::Config``)
-    async fn battery() -> Option<std::io::Result<(u8, BatteryStatus)>> {
+    async fn battery() -> Option<std::io::Result<(Percentage, BatteryStatus)>> {
         if let Some(bat) = &APP_CONFIG.battery {
             let battery_path = PathBuf::from("/sys/class/power_supply/").join(bat);
 
@@ -234,7 +235,7 @@ impl SystemState {
                     .map(|s| s.trim().into());
 
             return match (percentage, status) {
-                (Ok(p), Ok(s)) => Some(Ok((p, s))),
+                (Ok(p), Ok(s)) => Some(Ok((p.into(), s))),
                 (Err(e), _) | (_, Err(e)) => Some(Err(e)),
             };
         }
@@ -317,11 +318,12 @@ impl SystemState {
                         .map(|v: Vec<u8>| String::from_utf8_lossy(&v).to_string())
                         .ok();
 
-                    let signal: Option<u8> = access_point_proxy
+                    let signal: Option<Percentage> = access_point_proxy
                         .get(acc_point_iface, "Strength")
                         .await
                         .ok()
-                        .and_then(|v| v.try_into().ok());
+                        .and_then(|v| u8::try_from(v).ok())
+                        .map(Percentage::from);
 
                     if let (Some(ssid), Some(signal)) = (ssid, signal) {
                         return Ok(ConnectionData::Wireless { signal, ssid });
@@ -375,7 +377,7 @@ impl SystemState {
     /// Get's the current volume of the default audio output
     ///
     /// If the default audio sink is muted returns `-1`
-    fn volume() -> alsa::Result<f64> {
+    fn volume() -> alsa::Result<Percentage> {
         let mixer = Mixer::new("default", true)?;
 
         let selem_id = SelemId::new("Master", 0);
@@ -389,29 +391,30 @@ impl SystemState {
                 let muted = selem.get_playback_switch(*o)? == 0;
 
                 if muted {
-                    return Ok(-1.0);
+                    return Ok(Percentage::from(-1.0));
                 }
 
                 #[allow(clippy::cast_precision_loss)]
-                return Ok(volume as f64 / max as f64);
+                return Ok((volume as f32 / max as f32).into());
             }
         }
 
-        Ok(0.0)
+        Ok(Percentage::default())
     }
 }
 
 #[derive(Debug, Clone)]
+// TODO: Impl Default on this
 pub struct SystemStateData {
     pub total_mem: u64,
-    pub cpu_usage: f32,
-    pub mem_usage: f32,
+    pub cpu_usage: Percentage,
+    pub mem_usage: Percentage,
     pub used_mem: u64,
     pub time: OffsetDateTime,
     pub workspace: i32,
     pub network: ConnectionData,
     /// Battery Charge (in %)
-    pub battery: u8,
+    pub battery: Percentage,
     /// Battery Status
     pub battery_status: BatteryStatus,
     pub disks: Arc<[DiskData]>,
@@ -422,7 +425,7 @@ pub struct SystemStateData {
     /// If numlock is active
     pub numlock: bool,
     /// Volume of the default audio output
-    pub volume: f64,
+    pub volume: Percentage,
 }
 
 #[derive(Debug, Clone)]
@@ -434,7 +437,7 @@ pub struct DiskData {
     /// How much space is free on the disk (in bytes)
     pub free: u64,
     /// How much space is used on the disk (in % of size)
-    pub used: f64,
+    pub used: Percentage,
 }
 
 /// Data about the current internet connection
@@ -445,7 +448,7 @@ pub enum ConnectionData {
     /// The connection to the internet is wireless
     Wireless {
         /// The signal strength as a percentage
-        signal: u8,
+        signal: Percentage,
         /// The SSID of the current Wi-Fi network connected to
         ssid: String,
     },

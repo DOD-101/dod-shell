@@ -83,22 +83,21 @@ impl SimpleComponent for App {
                         LabelIcon {
                             set_css_classes: &["ram"],
                             #[watch]
-                            set_label: &format!("{}%", (model.system_state.mem_usage * 100.0).round()),
+                            set_label: &model.system_state.mem_usage.to_string(),
                             set_icon: ""
                         },
 
                         #[name(drive)]
                         LabelIcon {
+                            // TODO: There should be a way for the user to know which disks are available
                             #[watch]
-                            set_label: &format!(
-                                            "{}%",
-                                            model
-                                                .system_state
-                                                .disks
-                                                .iter()
-                                                .find(|d| *d.name == *APP_CONFIG.disk)
-                                                .map_or("Err".to_string(), |d| (d.used * 100.0).round().to_string())
-                                        ),
+                            set_label: &model
+                                        .system_state
+                                        .disks
+                                        .iter()
+                                        .find(|d| *d.name == *APP_CONFIG.disk)
+                                        .map_or("Err".to_string(), |d| d.used.to_string())
+                                        ,
                             set_icon: "󱛟"
                         },
                     },
@@ -142,10 +141,10 @@ impl SimpleComponent for App {
                         #[watch]
                         set_label: match model.system_state.network {
                                         ConnectionData::Wired => "󰈁",
-                                        ConnectionData::Wireless {signal, ..} => match signal {
-                                            75.. => "󰤨",
-                                            50.. => "󰤥",
-                                            35.. => "󰤢",
+                                        ConnectionData::Wireless {signal, ..} => match *signal {
+                                            0.75.. => "󰤨",
+                                            0.50.. => "󰤥",
+                                            0.35.. => "󰤢",
                                             _ => "󰤟",
                                         },
                                         ConnectionData::None =>  "󰤭"
@@ -181,18 +180,18 @@ impl SimpleComponent for App {
                     #[name(volume_label_icon)]
                     LabelIcon {
                         #[watch]
-                        set_label: &(if model.system_state.volume > 0.0 { (model.system_state.volume * 100.0).round().to_string() } else { String::new() }),
+                        set_label: &(if *model.system_state.volume > 0.0 { (*model.system_state.volume * 100.0).round().to_string() } else { String::new() }),
                         #[watch]
-                        set_class_active: ("muted", model.system_state.volume == -1.0),
+                        set_class_active: ("muted", *model.system_state.volume == -1.0),
                         #[watch]
-                        set_icon: match model.system_state.volume {
+                        set_icon: match *model.system_state.volume {
                                     -1.0 => "󰖁",
                                     _ if model.system_state.bluetooth => "󰂰",
                                     0.0 => "󰝟",
                                     0.66.. => "",
                                     0.33.. => "",
                                     0.0.. => "",
-                                    _ => unreachable!("Invalid volume level."),
+                                    _ => unreachable!(),
                                   }
                     }
                 }
@@ -260,12 +259,13 @@ impl SimpleComponent for App {
                 if model.system_state.battery_status == BatteryStatus::Charging {
                     "󰂄"
                 } else {
-                    match model.system_state.battery {
-                        100 => "",
-                        75.. => "",
-                        50.. => "",
-                        25.. => "",
-                        0.. => "",
+                    match *model.system_state.battery {
+                        1.0.. => "",
+                        0.75.. => "",
+                        0.50.. => "",
+                        0.25.. => "",
+                        0.0.. => "",
+                        _ => unreachable!("Battery value should never be negative"),
                     }
                 },
             );

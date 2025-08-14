@@ -1,6 +1,7 @@
 use std::{path::PathBuf, sync::LazyLock};
 
 pub mod config;
+pub mod types;
 
 pub use config::load_config;
 
