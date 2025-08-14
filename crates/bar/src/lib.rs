@@ -75,7 +75,7 @@ impl SimpleComponent for App {
                         LabelIcon {
                             set_css_classes: &["cpu"],
                             #[watch]
-                            set_label: &format!("{}%", model.system_state.cpu_usage.round()),
+                            set_label: &model.system_state.cpu_usage.to_string(),
                             set_icon: "󰻠"
                         },
 
@@ -180,7 +180,7 @@ impl SimpleComponent for App {
                     #[name(volume_label_icon)]
                     LabelIcon {
                         #[watch]
-                        set_label: &(if *model.system_state.volume > 0.0 { (*model.system_state.volume * 100.0).round().to_string() } else { String::new() }),
+                        set_label: &(if *model.system_state.volume > 0.0 { model.system_state.volume.to_string() } else { String::new() }),
                         #[watch]
                         set_class_active: ("muted", *model.system_state.volume == -1.0),
                         #[watch]

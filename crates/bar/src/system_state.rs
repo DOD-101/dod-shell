@@ -134,7 +134,7 @@ impl SystemState {
                 .with_cpu(CpuRefreshKind::nothing().with_cpu_usage())
                 .with_memory(MemoryRefreshKind::nothing().with_ram()),
         );
-        self.data.cpu_usage = self.sys.global_cpu_usage().into();
+        self.data.cpu_usage = (self.sys.global_cpu_usage() / 100.0).into();
         self.data.used_mem = self.sys.used_memory();
         self.data.mem_usage = (self.data.used_mem as f32 / self.data.total_mem as f32).into();
         self.data.time = OffsetDateTime::now_local().expect("Failed to get time offset.");
