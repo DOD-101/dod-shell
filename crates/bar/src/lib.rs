@@ -212,7 +212,7 @@ impl SimpleComponent for App {
                 // HACK: The check if the id is greater than 0 is a hack, because hyprland-rs
                 // doesn't have a way to check if a workspace is special. This only works because
                 // of my convention to have special workspaces be less than 0. !! UPSTREAM PR NEEDED !!
-                if w.monitor_id.is_some_and(|w| w == init.1 as i128) && w.id > 0 {
+                if w.monitor_id == init.1 as i128 && w.id > 0 {
                     return Some(w.id);
                 }
                 None

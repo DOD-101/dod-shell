@@ -52,7 +52,6 @@
           nativeBuildInputs = with pkgs; [
             pkg-config
             openssl
-            alsa-lib
             wrapGAppsHook
           ];
 
@@ -63,6 +62,7 @@
               gtk4-layer-shell
               pkg-config
               openssl
+              alsa-lib
               wrapGAppsHook
             ]
             ++ lib.optionals pkgs.stdenv.isDarwin [

@@ -10,7 +10,7 @@ common.workspace = true
 dirs.workspace = true
 grass.workspace = true
 gtk4-layer-shell.workspace = true
-hyprland = { git = "https://github.com/hyprland-community/hyprland-rs", branch = "master" }
+hyprland = "0.4.0-beta.2"
 log.workspace = true
 regex = { version = "1.11.1", default-features = false, features = [
   "unicode-perl",
