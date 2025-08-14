@@ -250,7 +250,7 @@ impl SystemState {
     ///
     /// Used in [``Self::update``]
     async fn battery() -> Option<std::io::Result<(Percentage, BatteryStatus)>> {
-        if let Some(bat) = &APP_CONFIG.battery {
+        if let Some(bat) = &APP_CONFIG.bar.battery {
             let battery_path = PathBuf::from("/sys/class/power_supply/").join(bat);
 
             let percentage: std::io::Result<u8> = fs::read_to_string(battery_path.join("capacity"))

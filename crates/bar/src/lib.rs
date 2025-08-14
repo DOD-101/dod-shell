@@ -95,7 +95,7 @@ impl SimpleComponent for App {
                                         .system_state
                                         .disks
                                         .iter()
-                                        .find(|d| *d.name == *APP_CONFIG.disk)
+                                        .find(|d| *d.name == *APP_CONFIG.bar.disk)
                                         .map_or("Err".to_string(), |d| d.used.to_string())
                                         ,
                             set_icon: "󱛟"
@@ -162,7 +162,7 @@ impl SimpleComponent for App {
                     #[name(capslock_icon)]
                     gtk::Label {
                         set_css_classes: &["icon"],
-                        set_visible: APP_CONFIG.toggles.show_capslock,
+                        set_visible: APP_CONFIG.bar.show_capslock,
                         #[watch]
                         set_class_active: ("active", model.system_state.capslock),
                         set_label: "󰘲",
@@ -171,7 +171,7 @@ impl SimpleComponent for App {
                     #[name(numlock_icon)]
                     gtk::Label {
                         set_css_classes: &["icon"],
-                        set_visible: APP_CONFIG.toggles.show_numlock,
+                        set_visible: APP_CONFIG.bar.show_numlock,
                         #[watch]
                         set_class_active: ("active", model.system_state.numlock),
                         set_label: "󰎡",
@@ -251,7 +251,7 @@ impl SimpleComponent for App {
         }
 
         // -- Optional Widgets --
-        if APP_CONFIG.battery.is_some() {
+        if APP_CONFIG.bar.battery.is_some() {
             let battery_widget = LabelIcon::default();
             battery_widget.set_widget_name("battery");
             battery_widget.set_label(&model.system_state.battery.to_string());

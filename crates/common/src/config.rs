@@ -1,9 +1,11 @@
 use std::{
     fs::{self, create_dir_all},
-    path::PathBuf,
     process::exit,
     sync::LazyLock,
 };
+
+pub mod bar;
+pub mod launcher;
 
 use serde::{Deserialize, Serialize};
 
@@ -13,16 +15,8 @@ pub static APP_CONFIG: LazyLock<Config> = LazyLock::new(load_config);
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Config {
-    pub disk: String,
-    pub battery: Option<PathBuf>,
-
-    pub toggles: Toggles,
-}
-
-#[derive(Serialize, Deserialize, Default, Debug)]
-pub struct Toggles {
-    pub show_capslock: bool,
-    pub show_numlock: bool,
+    pub bar: bar::BarConfig,
+    pub launcher: launcher::LauncherConfig,
 }
 
 /// Load the [Config] from file

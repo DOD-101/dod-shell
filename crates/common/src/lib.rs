@@ -3,7 +3,7 @@ use std::{path::PathBuf, sync::LazyLock};
 pub mod config;
 pub mod types;
 
-pub use config::load_config;
+pub use config::{APP_CONFIG, load_config};
 
 pub static CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
     if cfg!(debug_assertions) {
