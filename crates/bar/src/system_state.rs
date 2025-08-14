@@ -1,3 +1,7 @@
+//! This module contains all the code required for getting the "State" (aka. Information) from
+//! other services
+//!
+//! The main type is [``SystemState``]
 use std::{
     collections::HashMap,
     convert::TryInto,
@@ -26,15 +30,25 @@ use zbus::{
     zvariant::{Array, ObjectPath, OwnedObjectPath, OwnedValue, Value},
 };
 
+/// Dbus service name for `NetworkManager` used by [``SystemState::network``]
 const NM_SERVICE_NAME: &str = "org.freedesktop.NetworkManager";
 
+/// [``Regex``] used by [``SystemState::key_states``]
 static CAPSLOCK_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"input\d+::capslock").unwrap());
+/// [``Regex``] used by [``SystemState::key_states``]
 static NUMLOCK_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"input\d+::numlock").unwrap());
 
+/// [``SystemState``] instance to be used throughout rest of the crate
 pub static SYSTEM_STATE: SharedState<SystemState> = SharedState::new();
 
+/// Starts background thread to periodically update [``SYSTEM_STATE``]
+///
+/// If this is not run before starting the main [``relm4::RelmApp``] the state will never be
+/// updated.
+///
+/// Also logs (at the trace level) the time it took to run [``SystemState::update``].
 pub fn init_update_loop() {
     #[allow(clippy::redundant_closure_call)]
     relm4::spawn_local((async || {
@@ -57,13 +71,21 @@ pub fn init_update_loop() {
     })());
 }
 
-// Struct  containing all of the system state
-//
-// Provides the [SystemState::update] method for updating all of the state.
+/// All of the State (aka. Information) gathered from the system
+///
+/// Provides the [``Self::update``] method for updating said state.
+///
+/// Internally holds [``SystemStateData``] to actually hold all of the data.
+///
+/// Other than the data itself it contains Objects needed to update parts of the state, which
+/// shouldn't be re-created each time [``Self::update``] is run due to performance reasons
 #[derive(Debug)]
 pub struct SystemState {
+    /// Used in [``Self::update``]
     sys: System,
+    /// Used in [``Self::update``]
     disks: Disks,
+    /// The actual data
     data: SystemStateData,
 }
 
@@ -94,7 +116,7 @@ impl Default for SystemState {
 
         state.data.total_mem = state.sys.total_memory();
 
-        // NOTE: Not sure if there is a better way
+        // TODO: remove this
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(state.update());
 
@@ -103,6 +125,7 @@ impl Default for SystemState {
 }
 
 impl SystemState {
+    /// Used for updating the state
     #[allow(clippy::cast_precision_loss)]
     #[allow(clippy::cast_possible_truncation)]
     async fn update(&mut self) {
@@ -168,11 +191,18 @@ impl SystemState {
             .unwrap_or_default();
     }
 
+    /// Get's the internal data
+    ///
+    /// ## ⚠️ Warning ⚠️
+    ///
+    /// Will not update data before returning it
     pub fn get_data(&self) -> &SystemStateData {
         &self.data
     }
 
     /// Checks if any devices are connected via bluetooth
+    ///
+    /// Used in [``Self::update``]
     async fn bluetooth(&self) -> zbus::Result<bool> {
         let connection = zbus::Connection::system().await?;
         // Create a proxy to interact with BlueZ's ObjectManager interface
@@ -217,6 +247,8 @@ impl SystemState {
     }
 
     /// Get's information about the battery, if one is set in the shell [Config](``common::config::Config``)
+    ///
+    /// Used in [``Self::update``]
     async fn battery() -> Option<std::io::Result<(Percentage, BatteryStatus)>> {
         if let Some(bat) = &APP_CONFIG.battery {
             let battery_path = PathBuf::from("/sys/class/power_supply/").join(bat);
@@ -245,7 +277,7 @@ impl SystemState {
 
     /// Gathers information about the current internet connection
     ///
-    /// See: [`ConnectionData`]
+    /// Used in [``Self::update``]
     async fn network(&self) -> Result<ConnectionData, Box<dyn std::error::Error>> {
         let connection = zbus::Connection::system().await?;
         let nm_iface = InterfaceName::from_str_unchecked(NM_SERVICE_NAME);
@@ -336,6 +368,8 @@ impl SystemState {
     }
 
     /// Checks if capslock / numlock are enabled
+    ///
+    /// Used in [``Self::update``]
     async fn key_states() -> std::io::Result<(bool, bool)> {
         // Helper function to read the brightness of the given path
         let read_brightness = async |path: &str| {
@@ -377,6 +411,8 @@ impl SystemState {
     /// Get's the current volume of the default audio output
     ///
     /// If the default audio sink is muted returns `-1`
+    ///
+    /// Used in [``Self::update``]
     fn volume() -> alsa::Result<Percentage> {
         let mixer = Mixer::new("default", true)?;
 
@@ -403,20 +439,29 @@ impl SystemState {
     }
 }
 
+/// Data component of [``SystemState``]
 #[derive(Debug, Clone)]
 // TODO: Impl Default on this
 pub struct SystemStateData {
-    pub total_mem: u64,
+    /// CPU usage
     pub cpu_usage: Percentage,
-    pub mem_usage: Percentage,
+    /// Amount of memory on the system (only RAM no SWAP) in bytes
+    pub total_mem: u64,
+    /// Amount of memory in use (only RAM no SWAP) in bytes
     pub used_mem: u64,
+    /// Memory (only RAM no SWAP) usage
+    pub mem_usage: Percentage,
+    /// The time
     pub time: OffsetDateTime,
+    /// The current workspace number
     pub workspace: i32,
+    /// Data about the network connection
     pub network: ConnectionData,
-    /// Battery Charge (in %)
+    /// Battery Charge
     pub battery: Percentage,
     /// Battery Status
     pub battery_status: BatteryStatus,
+    /// List of data about different disks on the system
     pub disks: Arc<[DiskData]>,
     /// If there are currently any devices connected via Bluetooth
     pub bluetooth: bool,
@@ -428,28 +473,31 @@ pub struct SystemStateData {
     pub volume: Percentage,
 }
 
+/// Information about a disk
+///
+/// See: [``sysinfo::Disks``]
 #[derive(Debug, Clone)]
 pub struct DiskData {
-    /// The name of the disk
+    /// Name
     pub name: OsString,
-    /// The total space on the disk (in bytes)
+    /// Total space (in bytes)
     pub size: u64,
-    /// How much space is free on the disk (in bytes)
+    /// Free space (in bytes)
     pub free: u64,
-    /// How much space is used on the disk (in % of size)
+    /// Space used
     pub used: Percentage,
 }
 
-/// Data about the current internet connection
+/// Data about a network connection
 #[derive(Debug, Default, Clone, PartialEq)]
 pub enum ConnectionData {
-    /// The connection to the internet is wired
+    /// Connection is wired
     Wired,
-    /// The connection to the internet is wireless
+    /// Connection is wireless
     Wireless {
-        /// The signal strength as a percentage
+        /// Signal strength
         signal: Percentage,
-        /// The SSID of the current Wi-Fi network connected to
+        /// SSID of the Wi-Fi network
         ssid: String,
     },
     /// There is currently no connection to the internet
@@ -457,10 +505,17 @@ pub enum ConnectionData {
     None,
 }
 
+/// State of a battery
 #[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BatteryStatus {
+    /// Loosing charge
     Discharging,
+    /// Being charged
     Charging,
+    /// Any other states
+    ///
+    /// If any other states are encountered they should be added to this enum. This is only
+    /// intended to act as a fallback and for [``Default``].
     #[default]
     Unknown,
 }
