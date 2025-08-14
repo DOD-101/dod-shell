@@ -26,6 +26,13 @@ pub trait LauncherMode {
 /// The default mode of the Launcher
 ///
 /// By itself this mode doesn't do anything, but allows the selection of other modes via prefixes.
+///
+/// ## Performance
+///
+/// Since the creation of this creates instances of all other modes, it should only be called once in
+/// the lifetime of the application. Dropping the returned [AllMode] will therefore also loose
+/// all state of the other modes.
+#[derive(Default)]
 pub struct AllMode {
     launch: LaunchMode,
     math: MathMode,
@@ -33,23 +40,6 @@ pub struct AllMode {
 }
 
 impl AllMode {
-    /// Create a new instance of the default mode
-    ///
-    /// Creates instances of all other modes, that can be selected from this mode.
-    ///
-    /// ## Performance
-    ///
-    /// Since this function creates instances of all other modes, it should only be called once in
-    /// the lifetime of the application. Dropping the returned [AllMode] will therefore also loose
-    /// all state of the other modes.
-    pub fn new() -> Self {
-        Self {
-            launch: LaunchMode::new(),
-            math: MathMode::new(),
-            search: SearchMode::new(),
-        }
-    }
-
     /// Helper function to pick the correct mode based on the prefix of the search query
     fn pick_mode<'a>(&self, query: &'a str) -> (&dyn LauncherMode, &'a str) {
         let query = query.trim();

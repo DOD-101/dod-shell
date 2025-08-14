@@ -13,8 +13,8 @@ pub struct MathMode {
     context: HashMapContext,
 }
 
-impl MathMode {
-    pub fn new() -> Self {
+impl Default for MathMode {
+    fn default() -> Self {
         Self {
             context: context_map! {
                 "e" => float E,

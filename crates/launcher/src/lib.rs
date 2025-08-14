@@ -29,6 +29,7 @@ pub use mode::{AllMode, LauncherMode};
 use results::LauncherResults;
 
 /// The main [relm4::Component] for the launcher
+#[derive(Default)]
 pub struct App {
     /// The results of the search
     results: LauncherResults,
@@ -105,10 +106,7 @@ impl SimpleComponent for App {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let model = App {
-            results: LauncherResults::default(),
-            mode: AllMode::new(),
-        };
+        let model = App::default();
 
         let results_box = model.results.results.widget();
         let widgets = view_output!();

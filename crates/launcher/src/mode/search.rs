@@ -7,13 +7,8 @@ use crate::mode::LauncherMode;
 use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 
 /// See module level documentation
+#[derive(Default)]
 pub struct SearchMode {}
-
-impl SearchMode {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
 
 impl LauncherMode for SearchMode {
     fn search(&self, query: &str) -> Vec<String> {

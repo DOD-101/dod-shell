@@ -18,13 +18,6 @@ pub struct LaunchMode {
 }
 
 impl LaunchMode {
-    pub fn new() -> Self {
-        LaunchMode {
-            matcher: SkimMatcherV2::default(),
-            data: LaunchMode::load_data().unwrap_or_default(),
-        }
-    }
-
     /// Helper function to load the data from the config file
     fn load_data() -> Result<LaunchData> {
         let path = common::CONFIG_PATH.join("data/launch.json");
@@ -47,6 +40,15 @@ impl LaunchMode {
 
                 Err(e.into())
             }
+        }
+    }
+}
+
+impl Default for LaunchMode {
+    fn default() -> Self {
+        LaunchMode {
+            matcher: SkimMatcherV2::default(),
+            data: LaunchMode::load_data().unwrap_or_default(),
         }
     }
 }
