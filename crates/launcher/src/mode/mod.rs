@@ -1,10 +1,12 @@
 //! Different modes of the launcher
 //!
 //! See [AllMode] for more information.
+mod clipboard;
 mod launch;
 mod math;
 mod search;
 
+pub use clipboard::ClipboardMode;
 pub use launch::LaunchMode;
 pub use math::MathMode;
 pub use search::SearchMode;
@@ -37,6 +39,7 @@ pub struct AllMode {
     launch: LaunchMode,
     math: MathMode,
     search: SearchMode,
+    clipboard: ClipboardMode,
 }
 
 impl AllMode {
@@ -47,6 +50,7 @@ impl AllMode {
         match query.chars().next() {
             Some('=') => (&self.math, query.strip_prefix('=').unwrap()),
             Some('?') => (&self.search, query.strip_prefix('?').unwrap()),
+            Some('&') => (&self.clipboard, query.strip_prefix('&').unwrap()),
             _ => (&self.launch, query),
         }
     }

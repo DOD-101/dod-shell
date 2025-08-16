@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 /// See module level documentation
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct LauncherConfig {
+    /// Maximum amount of results to show
+    pub max_results: usize,
     /// See [``LaunchModeConfig``]
     pub launch_mode: LaunchModeConfig,
 }
@@ -24,7 +26,6 @@ pub struct LaunchApp {
     pub name: String,
     /// Command run to launch the app, if selected
     pub cmd: String,
-
     /// A longer description of the app
     ///
     /// Not currently used

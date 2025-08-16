@@ -141,6 +141,11 @@ impl SimpleComponent for App {
 
         action_group.register_for_widget(&widgets.main_window);
 
+        // "Search" once to populate results
+        let _ = sender
+            .input_sender()
+            .send(AppMsg::SearchUpdate("".to_string()));
+
         relm4::set_global_css(&common::get_css());
         ComponentParts { model, widgets }
     }
