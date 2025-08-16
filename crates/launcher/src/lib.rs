@@ -60,7 +60,7 @@ pub enum AppMsg {
 /// Generated with [macro@relm4::component].
 #[relm4::component(pub)]
 impl SimpleComponent for App {
-    type Init = ();
+    type Init = Option<String>;
     type Input = AppMsg;
     type Output = ();
 
@@ -72,7 +72,6 @@ impl SimpleComponent for App {
             auto_exclusive_zone_enable: (),
             set_focusable: true,
             set_keyboard_mode: KeyboardMode::OnDemand,
-            // set_margin: (Edge::Left, 40),
             set_anchor: (Edge::Top, false),
             set_anchor: (Edge::Left, false),
             set_title: Some("Launcher"),
@@ -102,7 +101,7 @@ impl SimpleComponent for App {
     }
 
     fn init(
-        _: Self::Init,
+        search_term: Self::Init,
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
@@ -141,10 +140,16 @@ impl SimpleComponent for App {
 
         action_group.register_for_widget(&widgets.main_window);
 
-        // "Search" once to populate results
-        let _ = sender
-            .input_sender()
-            .send(AppMsg::SearchUpdate("".to_string()));
+        if let Some(initial_search) = search_term {
+            relm4::gtk::prelude::GtkWindowExt::set_focus(&root, Some(&widgets.main_entry));
+
+            widgets.main_entry.set_text(&initial_search);
+            widgets.main_entry.set_position(initial_search.len() as i32);
+        } else {
+            let _ = sender
+                .input_sender()
+                .send(AppMsg::SearchUpdate("".to_string()));
+        }
 
         relm4::set_global_css(&common::get_css());
         ComponentParts { model, widgets }
