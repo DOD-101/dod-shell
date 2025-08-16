@@ -209,10 +209,8 @@ impl SimpleComponent for App {
             .unwrap()
             .iter()
             .filter_map(|w| {
-                // HACK: The check if the id is greater than 0 is a hack, because hyprland-rs
-                // doesn't have a way to check if a workspace is special. This only works because
-                // of my convention to have special workspaces be less than 0. !! UPSTREAM PR NEEDED !!
-                if w.monitor_id == init.1 as i128 && w.id > 0 {
+                // INFO: Could create upstream method to check for special workspaces
+                if w.monitor_id == init.1 as i128 && !w.name.contains("special:") {
                     return Some(w.id);
                 }
                 None
