@@ -140,11 +140,16 @@ impl SimpleComponent for App {
 
         action_group.register_for_widget(&widgets.main_window);
 
-        let initial_search = search_term.unwrap_or_default();
-        relm4::gtk::prelude::GtkWindowExt::set_focus(&root, Some(&widgets.main_entry));
+        if let Some(initial_search) = search_term {
+            relm4::gtk::prelude::GtkWindowExt::set_focus(&root, Some(&widgets.main_entry));
 
-        widgets.main_entry.set_text(&initial_search);
-        widgets.main_entry.set_position(initial_search.len() as i32);
+            widgets.main_entry.set_text(&initial_search);
+            widgets.main_entry.set_position(initial_search.len() as i32);
+        } else {
+            let _ = sender
+                .input_sender()
+                .send(AppMsg::SearchUpdate("".to_string()));
+        }
 
         relm4::set_global_css(&common::get_css());
         ComponentParts { model, widgets }
