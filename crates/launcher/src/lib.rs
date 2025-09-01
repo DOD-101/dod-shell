@@ -22,6 +22,8 @@ use relm4::{
     prelude::*,
 };
 
+use common::Config;
+
 mod mode;
 mod results;
 
@@ -35,6 +37,16 @@ pub struct App {
     results: LauncherResults,
     /// The instance of [AllMode] for the launcher
     mode: AllMode,
+    config: Config,
+}
+
+impl App {
+    fn new_with_config(config: Config) -> Self {
+        Self {
+            config,
+            ..Default::default()
+        }
+    }
 }
 
 relm4::new_action_group!(LauncherActionGroup, "launcher");
@@ -60,7 +72,7 @@ pub enum AppMsg {
 /// Generated with [macro@relm4::component].
 #[relm4::component(pub)]
 impl SimpleComponent for App {
-    type Init = Option<String>;
+    type Init = (Option<String>, deamon::config::Config);
     type Input = AppMsg;
     type Output = ();
 
@@ -101,11 +113,15 @@ impl SimpleComponent for App {
     }
 
     fn init(
-        search_term: Self::Init,
+        init: Self::Init,
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let model = App::default();
+        relm4::set_global_css(&init.1.css);
+        let model = App::new_with_config(
+            toml::from_str(&init.1.toml)
+                .expect("Config string returned by deamon should always be valid."),
+        );
 
         let results_box = model.results.results.widget();
         let widgets = view_output!();
@@ -140,7 +156,7 @@ impl SimpleComponent for App {
 
         action_group.register_for_widget(&widgets.main_window);
 
-        if let Some(initial_search) = search_term {
+        if let Some(initial_search) = init.0 {
             relm4::gtk::prelude::GtkWindowExt::set_focus(&root, Some(&widgets.main_entry));
 
             widgets.main_entry.set_text(&initial_search);
@@ -151,7 +167,6 @@ impl SimpleComponent for App {
                 .send(AppMsg::SearchUpdate("".to_string()));
         }
 
-        relm4::set_global_css(&common::get_css());
         ComponentParts { model, widgets }
     }
 
@@ -161,15 +176,19 @@ impl SimpleComponent for App {
                 {
                     let mut results = self.results.results.guard();
                     results.clear();
-                    self.mode.search(&text).into_iter().for_each(|o| {
-                        results.push_back(o);
-                    });
+                    self.mode
+                        .search(&text, &self.config)
+                        .into_iter()
+                        .for_each(|o| {
+                            results.push_back(o);
+                        });
                 }
 
                 self.results.reset_and_set();
             }
             AppMsg::SearchFinish(text) => {
-                self.mode.finish(&text, self.results.get_selected_index());
+                self.mode
+                    .finish(&text, &self.config, self.results.get_selected_index());
                 relm4::main_application().quit();
             }
             AppMsg::ResultsMoveUp => {

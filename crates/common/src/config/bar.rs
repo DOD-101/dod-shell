@@ -9,7 +9,7 @@ pub struct BarConfig {
     /// Path to main disk you want information displayed about
     ///
     /// This should be a path in the format: `/dev/sda1`
-    pub disk: PathBuf,
+    pub disk: String,
     /// Path to the device battery
     ///
     /// If this option is not set no information about the device's battery will be shown

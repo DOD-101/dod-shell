@@ -1,21 +1,22 @@
 [package]
 edition.workspace = true
 license.workspace = true
-name = "bar"
+name = "deamon"
 version.workspace = true
 
 [dependencies]
+alsa = "0.9.1"
 common.workspace = true
-deamon.workspace = true
-dirs.workspace = true
 futures-util.workspace = true
 grass.workspace = true
-gtk4-layer-shell.workspace = true
 hyprland.workspace = true
 log.workspace = true
-relm4.workspace = true
+regex = { version = "1.11.1", default-features = false, features = [
+  "unicode-perl",
+] }
 serde.workspace = true
 simple_logger.workspace = true
+sysinfo.workspace = true
 time.workspace = true
 tokio.workspace = true
 toml.workspace = true
@@ -25,5 +26,5 @@ zbus.workspace = true
 workspace = true
 
 [[bin]]
-name = "dod-shell-bar"
+name = "dod-shell-deamon"
 path = "src/main.rs"

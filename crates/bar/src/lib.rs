@@ -1,4 +1,5 @@
-use common::config::APP_CONFIG;
+use common::Config;
+use futures_util::StreamExt;
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
 use hyprland::shared::HyprData;
 use relm4::{
@@ -10,20 +11,21 @@ use relm4::{
     },
     prelude::*,
 };
-use time::macros::format_description;
+use time::{OffsetDateTime, UtcOffset, macros::format_description};
 
 #[cfg(debug_assertions)]
 use gtk4_layer_shell::KeyboardMode;
 
+use deamon::{
+    config::ConfigProxy,
+    system_state::{BatteryStatus, ConnectionData, SystemStateData, SystemStateProxy},
+};
+
 mod label_icon;
-mod system_state;
 mod workspaces;
 
 use label_icon::LabelIcon;
-use system_state::{SYSTEM_STATE, SystemStateData, init_update_loop};
 use workspaces::Workspaces;
-
-use crate::system_state::{BatteryStatus, ConnectionData};
 
 const DATE_TIME_FORMAT: &[time::format_description::BorrowedFormatItem<'_>] =
     format_description!("[hour]:[minute]:[second] | [year]-[month]-[day]");
@@ -32,11 +34,14 @@ const DATE_TIME_FORMAT: &[time::format_description::BorrowedFormatItem<'_>] =
 pub struct App {
     workspaces: Controller<Workspaces>,
     system_state: SystemStateData,
+    config: Config,
 }
 
 #[derive(Debug)]
 pub enum AppMsg {
     UpdatedSystemState(SystemStateData),
+    ConfigUpdated(Config),
+    CssUpdated(String),
 }
 
 #[allow(clippy::float_cmp)]
@@ -95,7 +100,7 @@ impl SimpleComponent for App {
                                         .system_state
                                         .disks
                                         .iter()
-                                        .find(|d| *d.name == *APP_CONFIG.bar.disk)
+                                        .find(|d| d.name == *model.config.bar.disk)
                                         .map_or("Err".to_string(), |d| d.used.to_string())
                                         ,
                             set_icon: "󱛟"
@@ -112,7 +117,13 @@ impl SimpleComponent for App {
                     #[name(date_time)]
                     gtk::Label {
                         #[watch]
-                        set_label: &model.system_state.time.format(&DATE_TIME_FORMAT).unwrap()
+                        set_label: &OffsetDateTime::from_unix_timestamp(model.system_state.time)
+                                        .expect("Unix timestamp from deamon should always be valid")
+                                        .to_offset(
+                                            UtcOffset::current_local_offset()
+                                            .inspect_err(|e| log::error!("Failed to get local offset: {e}"))
+                                            .unwrap_or(UtcOffset::UTC))
+                                        .format(&DATE_TIME_FORMAT).unwrap()
                     }
                 },
 
@@ -162,7 +173,8 @@ impl SimpleComponent for App {
                     #[name(capslock_icon)]
                     gtk::Label {
                         set_css_classes: &["icon"],
-                        set_visible: APP_CONFIG.bar.show_capslock,
+                        #[watch]
+                        set_visible: model.config.bar.show_capslock,
                         #[watch]
                         set_class_active: ("active", model.system_state.capslock),
                         set_label: "󰘲",
@@ -171,7 +183,8 @@ impl SimpleComponent for App {
                     #[name(numlock_icon)]
                     gtk::Label {
                         set_css_classes: &["icon"],
-                        set_visible: APP_CONFIG.bar.show_numlock,
+                        #[watch]
+                        set_visible: model.config.bar.show_numlock,
                         #[watch]
                         set_class_active: ("active", model.system_state.numlock),
                         set_label: "󰎡",
@@ -219,11 +232,44 @@ impl SimpleComponent for App {
 
         let model = Self {
             workspaces: Workspaces::builder().launch(workspaces).detach(),
-            system_state: SYSTEM_STATE.read().get_data().clone(),
+            system_state: SystemStateData::default(),
+            config: Config::default(),
         };
 
-        SYSTEM_STATE.subscribe_optional(sender.input_sender(), |d| {
-            Some(AppMsg::UpdatedSystemState(d.get_data().clone()))
+        let update_sender = sender.input_sender().clone();
+        relm4::spawn(async move {
+            let connection = zbus::Connection::session().await?;
+
+            let config_proxy = ConfigProxy::new(&connection).await?;
+            let state_proxy = SystemStateProxy::new(&connection).await?;
+
+            let mut state_stream = state_proxy.receive_state_data_changed().await;
+            let mut config_stream = config_proxy.receive_config_changed().await;
+            let mut css_stream = config_proxy.receive_css_changed().await;
+
+            loop {
+                if tokio::select! {
+                    Some(c) = config_stream.next() => {
+                        let config = toml::from_str(&c.get().await?)
+                            .expect("Config string returned by deamon should always be valid.");
+
+                        update_sender.send(AppMsg::ConfigUpdated(config))
+                    }
+                    Some(c) = css_stream.next() => {
+                        update_sender.send(AppMsg::CssUpdated(c.get().await?))
+                    }
+                    Some(s) = state_stream.next() => {
+                        update_sender.send(AppMsg::UpdatedSystemState(s.get().await?))
+                    }
+                }
+                .is_err()
+                {
+                    log::error!("Failed to send config-related update to app.");
+                }
+            }
+
+            #[allow(unreachable_code)]
+            Ok::<(), zbus::Error>(())
         });
 
         let workspaces_widget = model.workspaces.widget();
@@ -248,8 +294,9 @@ impl SimpleComponent for App {
                 .set_keyboard_mode(KeyboardMode::OnDemand);
         }
 
+        // BUG: This won't ever update
         // -- Optional Widgets --
-        if APP_CONFIG.bar.battery.is_some() {
+        if model.config.bar.battery.is_some() {
             let battery_widget = LabelIcon::default();
             battery_widget.set_widget_name("battery");
             battery_widget.set_label(&model.system_state.battery.to_string());
@@ -290,7 +337,6 @@ impl SimpleComponent for App {
             }
         }
 
-        relm4::set_global_css(&common::get_css());
         ComponentParts { model, widgets }
     }
 
@@ -306,6 +352,8 @@ impl SimpleComponent for App {
                     ))
                     .expect("Failed to send WorkspaceMsg to component.");
             }
+            AppMsg::ConfigUpdated(config) => self.config = config,
+            AppMsg::CssUpdated(css) => relm4::set_global_css(&css),
         }
     }
 }
@@ -321,8 +369,6 @@ pub fn launch_on_all_monitors() {
     let monitor = relm4::gtk::gdk::Display::default()
         .and_then(|d| d.monitors().item(0).and_downcast::<Monitor>())
         .expect("Failed to get primary Monitor.");
-
-    init_update_loop();
 
     app.run::<App>((monitor, 0, true));
 }

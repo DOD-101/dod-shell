@@ -5,13 +5,13 @@
 use std::{
     collections::HashMap,
     convert::TryInto,
-    ffi::OsString,
     path::{Path, PathBuf},
-    sync::{Arc, LazyLock},
-    time::Duration,
+    sync::LazyLock,
 };
 
-use common::{config::APP_CONFIG, types::Percentage};
+use zbus::{interface, zvariant};
+
+use common::types::Percentage;
 
 use alsa::{
     Mixer,
@@ -19,9 +19,8 @@ use alsa::{
 };
 use hyprland::shared::HyprDataActive;
 use regex::Regex;
-use relm4::SharedState;
 use sysinfo::{CpuRefreshKind, Disks, MemoryRefreshKind, RefreshKind, System};
-use time::OffsetDateTime;
+use time::UtcDateTime;
 use tokio::fs;
 use zbus::{
     Proxy,
@@ -40,37 +39,8 @@ static CAPSLOCK_PATTERN: LazyLock<Regex> =
 static NUMLOCK_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"input\d+::numlock").unwrap());
 
-/// [``SystemState``] instance to be used throughout rest of the crate
-pub static SYSTEM_STATE: SharedState<SystemState> = SharedState::new();
-
-/// Starts background thread to periodically update [``SYSTEM_STATE``]
+/// TODO: CHANGE THESE DOCS
 ///
-/// If this is not run before starting the main [``relm4::RelmApp``] the state will never be
-/// updated.
-///
-/// Also logs (at the trace level) the time it took to run [``SystemState::update``].
-pub fn init_update_loop() {
-    #[allow(clippy::redundant_closure_call)]
-    relm4::spawn_local((async || {
-        let mut update_interval = tokio::time::interval(Duration::from_millis(500));
-
-        loop {
-            let start = tokio::time::Instant::now();
-            let mut lock = SYSTEM_STATE.write();
-
-            lock.update().await;
-
-            let end = tokio::time::Instant::now();
-
-            let delta = (end - start).as_millis();
-
-            log::trace!("State updated. Took {delta}ms");
-
-            update_interval.tick().await;
-        }
-    })());
-}
-
 /// All of the State (aka. Information) gathered from the system
 ///
 /// Provides the [``Self::update``] method for updating said state.
@@ -79,66 +49,52 @@ pub fn init_update_loop() {
 ///
 /// Other than the data itself it contains Objects needed to update parts of the state, which
 /// shouldn't be re-created each time [``Self::update``] is run due to performance reasons
+///
+/// # Dbus
+///
 #[derive(Debug)]
 pub struct SystemState {
     /// Used in [``Self::update``]
     sys: System,
     /// Used in [``Self::update``]
     disks: Disks,
-    /// The actual data
+    /// Actual data
     data: SystemStateData,
-}
-
-impl Default for SystemState {
-    fn default() -> Self {
-        let sys = System::new_all();
-
-        let mut state = Self {
-            sys,
-            disks: Disks::new(),
-            data: SystemStateData {
-                total_mem: 0,
-                cpu_usage: Percentage::default(),
-                mem_usage: Percentage::default(),
-                used_mem: 0,
-                time: OffsetDateTime::UNIX_EPOCH,
-                workspace: 0,
-                network: ConnectionData::default(),
-                battery: Percentage::default(),
-                battery_status: BatteryStatus::default(),
-                disks: Arc::new([]),
-                bluetooth: false,
-                capslock: false,
-                numlock: false,
-                volume: Percentage::default(),
-            },
-        };
-
-        state.data.total_mem = state.sys.total_memory();
-
-        // TODO: remove this
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(state.update());
-
-        state
-    }
+    config: common::Config,
 }
 
 impl SystemState {
+    #[must_use]
+    pub fn new(config: common::Config) -> Self {
+        Self {
+            sys: System::default(),
+            disks: Disks::default(),
+            data: SystemStateData::default(),
+            config,
+        }
+    }
+
+    pub fn set_config(&mut self, config: common::Config) {
+        self.config = config;
+    }
+
     /// Used for updating the state
     #[allow(clippy::cast_precision_loss)]
     #[allow(clippy::cast_possible_truncation)]
-    async fn update(&mut self) {
+    pub async fn update(&mut self) {
         self.sys.refresh_specifics(
             RefreshKind::nothing()
                 .with_cpu(CpuRefreshKind::nothing().with_cpu_usage())
                 .with_memory(MemoryRefreshKind::nothing().with_ram()),
         );
-        self.data.cpu_usage = (self.sys.global_cpu_usage() / 100.0).into();
+        self.data.cpu_usage = (f64::from(self.sys.global_cpu_usage()) / 100.0).into();
         self.data.used_mem = self.sys.used_memory();
-        self.data.mem_usage = (self.data.used_mem as f32 / self.data.total_mem as f32).into();
-        self.data.time = OffsetDateTime::now_local().expect("Failed to get time offset.");
-        self.data.workspace = hyprland::data::Workspace::get_active().unwrap().id;
+        self.data.total_mem = self.sys.total_memory();
+        self.data.mem_usage = (self.data.used_mem as f64 / self.data.total_mem as f64).into();
+        self.data.time = UtcDateTime::now().unix_timestamp();
+        self.data.workspace = hyprland::data::Workspace::get_active()
+            .inspect_err(|e| log::error!("Failed to get an active workspace: {e}"))
+            .map_or(0, |w| w.id);
 
         self.disks.refresh(true);
 
@@ -149,9 +105,9 @@ impl SystemState {
             .map(|d| {
                 let size = d.total_space();
                 let free = d.available_space();
-                let used = (((size as f64 - free as f64) / size as f64) as f32).into();
+                let used = ((size as f64 - free as f64) / size as f64).into();
                 DiskData {
-                    name: d.name().to_os_string(),
+                    name: d.name().to_string_lossy().to_string(),
                     size,
                     free,
                     used,
@@ -160,10 +116,10 @@ impl SystemState {
             .collect();
 
         let (bluetooth, network, key_states, battery_data) = tokio::join!(
-            self.bluetooth(),
-            self.network(),
-            SystemState::key_states(),
-            SystemState::battery()
+            self.update_bluetooth(),
+            self.update_network(),
+            SystemState::update_key_states(),
+            self.update_battery()
         );
 
         // NOTE: Might be nice to use a macro here
@@ -186,24 +142,15 @@ impl SystemState {
                 .unwrap_or_default();
         }
 
-        self.data.volume = SystemState::volume()
+        self.data.volume = SystemState::update_volume()
             .inspect_err(|e| log::error!("Failed to update volume information: {e}"))
             .unwrap_or_default();
-    }
-
-    /// Get's the internal data
-    ///
-    /// ## ⚠️ Warning ⚠️
-    ///
-    /// Will not update data before returning it
-    pub fn get_data(&self) -> &SystemStateData {
-        &self.data
     }
 
     /// Checks if any devices are connected via bluetooth
     ///
     /// Used in [``Self::update``]
-    async fn bluetooth(&self) -> zbus::Result<bool> {
+    async fn update_bluetooth(&self) -> zbus::Result<bool> {
         let connection = zbus::Connection::system().await?;
         // Create a proxy to interact with BlueZ's ObjectManager interface
         // ObjectManager provides a way to discover all available objects and their interfaces
@@ -249,8 +196,8 @@ impl SystemState {
     /// Get's information about the battery, if one is set in the shell [Config](``common::config::Config``)
     ///
     /// Used in [``Self::update``]
-    async fn battery() -> Option<std::io::Result<(Percentage, BatteryStatus)>> {
-        if let Some(bat) = &APP_CONFIG.bar.battery {
+    async fn update_battery(&self) -> Option<std::io::Result<(Percentage, BatteryStatus)>> {
+        if let Some(bat) = &self.config.bar.battery {
             let battery_path = PathBuf::from("/sys/class/power_supply/").join(bat);
 
             let percentage: std::io::Result<u8> = fs::read_to_string(battery_path.join("capacity"))
@@ -278,7 +225,7 @@ impl SystemState {
     /// Gathers information about the current internet connection
     ///
     /// Used in [``Self::update``]
-    async fn network(&self) -> Result<ConnectionData, Box<dyn std::error::Error>> {
+    async fn update_network(&self) -> Result<ConnectionData, Box<dyn std::error::Error>> {
         let connection = zbus::Connection::system().await?;
         let nm_iface = InterfaceName::from_str_unchecked(NM_SERVICE_NAME);
         let nm_proxy = Proxy::new(
@@ -370,7 +317,7 @@ impl SystemState {
     /// Checks if capslock / numlock are enabled
     ///
     /// Used in [``Self::update``]
-    async fn key_states() -> std::io::Result<(bool, bool)> {
+    async fn update_key_states() -> std::io::Result<(bool, bool)> {
         // Helper function to read the brightness of the given path
         let read_brightness = async |path: &str| {
             let content = fs::read_to_string(path).await?;
@@ -413,7 +360,7 @@ impl SystemState {
     /// If the default audio sink is muted returns `-1`
     ///
     /// Used in [``Self::update``]
-    fn volume() -> alsa::Result<Percentage> {
+    fn update_volume() -> alsa::Result<Percentage> {
         let mixer = Mixer::new("default", true)?;
 
         let selem_id = SelemId::new("Master", 0);
@@ -431,7 +378,7 @@ impl SystemState {
                 }
 
                 #[allow(clippy::cast_precision_loss)]
-                return Ok((volume as f32 / max as f32).into());
+                return Ok((volume as f64 / max as f64).into());
             }
         }
 
@@ -439,9 +386,23 @@ impl SystemState {
     }
 }
 
+#[interface(
+    name = "dod.shell.Deamon.SystemState",
+    proxy(
+        gen_blocking = false,
+        default_path = "/dod/shell/Deamon",
+        default_service = "dod.shell.Deamon"
+    )
+)]
+impl SystemState {
+    #[zbus(property)]
+    fn state_data(&self) -> SystemStateData {
+        self.data.clone()
+    }
+}
+
 /// Data component of [``SystemState``]
-#[derive(Debug, Clone)]
-// TODO: Impl Default on this
+#[derive(Debug, Clone, zvariant::Value, zvariant::OwnedValue, zvariant::Type, Default)]
 pub struct SystemStateData {
     /// CPU usage
     pub cpu_usage: Percentage,
@@ -451,8 +412,8 @@ pub struct SystemStateData {
     pub used_mem: u64,
     /// Memory (only RAM no SWAP) usage
     pub mem_usage: Percentage,
-    /// The time
-    pub time: OffsetDateTime,
+    /// The time as a unix timestamp
+    pub time: i64,
     /// The current workspace number
     pub workspace: i32,
     /// Data about the network connection
@@ -462,7 +423,7 @@ pub struct SystemStateData {
     /// Battery Status
     pub battery_status: BatteryStatus,
     /// List of data about different disks on the system
-    pub disks: Arc<[DiskData]>,
+    pub disks: Vec<DiskData>,
     /// If there are currently any devices connected via Bluetooth
     pub bluetooth: bool,
     /// If capslock is active
@@ -476,10 +437,10 @@ pub struct SystemStateData {
 /// Information about a disk
 ///
 /// See: [``sysinfo::Disks``]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, zbus::zvariant::Value, zbus::zvariant::OwnedValue, zvariant::Type)]
 pub struct DiskData {
     /// Name
-    pub name: OsString,
+    pub name: String,
     /// Total space (in bytes)
     pub size: u64,
     /// Free space (in bytes)
@@ -489,7 +450,8 @@ pub struct DiskData {
 }
 
 /// Data about a network connection
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq, zvariant::Type)]
+#[zvariant(signature = "s")]
 pub enum ConnectionData {
     /// Connection is wired
     Wired,
@@ -505,8 +467,77 @@ pub enum ConnectionData {
     None,
 }
 
+impl TryFrom<zvariant::Value<'_>> for ConnectionData {
+    type Error = zvariant::Error;
+    fn try_from(value: zvariant::Value<'_>) -> Result<Self, Self::Error> {
+        if let zvariant::Value::Structure(v) = value {
+            let mut field_iter = v.into_fields().into_iter();
+
+            return match field_iter.next() {
+                Some(zvariant::Value::I32(0)) => Ok(ConnectionData::Wired),
+                Some(zvariant::Value::I32(1)) => Ok(ConnectionData::Wireless {
+                    signal: field_iter
+                        .next()
+                        .ok_or(zvariant::Error::IncorrectType)?
+                        .try_to_owned()?
+                        .try_into()?,
+                    ssid: field_iter
+                        .next()
+                        .ok_or(zvariant::Error::IncorrectType)?
+                        .try_into()?,
+                }),
+                Some(zvariant::Value::I32(2)) => Ok(ConnectionData::None),
+                _ => Err(zvariant::Error::IncorrectType),
+            };
+        }
+
+        dbg!("here");
+
+        Err(zvariant::Error::IncorrectType)
+    }
+}
+
+impl From<ConnectionData> for zvariant::OwnedValue {
+    fn from(value: ConnectionData) -> Self {
+        std::convert::Into::<zvariant::Value>::into(value)
+            .try_to_owned()
+            .expect("Should never fail since we don't have a fd (see docs for .try_to_owned()).")
+    }
+}
+
+impl TryFrom<zvariant::OwnedValue> for ConnectionData {
+    type Error = zvariant::Error;
+
+    fn try_from(value: zvariant::OwnedValue) -> Result<Self, Self::Error> {
+        dbg!(value);
+        todo!();
+    }
+}
+
+impl From<ConnectionData> for zvariant::Structure<'_> {
+    fn from(value: ConnectionData) -> Self {
+        match value {
+            ConnectionData::Wired => (0, Percentage::default(), String::default()),
+            ConnectionData::Wireless { signal, ssid } => (1, signal, ssid),
+            ConnectionData::None => (2, Percentage::default(), String::default()),
+        }
+        .into()
+    }
+}
+
 /// State of a battery
-#[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Default,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    zbus::zvariant::Value,
+    zbus::zvariant::OwnedValue,
+    zvariant::Type,
+)]
 pub enum BatteryStatus {
     /// Loosing charge
     Discharging,

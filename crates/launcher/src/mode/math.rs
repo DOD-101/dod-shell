@@ -4,6 +4,7 @@
 use std::f64::consts::{E, PI};
 use std::process::Command;
 
+use common::Config;
 use evalexpr::{HashMapContext, context_map};
 
 use crate::mode::LauncherMode;
@@ -26,7 +27,7 @@ impl Default for MathMode {
 }
 
 impl LauncherMode for MathMode {
-    fn search(&self, query: &str) -> Vec<String> {
+    fn search(&self, query: &str, _config: &Config) -> Vec<String> {
         if query.is_empty() {
             return vec![String::from("0")];
         }
@@ -37,8 +38,8 @@ impl LauncherMode for MathMode {
         }
     }
 
-    fn finish(&self, query: &str, _index: usize) {
-        let result = &self.search(query)[0];
+    fn finish(&self, query: &str, config: &Config, _index: usize) {
+        let result = &self.search(query, config)[0];
 
         let _ = Command::new("wl-copy").arg(result).spawn();
     }

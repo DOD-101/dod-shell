@@ -7,6 +7,7 @@ mod math;
 mod search;
 
 pub use clipboard::ClipboardMode;
+use common::Config;
 pub use launch::LaunchMode;
 pub use math::MathMode;
 pub use search::SearchMode;
@@ -18,11 +19,11 @@ pub trait LauncherMode {
     /// Function called each time the search query is updated
     ///
     /// Returns a list of results.
-    fn search(&self, query: &str) -> Vec<String>;
+    fn search(&self, query: &str, config: &Config) -> Vec<String>;
     /// Function called when the users accepts the result
     ///
     /// `index`: The index of the result in the results list.
-    fn finish(&self, query: &str, index: usize);
+    fn finish(&self, query: &str, config: &Config, index: usize);
 }
 
 /// The default mode of the Launcher
@@ -57,14 +58,14 @@ impl AllMode {
 }
 
 impl LauncherMode for AllMode {
-    fn search(&self, query: &str) -> Vec<String> {
+    fn search(&self, query: &str, config: &Config) -> Vec<String> {
         let (mode, query) = self.pick_mode(query);
 
-        mode.search(query)
+        mode.search(query, config)
     }
-    fn finish(&self, query: &str, index: usize) {
+    fn finish(&self, query: &str, config: &Config, index: usize) {
         let (mode, query) = self.pick_mode(query);
 
-        mode.finish(query, index);
+        mode.finish(query, config, index);
     }
 }

@@ -6,10 +6,9 @@
 .main-entry {
   background-color: rgba(blue, 0.1);
 
-  transition: 3s all;
-
   &:hover {
     background-color: rgba(orangered, 0.3);
+    transition: 3s all;
   }
 }
 

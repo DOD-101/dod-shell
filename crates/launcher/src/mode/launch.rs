@@ -8,7 +8,7 @@ use std::process::Command;
 use crate::mode::LauncherMode;
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 
-use common::{APP_CONFIG, config::launcher::LaunchApp};
+use common::{Config, config::launcher::LaunchApp};
 
 /// See module level documentation
 #[derive(Default)]
@@ -18,10 +18,10 @@ pub struct LaunchMode {
 }
 
 impl LauncherMode for LaunchMode {
-    fn search(&self, query: &str) -> Vec<String> {
-        let apps = &APP_CONFIG.launcher.launch_mode.apps;
+    fn search(&self, query: &str, config: &Config) -> Vec<String> {
+        let apps = &config.launcher.launch_mode.apps;
         if query.is_empty() {
-            return apps[..(apps.len().min(APP_CONFIG.launcher.max_results))]
+            return apps[..(apps.len().min(config.launcher.max_results))]
                 .iter()
                 .map(|o| o.name.clone())
                 .collect();
@@ -42,15 +42,15 @@ impl LauncherMode for LaunchMode {
 
         options.sort_by_key(|o| o.0);
 
-        options.truncate(APP_CONFIG.launcher.max_results);
+        options.truncate(config.launcher.max_results);
 
         options.into_iter().map(|o| o.1.name.clone()).collect()
     }
 
-    fn finish(&self, query: &str, index: usize) {
-        let result = &self.search(query)[index];
+    fn finish(&self, query: &str, config: &Config, index: usize) {
+        let result = &self.search(query, config)[index];
 
-        let cmd = APP_CONFIG
+        let cmd = config
             .launcher
             .launch_mode
             .apps
