@@ -10,7 +10,7 @@ use relm4::{
     },
     prelude::*,
 };
-use time::macros::format_description;
+use time::{OffsetDateTime, macros::format_description};
 
 #[cfg(debug_assertions)]
 use gtk4_layer_shell::KeyboardMode;

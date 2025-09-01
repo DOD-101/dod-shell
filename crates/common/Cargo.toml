@@ -10,6 +10,7 @@ grass.workspace = true
 log.workspace = true
 serde.workspace = true
 toml = "0.8.23"
+zvariant = { version = "5.7.0", features = ["time"] }
 
 [lints]
 workspace = true

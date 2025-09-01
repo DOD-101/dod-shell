@@ -4,27 +4,37 @@ use std::{fmt::Display, ops::Deref};
 /// Type representing a percentage
 ///
 /// Internally values are stored in the format `1% = 0.01`
-#[derive(Debug, Default, PartialEq, PartialOrd, Clone, Copy)]
+#[derive(
+    Debug,
+    Default,
+    PartialEq,
+    PartialOrd,
+    Clone,
+    Copy,
+    zvariant::Value,
+    zvariant::OwnedValue,
+    zvariant::Type,
+)]
 pub struct Percentage {
-    value: f32,
+    value: f64,
 }
 
 impl Percentage {
     /// Create a new [``Percentage``]
     ///
-    /// Assumes the [``f32``] given is in the format:
+    /// Assumes the [``f64``] given is in the format:
     ///
     /// `0.1 = 10%`
     ///
     /// `1.0 = 100%`
     #[must_use]
-    pub fn new(value: f32) -> Self {
+    pub fn new(value: f64) -> Self {
         Self { value }
     }
 
-    /// Return the internal [``f32``] value
+    /// Return the internal [``f64``] value
     #[must_use]
-    pub fn get_value(&self) -> f32 {
+    pub fn get_value(&self) -> f64 {
         self.value
     }
 }
@@ -36,21 +46,21 @@ impl Display for Percentage {
 }
 
 impl Deref for Percentage {
-    type Target = f32;
+    type Target = f64;
     fn deref(&self) -> &Self::Target {
         &self.value
     }
 }
 
-impl From<f32> for Percentage {
-    fn from(value: f32) -> Self {
+impl From<f64> for Percentage {
+    fn from(value: f64) -> Self {
         Self::new(value)
     }
 }
 
 impl From<u8> for Percentage {
     fn from(value: u8) -> Self {
-        Self::new(f32::from(value) / 100.0)
+        Self::new(f64::from(value) / 100.0)
     }
 }
 

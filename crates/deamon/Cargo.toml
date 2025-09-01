@@ -1,0 +1,26 @@
+[package]
+edition.workspace = true
+license.workspace = true
+name = "deamon"
+version.workspace = true
+
+[dependencies]
+alsa = "0.9.1"
+common.workspace = true
+futures-util = "0.3.31"
+hyprland = "0.4.0-beta.2"
+log.workspace = true
+regex = { version = "1.11.1", default-features = false, features = [
+  "unicode-perl",
+] }
+sysinfo.workspace = true
+time = { version = "0.3.41", features = ["formatting", "local-offset"] }
+tokio.workspace = true
+zbus.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "dod-shell-deamon"
+path = "src/main.rs"
