@@ -1,18 +1,15 @@
-use futures_util::stream::StreamExt;
-use zbus::{Connection, Result, conn::Builder, interface, proxy::PropertyChanged};
+use zbus::{Result, conn::Builder};
 
-use deamon::system_state::{SystemState, SystemStateData, SystemStateDataProxy};
+use deamon::system_state::{SystemStateData, SystemStateUpdater};
 
-mod system_state;
-
-// Although we use `tokio` here, you can use any async runtime of choice.
 #[tokio::main]
 async fn main() -> Result<()> {
-    let system_state = SystemStateData::default();
+    simple_logger::SimpleLogger::new().env().init().unwrap();
+    let mut system_state_updater = SystemStateUpdater::default();
 
     let connection = Builder::session()?
         .name("dod.shell.Deamon")?
-        .serve_at("/dod/shell/Deamon", system_state)?
+        .serve_at("/dod/shell/Deamon", SystemStateData::default())?
         .build()
         .await?;
 
@@ -23,13 +20,21 @@ async fn main() -> Result<()> {
         .await
         .unwrap();
 
-    let iface2 = state_iface.clone().get_mut().await;
-
-    let proxy = SystemStateDataProxy::builder(&connection).build().await?;
-
-    let _ = dbg!(proxy.get_state_data().await);
-
     loop {
-        std::future::pending::<()>().await;
+        {
+            let mut state = state_iface.get_mut().await;
+            let start = tokio::time::Instant::now();
+            system_state_updater.update(&mut state).await;
+            state
+                .get_state_data_changed(state_iface.signal_emitter())
+                .await?;
+
+            let end = tokio::time::Instant::now();
+            let delta = (end - start).as_millis();
+
+            log::trace!("State updated. Took {delta}ms");
+        }
+
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     }
 }

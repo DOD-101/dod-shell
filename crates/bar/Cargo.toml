@@ -6,13 +6,17 @@ version.workspace = true
 
 [dependencies]
 common.workspace = true
+deamon.workspace = true
 dirs.workspace = true
+futures-util.workspace = true
 grass.workspace = true
 gtk4-layer-shell.workspace = true
+hyprland.workspace = true
 log.workspace = true
 relm4.workspace = true
 serde.workspace = true
 simple_logger.workspace = true
+time.workspace = true
 tokio.workspace = true
 zbus.workspace = true
 

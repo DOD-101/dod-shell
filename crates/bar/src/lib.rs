@@ -1,4 +1,4 @@
-use common::config::APP_CONFIG;
+use futures_util::StreamExt;
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
 use hyprland::shared::HyprData;
 use relm4::{
@@ -15,15 +15,14 @@ use time::{OffsetDateTime, macros::format_description};
 #[cfg(debug_assertions)]
 use gtk4_layer_shell::KeyboardMode;
 
+use common::config::APP_CONFIG;
+use deamon::system_state::{BatteryStatus, ConnectionData, SystemStateData, SystemStateDataProxy};
+
 mod label_icon;
-mod system_state;
 mod workspaces;
 
 use label_icon::LabelIcon;
-use system_state::{SYSTEM_STATE, SystemStateData, init_update_loop};
 use workspaces::Workspaces;
-
-use crate::system_state::{BatteryStatus, ConnectionData};
 
 const DATE_TIME_FORMAT: &[time::format_description::BorrowedFormatItem<'_>] =
     format_description!("[hour]:[minute]:[second] | [year]-[month]-[day]");
@@ -95,7 +94,7 @@ impl SimpleComponent for App {
                                         .system_state
                                         .disks
                                         .iter()
-                                        .find(|d| *d.name == *APP_CONFIG.bar.disk)
+                                        .find(|d| d.name == *APP_CONFIG.bar.disk)
                                         .map_or("Err".to_string(), |d| d.used.to_string())
                                         ,
                             set_icon: "󱛟"
@@ -112,7 +111,9 @@ impl SimpleComponent for App {
                     #[name(date_time)]
                     gtk::Label {
                         #[watch]
-                        set_label: &model.system_state.time.format(&DATE_TIME_FORMAT).unwrap()
+                        set_label: &OffsetDateTime::from_unix_timestamp(model.system_state.time)
+                                        .expect("Value returned by deamon should always be valid")
+                                        .format(&DATE_TIME_FORMAT).unwrap()
                     }
                 },
 
@@ -219,11 +220,30 @@ impl SimpleComponent for App {
 
         let model = Self {
             workspaces: Workspaces::builder().launch(workspaces).detach(),
-            system_state: SYSTEM_STATE.read().get_data().clone(),
+            system_state: SystemStateData::default(),
         };
 
-        SYSTEM_STATE.subscribe_optional(sender.input_sender(), |d| {
-            Some(AppMsg::UpdatedSystemState(d.get_data().clone()))
+        let state_update_sender = sender.input_sender().clone();
+        relm4::spawn(async move {
+            let connection = zbus::Connection::session().await?;
+
+            let proxy = SystemStateDataProxy::builder(&connection).build().await?;
+            let mut update_stream = proxy.receive_get_state_data_changed().await;
+
+            loop {
+                while let Some(changed) = update_stream.next().await {
+                    let data = changed.get().await?;
+
+                    if let Err(e) = state_update_sender.send(AppMsg::UpdatedSystemState(data)) {
+                        log::error!("Failed to send system state update: {e:?} to bar");
+                    }
+                }
+            }
+
+            // I need this here for the type information
+            // I don't like it one bit.
+            #[allow(unreachable_code)]
+            Ok::<(), zbus::Error>(())
         });
 
         let workspaces_widget = model.workspaces.widget();
@@ -321,8 +341,6 @@ pub fn launch_on_all_monitors() {
     let monitor = relm4::gtk::gdk::Display::default()
         .and_then(|d| d.monitors().item(0).and_downcast::<Monitor>())
         .expect("Failed to get primary Monitor.");
-
-    init_update_loop();
 
     app.run::<App>((monitor, 0, true));
 }

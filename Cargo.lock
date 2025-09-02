@@ -190,13 +190,17 @@ name = "bar"
 version = "0.1.0"
 dependencies = [
  "common",
+ "deamon",
  "dirs",
+ "futures-util",
  "grass",
  "gtk4-layer-shell",
+ "hyprland",
  "log",
  "relm4",
  "serde",
  "simple_logger",
+ "time",
  "tokio",
  "zbus",
 ]
@@ -386,6 +390,7 @@ dependencies = [
  "hyprland",
  "log",
  "regex",
+ "simple_logger",
  "sysinfo",
  "time",
  "tokio",

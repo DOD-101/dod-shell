@@ -7,7 +7,6 @@ use std::{
     convert::TryInto,
     path::{Path, PathBuf},
     sync::LazyLock,
-    time::Duration,
 };
 
 use zbus::{interface, zvariant};
@@ -40,35 +39,8 @@ static CAPSLOCK_PATTERN: LazyLock<Regex> =
 static NUMLOCK_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"input\d+::numlock").unwrap());
 
-/// Starts background thread to periodically update [``SYSTEM_STATE``]
+/// TODO: CHANGE THESE DOCS
 ///
-/// If this is not run before starting the main [``relm4::RelmApp``] the state will never be
-/// updated.
-///
-/// Also logs (at the trace level) the time it took to run [``SystemState::update``].
-pub fn init_update_loop() {
-    #[allow(clippy::redundant_closure_call)]
-    tokio::task::spawn_local(async move {
-        let mut update_interval = tokio::time::interval(Duration::from_millis(500));
-
-        let mut state = SystemState::default();
-
-        loop {
-            let start = tokio::time::Instant::now();
-
-            state.update().await;
-
-            let end = tokio::time::Instant::now();
-
-            let delta = (end - start).as_millis();
-
-            log::trace!("State updated. Took {delta}ms");
-
-            update_interval.tick().await;
-        }
-    });
-}
-
 /// All of the State (aka. Information) gathered from the system
 ///
 /// Provides the [``Self::update``] method for updating said state.
@@ -78,50 +50,42 @@ pub fn init_update_loop() {
 /// Other than the data itself it contains Objects needed to update parts of the state, which
 /// shouldn't be re-created each time [``Self::update``] is run due to performance reasons
 #[derive(Debug)]
-pub struct SystemState {
+pub struct SystemStateUpdater {
     /// Used in [``Self::update``]
     sys: System,
     /// Used in [``Self::update``]
     disks: Disks,
-    /// The actual data
-    data: SystemStateData,
 }
 
-impl Default for SystemState {
+impl Default for SystemStateUpdater {
     fn default() -> Self {
-        let sys = System::new_all();
-
-        let mut state = Self {
-            sys,
+        Self {
+            sys: System::new_all(),
             disks: Disks::default(),
-            data: SystemStateData::default(),
-        };
-
-        state.data.total_mem = state.sys.total_memory();
-
-        state
+        }
     }
 }
 
-impl SystemState {
+impl SystemStateUpdater {
     /// Used for updating the state
     #[allow(clippy::cast_precision_loss)]
     #[allow(clippy::cast_possible_truncation)]
-    pub async fn update(&mut self) {
+    pub async fn update(&mut self, data: &mut SystemStateData) {
         self.sys.refresh_specifics(
             RefreshKind::nothing()
                 .with_cpu(CpuRefreshKind::nothing().with_cpu_usage())
                 .with_memory(MemoryRefreshKind::nothing().with_ram()),
         );
-        self.data.cpu_usage = (f64::from(self.sys.global_cpu_usage()) / 100.0).into();
-        self.data.used_mem = self.sys.used_memory();
-        self.data.mem_usage = (self.data.used_mem as f64 / self.data.total_mem as f64).into();
-        self.data.time = UtcDateTime::now().unix_timestamp();
-        self.data.workspace = hyprland::data::Workspace::get_active().unwrap().id;
+        data.cpu_usage = (f64::from(self.sys.global_cpu_usage()) / 100.0).into();
+        data.used_mem = self.sys.used_memory();
+        data.total_mem = self.sys.total_memory();
+        data.mem_usage = (data.used_mem as f64 / data.total_mem as f64).into();
+        data.time = UtcDateTime::now().unix_timestamp();
+        data.workspace = hyprland::data::Workspace::get_active().unwrap().id;
 
         self.disks.refresh(true);
 
-        self.data.disks = self
+        data.disks = self
             .disks
             .list()
             .iter()
@@ -141,42 +105,33 @@ impl SystemState {
         let (bluetooth, network, key_states, battery_data) = tokio::join!(
             self.bluetooth(),
             self.network(),
-            SystemState::key_states(),
-            SystemState::battery()
+            SystemStateUpdater::key_states(),
+            SystemStateUpdater::battery()
         );
 
         // NOTE: Might be nice to use a macro here
 
-        self.data.bluetooth = bluetooth
+        data.bluetooth = bluetooth
             .inspect_err(|e| log::error!("Failed to update bluetooth information: {e}"))
             .unwrap_or_default();
 
-        self.data.network = network
+        data.network = network
             .inspect_err(|e| log::error!("Failed to update network information: {e}"))
             .unwrap_or_default();
 
-        (self.data.capslock, self.data.numlock) = key_states
+        (data.capslock, data.numlock) = key_states
             .inspect_err(|e| log::error!("Failed to update key state information: {e}"))
             .unwrap_or_default();
 
         if let Some(battery_data) = battery_data {
-            (self.data.battery, self.data.battery_status) = battery_data
+            (data.battery, data.battery_status) = battery_data
                 .inspect_err(|e| log::error!("Failed to update battery information: {e}"))
                 .unwrap_or_default();
         }
 
-        self.data.volume = SystemState::volume()
+        data.volume = SystemStateUpdater::volume()
             .inspect_err(|e| log::error!("Failed to update volume information: {e}"))
             .unwrap_or_default();
-    }
-
-    /// Get's the internal data
-    ///
-    /// ## ⚠️ Warning ⚠️
-    ///
-    /// Will not update data before returning it
-    pub fn get_data(&self) -> &SystemStateData {
-        &self.data
     }
 
     /// Checks if any devices are connected via bluetooth
@@ -441,6 +396,11 @@ impl SystemStateData {
     fn network(&self) -> ConnectionData {
         self.network.clone()
     }
+
+    #[zbus(property)]
+    fn battery(&self) -> Percentage {
+        self.battery
+    }
 }
 
 /// Data component of [``SystemState``]
@@ -530,9 +490,13 @@ impl TryFrom<zvariant::Value<'_>> for ConnectionData {
                 Some(zvariant::Value::I32(0)) => Ok(ConnectionData::Wired),
                 Some(zvariant::Value::I32(1)) => Ok(ConnectionData::Wireless {
                     signal: {
-                        dbg!(field_iter.next());
+                        if let Some(val) = field_iter.next() {
+                            let perc: Percentage = val.try_to_owned().unwrap().try_into()?;
 
-                        todo!()
+                            perc
+                        } else {
+                            return Err(zvariant::Error::IncorrectType);
+                        }
                     },
                     ssid: field_iter
                         .next()
