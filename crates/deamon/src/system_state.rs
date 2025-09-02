@@ -523,8 +523,30 @@ pub enum ConnectionData {
 impl TryFrom<zvariant::Value<'_>> for ConnectionData {
     type Error = zvariant::Error;
     fn try_from(value: zvariant::Value<'_>) -> Result<Self, Self::Error> {
-        dbg!(value);
-        todo!();
+        if let zvariant::Value::Structure(v) = value {
+            let mut field_iter = v.into_fields().into_iter();
+
+            return match field_iter.next() {
+                Some(zvariant::Value::I32(0)) => Ok(ConnectionData::Wired),
+                Some(zvariant::Value::I32(1)) => Ok(ConnectionData::Wireless {
+                    signal: {
+                        dbg!(field_iter.next());
+
+                        todo!()
+                    },
+                    ssid: field_iter
+                        .next()
+                        .ok_or(zvariant::Error::IncorrectType)?
+                        .try_into()?,
+                }),
+                Some(zvariant::Value::I32(2)) => Ok(ConnectionData::None),
+                _ => Err(zvariant::Error::IncorrectType),
+            };
+        }
+
+        dbg!("here");
+
+        Err(zvariant::Error::IncorrectType)
     }
 }
 
