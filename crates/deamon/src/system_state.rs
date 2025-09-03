@@ -50,42 +50,44 @@ static NUMLOCK_PATTERN: LazyLock<Regex> =
 /// Other than the data itself it contains Objects needed to update parts of the state, which
 /// shouldn't be re-created each time [``Self::update``] is run due to performance reasons
 #[derive(Debug)]
-pub struct SystemStateUpdater {
+pub struct SystemState {
     /// Used in [``Self::update``]
     sys: System,
     /// Used in [``Self::update``]
     disks: Disks,
+    data: SystemStateData,
 }
 
-impl Default for SystemStateUpdater {
+impl Default for SystemState {
     fn default() -> Self {
         Self {
             sys: System::new_all(),
             disks: Disks::default(),
+            data: SystemStateData::default(),
         }
     }
 }
 
-impl SystemStateUpdater {
+impl SystemState {
     /// Used for updating the state
     #[allow(clippy::cast_precision_loss)]
     #[allow(clippy::cast_possible_truncation)]
-    pub async fn update(&mut self, data: &mut SystemStateData) {
+    pub async fn update(&mut self) {
         self.sys.refresh_specifics(
             RefreshKind::nothing()
                 .with_cpu(CpuRefreshKind::nothing().with_cpu_usage())
                 .with_memory(MemoryRefreshKind::nothing().with_ram()),
         );
-        data.cpu_usage = (f64::from(self.sys.global_cpu_usage()) / 100.0).into();
-        data.used_mem = self.sys.used_memory();
-        data.total_mem = self.sys.total_memory();
-        data.mem_usage = (data.used_mem as f64 / data.total_mem as f64).into();
-        data.time = UtcDateTime::now().unix_timestamp();
-        data.workspace = hyprland::data::Workspace::get_active().unwrap().id;
+        self.data.cpu_usage = (f64::from(self.sys.global_cpu_usage()) / 100.0).into();
+        self.data.used_mem = self.sys.used_memory();
+        self.data.total_mem = self.sys.total_memory();
+        self.data.mem_usage = (self.data.used_mem as f64 / self.data.total_mem as f64).into();
+        self.data.time = UtcDateTime::now().unix_timestamp();
+        self.data.workspace = hyprland::data::Workspace::get_active().unwrap().id;
 
         self.disks.refresh(true);
 
-        data.disks = self
+        self.data.disks = self
             .disks
             .list()
             .iter()
@@ -103,33 +105,33 @@ impl SystemStateUpdater {
             .collect();
 
         let (bluetooth, network, key_states, battery_data) = tokio::join!(
-            self.bluetooth(),
-            self.network(),
-            SystemStateUpdater::key_states(),
-            SystemStateUpdater::battery()
+            self.update_bluetooth(),
+            self.update_network(),
+            SystemState::update_key_states(),
+            SystemState::update_battery()
         );
 
         // NOTE: Might be nice to use a macro here
 
-        data.bluetooth = bluetooth
+        self.data.bluetooth = bluetooth
             .inspect_err(|e| log::error!("Failed to update bluetooth information: {e}"))
             .unwrap_or_default();
 
-        data.network = network
+        self.data.network = network
             .inspect_err(|e| log::error!("Failed to update network information: {e}"))
             .unwrap_or_default();
 
-        (data.capslock, data.numlock) = key_states
+        (self.data.capslock, self.data.numlock) = key_states
             .inspect_err(|e| log::error!("Failed to update key state information: {e}"))
             .unwrap_or_default();
 
         if let Some(battery_data) = battery_data {
-            (data.battery, data.battery_status) = battery_data
+            (self.data.battery, self.data.battery_status) = battery_data
                 .inspect_err(|e| log::error!("Failed to update battery information: {e}"))
                 .unwrap_or_default();
         }
 
-        data.volume = SystemStateUpdater::volume()
+        self.data.volume = SystemState::update_volume()
             .inspect_err(|e| log::error!("Failed to update volume information: {e}"))
             .unwrap_or_default();
     }
@@ -137,7 +139,7 @@ impl SystemStateUpdater {
     /// Checks if any devices are connected via bluetooth
     ///
     /// Used in [``Self::update``]
-    async fn bluetooth(&self) -> zbus::Result<bool> {
+    async fn update_bluetooth(&self) -> zbus::Result<bool> {
         let connection = zbus::Connection::system().await?;
         // Create a proxy to interact with BlueZ's ObjectManager interface
         // ObjectManager provides a way to discover all available objects and their interfaces
@@ -183,7 +185,7 @@ impl SystemStateUpdater {
     /// Get's information about the battery, if one is set in the shell [Config](``common::config::Config``)
     ///
     /// Used in [``Self::update``]
-    async fn battery() -> Option<std::io::Result<(Percentage, BatteryStatus)>> {
+    async fn update_battery() -> Option<std::io::Result<(Percentage, BatteryStatus)>> {
         if let Some(bat) = &APP_CONFIG.bar.battery {
             let battery_path = PathBuf::from("/sys/class/power_supply/").join(bat);
 
@@ -212,7 +214,7 @@ impl SystemStateUpdater {
     /// Gathers information about the current internet connection
     ///
     /// Used in [``Self::update``]
-    async fn network(&self) -> Result<ConnectionData, Box<dyn std::error::Error>> {
+    async fn update_network(&self) -> Result<ConnectionData, Box<dyn std::error::Error>> {
         let connection = zbus::Connection::system().await?;
         let nm_iface = InterfaceName::from_str_unchecked(NM_SERVICE_NAME);
         let nm_proxy = Proxy::new(
@@ -304,7 +306,7 @@ impl SystemStateUpdater {
     /// Checks if capslock / numlock are enabled
     ///
     /// Used in [``Self::update``]
-    async fn key_states() -> std::io::Result<(bool, bool)> {
+    async fn update_key_states() -> std::io::Result<(bool, bool)> {
         // Helper function to read the brightness of the given path
         let read_brightness = async |path: &str| {
             let content = fs::read_to_string(path).await?;
@@ -347,7 +349,7 @@ impl SystemStateUpdater {
     /// If the default audio sink is muted returns `-1`
     ///
     /// Used in [``Self::update``]
-    fn volume() -> alsa::Result<Percentage> {
+    fn update_volume() -> alsa::Result<Percentage> {
         let mixer = Mixer::new("default", true)?;
 
         let selem_id = SelemId::new("Master", 0);
@@ -381,25 +383,25 @@ impl SystemStateUpdater {
         default_service = "dod.shell.Deamon"
     )
 )]
-impl SystemStateData {
+impl SystemState {
     #[zbus(property)]
     fn get_state_data(&self) -> SystemStateData {
-        self.clone()
+        self.data.clone()
     }
 
     #[zbus(property)]
     fn cpu_usage(&self) -> Percentage {
-        self.cpu_usage
+        self.data.cpu_usage
     }
 
     #[zbus(property)]
     fn network(&self) -> ConnectionData {
-        self.network.clone()
+        self.data.network.clone()
     }
 
     #[zbus(property)]
     fn battery(&self) -> Percentage {
-        self.battery
+        self.data.battery
     }
 }
 

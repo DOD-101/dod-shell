@@ -16,7 +16,7 @@ use time::{OffsetDateTime, macros::format_description};
 use gtk4_layer_shell::KeyboardMode;
 
 use common::config::APP_CONFIG;
-use deamon::system_state::{BatteryStatus, ConnectionData, SystemStateData, SystemStateDataProxy};
+use deamon::system_state::{BatteryStatus, ConnectionData, SystemStateData, SystemStateProxy};
 
 mod label_icon;
 mod workspaces;
@@ -227,7 +227,7 @@ impl SimpleComponent for App {
         relm4::spawn(async move {
             let connection = zbus::Connection::session().await?;
 
-            let proxy = SystemStateDataProxy::builder(&connection).build().await?;
+            let proxy = SystemStateProxy::builder(&connection).build().await?;
             let mut update_stream = proxy.receive_get_state_data_changed().await;
 
             loop {

@@ -1,6 +1,6 @@
-<mxfile host="Electron" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/26.1.1 Chrome/138.0.7204.185 Electron/37.2.6 Safari/537.36" version="26.1.1">
+<mxfile host="Electron" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/26.1.1 Chrome/134.0.6998.205 Electron/35.5.1 Safari/537.36" version="26.1.1">
   <diagram name="Page-1" id="9MBwZnzNivNegqvuTXYx">
-    <mxGraphModel dx="875" dy="4264" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="1116" dy="1854" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -181,18 +181,11 @@
         <mxCell id="9mI5q9PQoPeVo3vNYNOv-6" value="Dbus&amp;nbsp;&lt;div&gt;Interface&lt;/div&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;" parent="1" vertex="1">
           <mxGeometry x="1483" y="1290" width="80" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="9mI5q9PQoPeVo3vNYNOv-9" value="Conflict" style="edgeStyle=none;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;startArrow=classic;endSize=8;startSize=8;rounded=0;fontColor=#FF3333;" parent="1" edge="1">
-          <mxGeometry width="100" relative="1" as="geometry">
-            <mxPoint x="1300" y="1390" as="sourcePoint" />
-            <mxPoint x="1483" y="1360" as="targetPoint" />
-            <Array as="points" />
-          </mxGeometry>
-        </mxCell>
         <mxCell id="9mI5q9PQoPeVo3vNYNOv-10" value="Problem" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
           <mxGeometry x="1204.25" y="1248" width="70" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="9mI5q9PQoPeVo3vNYNOv-11" value="New Version" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
-          <mxGeometry x="1196" y="1520" width="90" height="30" as="geometry" />
+        <mxCell id="9mI5q9PQoPeVo3vNYNOv-11" value="New Version (WRONG)" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1166" y="1520" width="150" height="30" as="geometry" />
         </mxCell>
         <mxCell id="9mI5q9PQoPeVo3vNYNOv-14" value="" style="group" parent="1" vertex="1" connectable="0">
           <mxGeometry x="1181" y="1574" width="120" height="180" as="geometry" />
