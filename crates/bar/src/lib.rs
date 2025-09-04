@@ -10,7 +10,7 @@ use relm4::{
     },
     prelude::*,
 };
-use time::{OffsetDateTime, macros::format_description};
+use time::{OffsetDateTime, UtcOffset, macros::format_description};
 
 #[cfg(debug_assertions)]
 use gtk4_layer_shell::KeyboardMode;
@@ -112,7 +112,11 @@ impl SimpleComponent for App {
                     gtk::Label {
                         #[watch]
                         set_label: &OffsetDateTime::from_unix_timestamp(model.system_state.time)
-                                        .expect("Value returned by deamon should always be valid")
+                                        .expect("Unix timestamp from deamon should always be valid")
+                                        .to_offset(
+                                            UtcOffset::current_local_offset()
+                                            .inspect_err(|e| log::error!("Failed to get local offset: {e}"))
+                                            .unwrap_or(UtcOffset::UTC))
                                         .format(&DATE_TIME_FORMAT).unwrap()
                     }
                 },
