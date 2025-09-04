@@ -49,12 +49,16 @@ static NUMLOCK_PATTERN: LazyLock<Regex> =
 ///
 /// Other than the data itself it contains Objects needed to update parts of the state, which
 /// shouldn't be re-created each time [``Self::update``] is run due to performance reasons
+///
+/// # Dbus
+///
 #[derive(Debug)]
 pub struct SystemState {
     /// Used in [``Self::update``]
     sys: System,
     /// Used in [``Self::update``]
     disks: Disks,
+    /// Actual data
     data: SystemStateData,
 }
 
@@ -83,7 +87,9 @@ impl SystemState {
         self.data.total_mem = self.sys.total_memory();
         self.data.mem_usage = (self.data.used_mem as f64 / self.data.total_mem as f64).into();
         self.data.time = UtcDateTime::now().unix_timestamp();
-        self.data.workspace = hyprland::data::Workspace::get_active().unwrap().id;
+        self.data.workspace = hyprland::data::Workspace::get_active()
+            .inspect_err(|e| log::error!("Failed to get an active workspace: {e}"))
+            .map_or(0, |w| w.id);
 
         self.disks.refresh(true);
 
@@ -385,23 +391,8 @@ impl SystemState {
 )]
 impl SystemState {
     #[zbus(property)]
-    fn get_state_data(&self) -> SystemStateData {
+    fn state_data(&self) -> SystemStateData {
         self.data.clone()
-    }
-
-    #[zbus(property)]
-    fn cpu_usage(&self) -> Percentage {
-        self.data.cpu_usage
-    }
-
-    #[zbus(property)]
-    fn network(&self) -> ConnectionData {
-        self.data.network.clone()
-    }
-
-    #[zbus(property)]
-    fn battery(&self) -> Percentage {
-        self.data.battery
     }
 }
 
@@ -471,17 +462,6 @@ pub enum ConnectionData {
     None,
 }
 
-// impl<'a> Into<zvariant::Value<'a>> for ConnectionData {
-//     fn into(self) -> zvariant::Value<'a> {
-//         match self {
-//             ConnectionData::Wired => (0, Percentage::default(), String::default()),
-//             ConnectionData::Wireless { signal, ssid } => (1, signal, ssid),
-//             ConnectionData::None => (2, Percentage::default(), String::default()),
-//         }
-//         .into()
-//     }
-// }
-
 impl TryFrom<zvariant::Value<'_>> for ConnectionData {
     type Error = zvariant::Error;
     fn try_from(value: zvariant::Value<'_>) -> Result<Self, Self::Error> {
@@ -491,15 +471,11 @@ impl TryFrom<zvariant::Value<'_>> for ConnectionData {
             return match field_iter.next() {
                 Some(zvariant::Value::I32(0)) => Ok(ConnectionData::Wired),
                 Some(zvariant::Value::I32(1)) => Ok(ConnectionData::Wireless {
-                    signal: {
-                        if let Some(val) = field_iter.next() {
-                            let perc: Percentage = val.try_to_owned().unwrap().try_into()?;
-
-                            perc
-                        } else {
-                            return Err(zvariant::Error::IncorrectType);
-                        }
-                    },
+                    signal: field_iter
+                        .next()
+                        .ok_or(zvariant::Error::IncorrectType)?
+                        .try_to_owned()?
+                        .try_into()?,
                     ssid: field_iter
                         .next()
                         .ok_or(zvariant::Error::IncorrectType)?
@@ -516,12 +492,11 @@ impl TryFrom<zvariant::Value<'_>> for ConnectionData {
     }
 }
 
-impl Into<zvariant::OwnedValue> for ConnectionData {
-    fn into(self) -> zvariant::OwnedValue {
-        // HACK: This *should* never fail, but could be done nicer
-        std::convert::Into::<zvariant::Value>::into(self)
+impl From<ConnectionData> for zvariant::OwnedValue {
+    fn from(value: ConnectionData) -> Self {
+        std::convert::Into::<zvariant::Value>::into(value)
             .try_to_owned()
-            .unwrap()
+            .expect("Should never fail since we don't have a fd (see docs for .try_to_owned()).")
     }
 }
 

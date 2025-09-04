@@ -228,7 +228,7 @@ impl SimpleComponent for App {
             let connection = zbus::Connection::session().await?;
 
             let proxy = SystemStateProxy::builder(&connection).build().await?;
-            let mut update_stream = proxy.receive_get_state_data_changed().await;
+            let mut update_stream = proxy.receive_state_data_changed().await;
 
             loop {
                 while let Some(changed) = update_stream.next().await {

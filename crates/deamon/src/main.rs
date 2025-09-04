@@ -26,12 +26,10 @@ async fn main() -> Result<()> {
 
             state.update().await;
             state
-                .get_state_data_changed(state_iface.signal_emitter())
+                .state_data_changed(state_iface.signal_emitter())
                 .await?;
 
-            let end = tokio::time::Instant::now();
-
-            let delta = (end - start).as_millis();
+            let delta = start.elapsed().as_millis();
 
             log::trace!("State updated. Took {delta}ms");
         }

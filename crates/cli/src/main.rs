@@ -1,3 +1,5 @@
+//TODO: Add generate-config option
+
 //! CLI to go along with the dod-shell
 //!
 //! This CLI is used to interact with the different components of the shell.
