@@ -120,6 +120,7 @@ in
             Service = {
               ExecStart = "${getComponent "dod-shell-deamon"}/bin/dod-shell-deamon";
               Type = "dbus";
+              BusName = "dod.shell.Deamon";
               Restart = "on-failure";
               RestartSec = 3;
             };
