@@ -106,6 +106,23 @@ in
               Type = "exec";
               Restart = "on-failure";
               RestartSec = 3;
+              Requires = [ "dod-shell-deamon.service" ];
+              After = [ "dod-shell-deamon.service" ];
+            };
+            Install = {
+              WantedBy = [ "dod-shell.target" ];
+            };
+          };
+          dod-shell-deamon = {
+            Unit = {
+              Description = "dod-shell deamon service";
+            };
+            Service = {
+              ExecStart = "${getComponent "dod-shell-deamon"}/bin/dod-shell-deamon";
+              Type = "dbus";
+              BusName = "dod.shell.Deamon";
+              Restart = "on-failure";
+              RestartSec = 3;
             };
             Install = {
               WantedBy = [ "dod-shell.target" ];
