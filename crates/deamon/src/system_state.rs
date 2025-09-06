@@ -11,7 +11,7 @@ use std::{
 
 use zbus::{interface, zvariant};
 
-use common::{config::APP_CONFIG, types::Percentage};
+use common::types::Percentage;
 
 use alsa::{
     Mixer,
@@ -60,19 +60,24 @@ pub struct SystemState {
     disks: Disks,
     /// Actual data
     data: SystemStateData,
-}
-
-impl Default for SystemState {
-    fn default() -> Self {
-        Self {
-            sys: System::new_all(),
-            disks: Disks::default(),
-            data: SystemStateData::default(),
-        }
-    }
+    config: common::Config,
 }
 
 impl SystemState {
+    #[must_use]
+    pub fn new(config: common::Config) -> Self {
+        Self {
+            sys: System::default(),
+            disks: Disks::default(),
+            data: SystemStateData::default(),
+            config,
+        }
+    }
+
+    pub fn set_config(&mut self, config: common::Config) {
+        self.config = config;
+    }
+
     /// Used for updating the state
     #[allow(clippy::cast_precision_loss)]
     #[allow(clippy::cast_possible_truncation)]
@@ -114,7 +119,7 @@ impl SystemState {
             self.update_bluetooth(),
             self.update_network(),
             SystemState::update_key_states(),
-            SystemState::update_battery()
+            self.update_battery()
         );
 
         // NOTE: Might be nice to use a macro here
@@ -191,8 +196,8 @@ impl SystemState {
     /// Get's information about the battery, if one is set in the shell [Config](``common::config::Config``)
     ///
     /// Used in [``Self::update``]
-    async fn update_battery() -> Option<std::io::Result<(Percentage, BatteryStatus)>> {
-        if let Some(bat) = &APP_CONFIG.bar.battery {
+    async fn update_battery(&self) -> Option<std::io::Result<(Percentage, BatteryStatus)>> {
+        if let Some(bat) = &self.config.bar.battery {
             let battery_path = PathBuf::from("/sys/class/power_supply/").join(bat);
 
             let percentage: std::io::Result<u8> = fs::read_to_string(battery_path.join("capacity"))

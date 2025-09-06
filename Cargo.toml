@@ -23,7 +23,11 @@ simple_logger = "5.0.0"
 sysinfo = "0.35.2"
 time = { version = "0.3.41", features = ["formatting", "local-offset"] }
 tokio = { version = "1.47.1", features = ["full"] }
-zbus = { version = "5.9.0", features = ["tokio"], default-features = false }
+toml = "0.8.23"
+zbus = { version = "5.9.0", features = [
+  "option-as-array",
+  "tokio",
+], default-features = false }
 
 [workspace.lints.clippy]
 pedantic = "warn"

@@ -202,6 +202,7 @@ dependencies = [
  "simple_logger",
  "time",
  "tokio",
+ "toml",
  "zbus",
 ]
 
@@ -358,9 +359,9 @@ name = "common"
 version = "0.1.0"
 dependencies = [
  "dirs",
- "grass",
  "log",
  "serde",
+ "tokio",
  "toml",
  "zvariant",
 ]
@@ -387,13 +388,16 @@ dependencies = [
  "alsa",
  "common",
  "futures-util",
+ "grass",
  "hyprland",
  "log",
  "regex",
+ "serde",
  "simple_logger",
  "sysinfo",
  "time",
  "tokio",
+ "toml",
  "zbus",
 ]
 
@@ -1191,8 +1195,10 @@ name = "launcher"
 version = "0.1.0"
 dependencies = [
  "common",
+ "deamon",
  "dirs",
  "evalexpr",
+ "futures-util",
  "fuzzy-matcher",
  "grass",
  "gtk4-layer-shell",
@@ -1202,6 +1208,9 @@ dependencies = [
  "serde",
  "serde_json",
  "simple_logger",
+ "tokio",
+ "toml",
+ "zbus",
 ]
 
 [[package]]

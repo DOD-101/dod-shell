@@ -6,10 +6,10 @@ version.workspace = true
 
 [dependencies]
 dirs.workspace = true
-grass.workspace = true
 log.workspace = true
 serde.workspace = true
-toml = "0.8.23"
+tokio.workspace = true
+toml.workspace = true
 zvariant = { version = "5.7.0", features = ["time"] }
 
 [lints]

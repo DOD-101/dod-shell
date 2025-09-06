@@ -1,3 +1,4 @@
+use common::Config;
 use futures_util::StreamExt;
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
 use hyprland::shared::HyprData;
@@ -15,8 +16,10 @@ use time::{OffsetDateTime, UtcOffset, macros::format_description};
 #[cfg(debug_assertions)]
 use gtk4_layer_shell::KeyboardMode;
 
-use common::config::APP_CONFIG;
-use deamon::system_state::{BatteryStatus, ConnectionData, SystemStateData, SystemStateProxy};
+use deamon::{
+    config::ConfigProxy,
+    system_state::{BatteryStatus, ConnectionData, SystemStateData, SystemStateProxy},
+};
 
 mod label_icon;
 mod workspaces;
@@ -31,11 +34,14 @@ const DATE_TIME_FORMAT: &[time::format_description::BorrowedFormatItem<'_>] =
 pub struct App {
     workspaces: Controller<Workspaces>,
     system_state: SystemStateData,
+    config: Config,
 }
 
 #[derive(Debug)]
 pub enum AppMsg {
     UpdatedSystemState(SystemStateData),
+    ConfigUpdated(Config),
+    CssUpdated(String),
 }
 
 #[allow(clippy::float_cmp)]
@@ -94,7 +100,7 @@ impl SimpleComponent for App {
                                         .system_state
                                         .disks
                                         .iter()
-                                        .find(|d| d.name == *APP_CONFIG.bar.disk)
+                                        .find(|d| d.name == *model.config.bar.disk)
                                         .map_or("Err".to_string(), |d| d.used.to_string())
                                         ,
                             set_icon: "󱛟"
@@ -167,7 +173,8 @@ impl SimpleComponent for App {
                     #[name(capslock_icon)]
                     gtk::Label {
                         set_css_classes: &["icon"],
-                        set_visible: APP_CONFIG.bar.show_capslock,
+                        #[watch]
+                        set_visible: model.config.bar.show_capslock,
                         #[watch]
                         set_class_active: ("active", model.system_state.capslock),
                         set_label: "󰘲",
@@ -176,7 +183,8 @@ impl SimpleComponent for App {
                     #[name(numlock_icon)]
                     gtk::Label {
                         set_css_classes: &["icon"],
-                        set_visible: APP_CONFIG.bar.show_numlock,
+                        #[watch]
+                        set_visible: model.config.bar.show_numlock,
                         #[watch]
                         set_class_active: ("active", model.system_state.numlock),
                         set_label: "󰎡",
@@ -225,27 +233,41 @@ impl SimpleComponent for App {
         let model = Self {
             workspaces: Workspaces::builder().launch(workspaces).detach(),
             system_state: SystemStateData::default(),
+            config: Config::default(),
         };
 
-        let state_update_sender = sender.input_sender().clone();
+        let update_sender = sender.input_sender().clone();
         relm4::spawn(async move {
             let connection = zbus::Connection::session().await?;
 
-            let proxy = SystemStateProxy::builder(&connection).build().await?;
-            let mut update_stream = proxy.receive_state_data_changed().await;
+            let config_proxy = ConfigProxy::new(&connection).await?;
+            let state_proxy = SystemStateProxy::new(&connection).await?;
+
+            let mut state_stream = state_proxy.receive_state_data_changed().await;
+            let mut config_stream = config_proxy.receive_config_changed().await;
+            let mut css_stream = config_proxy.receive_css_changed().await;
 
             loop {
-                while let Some(changed) = update_stream.next().await {
-                    let data = changed.get().await?;
+                if tokio::select! {
+                    Some(c) = config_stream.next() => {
+                        let config = toml::from_str(&c.get().await?)
+                            .expect("Config string returned by deamon should always be valid.");
 
-                    if let Err(e) = state_update_sender.send(AppMsg::UpdatedSystemState(data)) {
-                        log::error!("Failed to send system state update: {e:?} to bar");
+                        update_sender.send(AppMsg::ConfigUpdated(config))
                     }
+                    Some(c) = css_stream.next() => {
+                        update_sender.send(AppMsg::CssUpdated(c.get().await?))
+                    }
+                    Some(s) = state_stream.next() => {
+                        update_sender.send(AppMsg::UpdatedSystemState(s.get().await?))
+                    }
+                }
+                .is_err()
+                {
+                    log::error!("Failed to send config-related update to app.");
                 }
             }
 
-            // I need this here for the type information
-            // I don't like it one bit.
             #[allow(unreachable_code)]
             Ok::<(), zbus::Error>(())
         });
@@ -272,8 +294,9 @@ impl SimpleComponent for App {
                 .set_keyboard_mode(KeyboardMode::OnDemand);
         }
 
+        // BUG: This won't ever update
         // -- Optional Widgets --
-        if APP_CONFIG.bar.battery.is_some() {
+        if model.config.bar.battery.is_some() {
             let battery_widget = LabelIcon::default();
             battery_widget.set_widget_name("battery");
             battery_widget.set_label(&model.system_state.battery.to_string());
@@ -314,7 +337,6 @@ impl SimpleComponent for App {
             }
         }
 
-        relm4::set_global_css(&common::get_css());
         ComponentParts { model, widgets }
     }
 
@@ -330,6 +352,8 @@ impl SimpleComponent for App {
                     ))
                     .expect("Failed to send WorkspaceMsg to component.");
             }
+            AppMsg::ConfigUpdated(config) => self.config = config,
+            AppMsg::CssUpdated(css) => relm4::set_global_css(&css),
         }
     }
 }
