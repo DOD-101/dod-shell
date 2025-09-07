@@ -86,7 +86,7 @@ impl SimpleComponent for App {
     type Output = ();
 
     view! {
-        #[name(main_window)]
+        #[name(launcher_main_window)]
         gtk::Window {
             init_layer_shell: (), // Do gtk4_layer_shell stuff here
             set_layer: Layer::Overlay,
@@ -97,6 +97,7 @@ impl SimpleComponent for App {
             set_anchor: (Edge::Left, false),
             set_title: Some("Launcher"),
             set_default_size: (300, 100),
+            set_css_classes: &["launcher-main-window"],
 
             gtk::Box {
                 set_orientation: gtk::Orientation::Vertical,
@@ -163,7 +164,7 @@ impl SimpleComponent for App {
         action_group.add_action(up_action);
         action_group.add_action(down_action);
 
-        action_group.register_for_widget(&widgets.main_window);
+        action_group.register_for_widget(&widgets.launcher_main_window);
 
         if let Some(initial_search) = init.0 {
             relm4::gtk::prelude::GtkWindowExt::set_focus(&root, Some(&widgets.main_entry));
