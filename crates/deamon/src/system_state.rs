@@ -1,5 +1,8 @@
-//! This module contains all the code required for getting the "State" (aka. Information) from
-//! other services
+//! This module contains items relating to getting "State" (aka. Information)
+//! about the system and other processes running on the system
+//!
+//! It can be thought of as an interface between information gathered from outside the shell and
+//! the components which need that information.
 //!
 //! The main type is [``SystemState``]
 use std::{
@@ -39,8 +42,6 @@ static CAPSLOCK_PATTERN: LazyLock<Regex> =
 static NUMLOCK_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"input\d+::numlock").unwrap());
 
-/// TODO: CHANGE THESE DOCS
-///
 /// All of the State (aka. Information) gathered from the system
 ///
 /// Provides the [``Self::update``] method for updating said state.
@@ -52,6 +53,8 @@ static NUMLOCK_PATTERN: LazyLock<Regex> =
 ///
 /// # Dbus
 ///
+/// This struct implements [``zbus::object_server::Interface``], which means it acts as a dbus
+/// interface. For available zbus methods and properties see [``SystemStateProxy``]
 #[derive(Debug)]
 pub struct SystemState {
     /// Used in [``Self::update``]
@@ -74,11 +77,22 @@ impl SystemState {
         }
     }
 
+    /// Set the internal [``common::Config``]
+    ///
+    /// This is used primarily if there has been a change to the on-disk config file.
+    ///
+    /// For more information on the updating process see [``crate::config``]
     pub fn set_config(&mut self, config: common::Config) {
         self.config = config;
     }
 
     /// Used for updating the state
+    ///
+    /// ## Performance
+    ///
+    /// Currently this method takes 6-10ms to run.
+    /// It is critical that care is taken to maintain optimal performance, since this function
+    /// hanging will cause large parts of the shell to hang themselves or break.
     #[allow(clippy::cast_precision_loss)]
     #[allow(clippy::cast_possible_truncation)]
     pub async fn update(&mut self) {
@@ -317,6 +331,9 @@ impl SystemState {
     /// Checks if capslock / numlock are enabled
     ///
     /// Used in [``Self::update``]
+    ///
+    /// Field 0 signals if capslock is enabled
+    /// Field 1 signals if numlock is enabled
     async fn update_key_states() -> std::io::Result<(bool, bool)> {
         // Helper function to read the brightness of the given path
         let read_brightness = async |path: &str| {
@@ -395,6 +412,7 @@ impl SystemState {
     )
 )]
 impl SystemState {
+    /// Dbus property to get the current data
     #[zbus(property)]
     fn state_data(&self) -> SystemStateData {
         self.data.clone()
@@ -505,6 +523,7 @@ impl From<ConnectionData> for zvariant::OwnedValue {
     }
 }
 
+// TODO: Impl
 impl TryFrom<zvariant::OwnedValue> for ConnectionData {
     type Error = zvariant::Error;
 

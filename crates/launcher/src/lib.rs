@@ -12,6 +12,11 @@
 //!
 //! The default mode is [AllMode], which is less so a mode of it's own, but more so a mode to allow
 //! the selection of other modes via the prefixes.
+//!
+//!
+
+//BUG: When changing the position of the selected element and then changing the text an out of
+//bounds access occurs
 
 // TODO: Decide: Should we even have a lib target?
 use core::str;
@@ -30,17 +35,21 @@ mod results;
 pub use mode::{AllMode, LauncherMode};
 use results::LauncherResults;
 
-/// The main [relm4::Component] for the launcher
+/// The main [``relm4::Component``] for the launcher
+///
+/// For more information see module level docs
 #[derive(Default)]
 pub struct App {
     /// The results of the search
     results: LauncherResults,
     /// The instance of [AllMode] for the launcher
     mode: AllMode,
+    /// Config options
     config: Config,
 }
 
 impl App {
+    /// Create a new [``Config``] with an already initialized config
     fn new_with_config(config: Config) -> Self {
         Self {
             config,

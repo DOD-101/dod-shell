@@ -1,8 +1,39 @@
+//! This module contains items relating to the config
+//!
+//! "Config" in this context means anything located in [``common::CONFIG_PATH``].
+//!
+//! The main type is [``Config``].
 use tokio::fs;
 use zbus::{interface, zvariant};
 
 use common::CONFIG_PATH;
 
+/// Contains all config found within the config directory located at [``common::CONFIG_PATH``]
+///
+/// ## Why is [``Self::toml``] not serialized?
+///
+/// While it would be much more comfortable to just serialize the toml and then pass around
+/// [``common::Config``]s this doesn't work since zbus has issues handling [``Option``]s due to
+/// them not being a concept within the dbus protocol.
+///
+/// See <https://dbus2.github.io/zbus/faq.html#how-do-i-use-optiont-with-zbus>
+///
+/// ## Dbus
+///
+/// This struct implements [``zbus::object_server::Interface``], which means it acts as a dbus
+/// interface. For available zbus methods and properties see [``ConfigProxy``]
+///
+/// ## Confusion with [``common::Config``]
+///
+/// Although they have the same name these two serve very different functions.
+///
+/// [``common::Config``], as the docs state, related to the concrete format of `config.toml`
+///
+/// whereas
+///
+/// [``Config``] refers to all types of config found within the config directory
+///
+/// Make sure you know which one you need.
 #[derive(Debug, Clone, zvariant::Value, zvariant::OwnedValue, zvariant::Type)]
 pub struct Config {
     /// The config from `config.toml`
@@ -30,16 +61,19 @@ impl Default for Config {
     )
 )]
 impl Config {
+    /// Dbus property for the toml config
     #[zbus(property)]
     fn config(&self) -> String {
         self.toml.clone()
     }
 
+    /// Dbus property for the css
     #[zbus(property)]
     fn css(&self) -> String {
         self.css.clone()
     }
 
+    /// Dbus property for both the toml config and css
     #[zbus(property)]
     fn all_config(&self) -> Config {
         self.clone()

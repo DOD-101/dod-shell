@@ -1,3 +1,16 @@
+//! Workspace Component
+//!
+//! This [``relm4::SimpleComponent``] displays a list of workspaces and allows clicking on
+//! indiviual icons for each to change to that workspace.
+//!
+//! <div class="warning">
+//!
+//! ## **Warning**
+//!
+//! This is designed to work on hyprland and with numbered workspaces.
+//! It won't work with another compositor and using named workspaces isn't tested.
+//!
+//! </div>
 use hyprland::{
     dispatch,
     dispatch::{Dispatch, DispatchType},
@@ -6,10 +19,14 @@ use hyprland::{
 use gtk::prelude::*;
 use relm4::{gtk::prelude::ButtonExt, prelude::*};
 
+/// See module level documentation
 #[derive(Debug)]
 pub struct Workspaces {
+    /// The individual workspace buttons
     pub workspaces: FactoryVecDeque<WorkspaceButton>,
 }
+
+// TODO: REMOVE THIS
 impl Default for Workspaces {
     fn default() -> Self {
         Self {
@@ -20,13 +37,17 @@ impl Default for Workspaces {
     }
 }
 
+/// Messages sent to [``Workspaces``]
 #[derive(Debug)]
 pub enum WorkspacesMsg {
+    /// Change wich workspace is shown as the active one
     UpdateActiveWorkspace(i32),
 }
 
 #[relm4::component(pub)]
 impl SimpleComponent for Workspaces {
+    /// A Vector of workspace id's to show
+    // TODO: Make this Arc<[i32]>
     type Init = Vec<i32>;
     type Input = WorkspacesMsg;
     type Output = ();
@@ -79,12 +100,18 @@ impl SimpleComponent for Workspaces {
     }
 }
 
+/// A Button for an individual workspace
+///
+/// Clicking on this will change hyprlands workspace to the associated one.
 #[derive(Debug, Default)]
 pub struct WorkspaceButton {
+    /// The hyprland workspace
     number: i32,
+    /// If the workspace is currently the active one
     active: bool,
 }
 
+/// Messages sent to [``WorkspaceButton``]
 #[derive(Debug)]
 pub enum WorkspaceButtonMsg {
     Clicked,
@@ -92,6 +119,7 @@ pub enum WorkspaceButtonMsg {
 
 #[relm4::factory(pub)]
 impl FactoryComponent for WorkspaceButton {
+    /// The hyprland workspace of the button
     type Init = i32;
     type Input = WorkspaceButtonMsg;
     type Output = ();
