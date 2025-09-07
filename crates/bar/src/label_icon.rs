@@ -7,7 +7,7 @@
 //!
 //! eg: `10%` `󰻠`
 //!
-//! ## Classes
+//! ## CSS Classes
 //!
 //! All: "label-icon"
 //!

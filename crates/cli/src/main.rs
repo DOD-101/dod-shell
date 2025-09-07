@@ -1,5 +1,7 @@
 //TODO: Add generate-config option
 
+//NOTE: Do we still need this?
+
 //! CLI to go along with the dod-shell
 //!
 //! This CLI is used to interact with the different components of the shell.
@@ -41,6 +43,7 @@ enum Action {
     },
 }
 
+// TODO: Add deamon
 #[derive(Clone, ValueEnum, Debug)]
 /// The different components of the shell
 enum Component {

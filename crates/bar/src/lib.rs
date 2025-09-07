@@ -1,3 +1,6 @@
+//! The bar component of the shell
+//!
+//! The bar is useful for displaying general information on the top of the screen.
 use common::Config;
 use futures_util::StreamExt;
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
@@ -27,9 +30,13 @@ mod workspaces;
 use label_icon::LabelIcon;
 use workspaces::Workspaces;
 
+// TODO: Users should be able to adjust this format
 const DATE_TIME_FORMAT: &[time::format_description::BorrowedFormatItem<'_>] =
     format_description!("[hour]:[minute]:[second] | [year]-[month]-[day]");
 
+/// The main [``relm4::Component``] for the bar
+///
+/// For more information see module level docs
 #[derive(Debug)]
 pub struct App {
     workspaces: Controller<Workspaces>,
@@ -37,22 +44,31 @@ pub struct App {
     config: Config,
 }
 
+/// Input messages for [App]
 #[derive(Debug)]
 pub enum AppMsg {
+    /// Sent when the [``SystemStateData``] has been changed
     UpdatedSystemState(SystemStateData),
+    /// Sent when the [``Config``] has been changed
+    // NOTE: Should we generalize this updating of the config for all components of type 1
+    // We could use another enum and then have a function wich takes a type T (aka an AppMsg enum)
+    // wich impls From<GeneralConfigUpdateEnum>?
     ConfigUpdated(Config),
+    /// Sent when the css has been changed
     CssUpdated(String),
 }
 
+// NOTE: Should we allow users to config the icons?
 #[allow(clippy::float_cmp)]
 #[relm4::component(pub)]
 impl SimpleComponent for App {
+    /// (The monitor to display the bar on, the monitor id the bar is on, if this is the main bar)
+    // NOTE: We should add a BarInit (or AppInit) struct or type alias
     type Init = (Monitor, usize, bool);
     type Input = AppMsg;
     type Output = ();
 
     view! {
-
         #[name(bar_main_window)]
         gtk::Window {
             init_layer_shell: (),
@@ -236,6 +252,11 @@ impl SimpleComponent for App {
             config: Config::default(),
         };
 
+        // NOTE: We should probably generalize this to all type 1 components and move it to common
+        // See comment above.
+        //
+        // NOTE: It might also be good to not spawn this for all bars but have one thread for all
+        // of them and then send it to all bars
         let update_sender = sender.input_sender().clone();
         relm4::spawn(async move {
             let connection = zbus::Connection::session().await?;
@@ -358,11 +379,11 @@ impl SimpleComponent for App {
     }
 }
 
-/// Launches the Bar on all monitors
+/// Launches the [Bar](``App``) on all monitors
 ///
 /// ## Panics
 ///
-/// If either the main relm4 application panics or if it cannot get the primary (aka the first)
+/// If either the main relm4 application panics or if it cannot get the primary (the first)
 /// monitor to display the bar on.
 pub fn launch_on_all_monitors() {
     let app = RelmApp::new("dod-shell.bar");

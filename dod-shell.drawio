@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/26.1.1 Chrome/138.0.7204.185 Electron/37.2.6 Safari/537.36" version="26.1.1">
   <diagram name="Page-1" id="9MBwZnzNivNegqvuTXYx">
-    <mxGraphModel dx="1182" dy="1676" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="831" dy="1511" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -67,13 +67,13 @@
         <mxCell id="83lpiCU1i9VFnbfGrdZY-23" value="Components" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
           <mxGeometry x="1458" y="40" width="90" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="83lpiCU1i9VFnbfGrdZY-24" value="Bar" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+        <mxCell id="83lpiCU1i9VFnbfGrdZY-24" value="Bar (1)" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="1443" y="80" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="83lpiCU1i9VFnbfGrdZY-25" value="Launcher" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+        <mxCell id="83lpiCU1i9VFnbfGrdZY-25" value="Launcher (2)" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="1443" y="170" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="83lpiCU1i9VFnbfGrdZY-26" value="Overlay" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;" parent="1" vertex="1">
+        <mxCell id="83lpiCU1i9VFnbfGrdZY-26" value="Overlay (1)" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;" parent="1" vertex="1">
           <mxGeometry x="1443" y="350" width="120" height="60" as="geometry" />
         </mxCell>
         <mxCell id="83lpiCU1i9VFnbfGrdZY-27" value="etc." style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
@@ -100,7 +100,7 @@
         <mxCell id="83lpiCU1i9VFnbfGrdZY-34" value="logs / db" style="rhombus;whiteSpace=wrap;html=1;dashed=1;" parent="1" vertex="1">
           <mxGeometry x="918" y="280" width="80" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="83lpiCU1i9VFnbfGrdZY-35" value="Osk" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;" parent="1" vertex="1">
+        <mxCell id="83lpiCU1i9VFnbfGrdZY-35" value="Osk (1)" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;" parent="1" vertex="1">
           <mxGeometry x="1443" y="440" width="120" height="60" as="geometry" />
         </mxCell>
         <mxCell id="83lpiCU1i9VFnbfGrdZY-37" value="lib" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
@@ -129,7 +129,7 @@
         <mxCell id="83lpiCU1i9VFnbfGrdZY-46" value="Deamon" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
           <mxGeometry x="1193.5" y="40" width="70" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="83lpiCU1i9VFnbfGrdZY-47" value="CLI" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+        <mxCell id="83lpiCU1i9VFnbfGrdZY-47" value="CLI (2)" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="1443" y="260" width="120" height="60" as="geometry" />
         </mxCell>
         <mxCell id="83lpiCU1i9VFnbfGrdZY-48" value="Bar" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
@@ -174,11 +174,11 @@
         <mxCell id="wyNl2i99aJjwXgHYL_ni-7" value="LauncherApp {&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;config: LiveConfig&lt;/div&gt;&lt;div&gt;}&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
           <mxGeometry x="1020" y="1398" width="120" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="8Om0tSgameFFu74HcXnr-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=-0.022;entryY=0.425;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="83lpiCU1i9VFnbfGrdZY-36" target="83lpiCU1i9VFnbfGrdZY-42">
+        <mxCell id="8Om0tSgameFFu74HcXnr-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=-0.022;entryY=0.425;entryDx=0;entryDy=0;entryPerimeter=0;" parent="1" source="83lpiCU1i9VFnbfGrdZY-36" target="83lpiCU1i9VFnbfGrdZY-42" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="8Om0tSgameFFu74HcXnr-4" value="Type 1 / 2&amp;nbsp;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
-          <mxGeometry x="1463" y="-10" width="80" height="30" as="geometry" />
+        <mxCell id="vYMn3NniLLqMcaz0oFRV-1" value="Type 1: Long lived components that need hot-reloading of files&lt;div&gt;Type 2: Short lived components. Don&#39;t need hot-reloading&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1328" y="585" width="350" height="40" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
