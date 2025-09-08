@@ -7,12 +7,18 @@ use launcher::App;
 fn main() -> zbus::Result<()> {
     simple_logger::SimpleLogger::new().env().init().unwrap();
 
+    let handle = std::thread::spawn(|| {
+        let rt =
+            tokio::runtime::Runtime::new().expect("Should never fail to create tokio runtime.");
+        rt.block_on(get_all_config())
+    });
+
     let search_term = env::args().nth(1);
     let app = RelmApp::new("dod-shell.launcher");
 
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    let all_config = rt.block_on(get_all_config())?;
-
+    let all_config = handle
+        .join()
+        .expect("Should never fail to join thread here")?;
     // Running using `with_args` to stop gtk errors caused by trying to parse the command-line
     // arguments itself
     //
