@@ -12,15 +12,17 @@ common = { version = "0.1.0", path = "crates/common" }
 daemon = { version = "0.1.0", path = "crates/daemon" }
 dirs = "6.0.0"
 futures-util = "0.3.31"
-grass = "0.13.4"
+grass = { version = "0.13.4", default-features = false }
 gtk4-layer-shell = "0.6.3"
 hyprland = "0.4.0-beta.2"
 log = "0.4.27"
-relm4 = "0.10.0"
+relm4 = { version = "0.10.0", default-features = false, features = ["macros"] }
 serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.140"
 simple_logger = "5.0.0"
-sysinfo = "0.37.0"
+sysinfo = { version = "0.37.0", default-features = false, features = [
+  "disk",
+  "system",
+] }
 time = { version = "0.3.41", features = ["formatting", "local-offset"] }
 tokio = { version = "1.47.1", features = ["full"] }
 toml = "0.9.5"

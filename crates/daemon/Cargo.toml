@@ -7,14 +7,12 @@ version.workspace = true
 [dependencies]
 alsa = "0.10.0"
 common.workspace = true
-futures-util.workspace = true
 grass.workspace = true
 hyprland.workspace = true
 log.workspace = true
 regex = { version = "1.11.1", default-features = false, features = [
   "unicode-perl",
 ] }
-serde.workspace = true
 simple_logger.workspace = true
 sysinfo.workspace = true
 time.workspace = true
