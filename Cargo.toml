@@ -5,11 +5,11 @@ resolver = "3"
 [workspace.package]
 edition = "2024"
 license = "MIT or Apache-2.0"
-version = "0.1.0"
+version = "0.2.0"
 
 [workspace.dependencies]
-common = { version = "0.1.0", path = "crates/common" }
-daemon = { version = "0.1.0", path = "crates/daemon" }
+common = { version = "0.2.0", path = "crates/common" }
+daemon = { version = "0.2.0", path = "crates/daemon" }
 dirs = "6.0.0"
 futures-util = "0.3.31"
 grass = { version = "0.13.4", default-features = false }

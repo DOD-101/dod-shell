@@ -187,7 +187,7 @@ dependencies = [
 
 [[package]]
 name = "bar"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "common",
  "daemon",
@@ -308,7 +308,7 @@ checksum = "b94f61472cee1439c0b966b47e3aca9ae07e45d070759512cd390ea2bebc6675"
 
 [[package]]
 name = "cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "clap",
  "log",
@@ -342,7 +342,7 @@ dependencies = [
 
 [[package]]
 name = "common"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "dirs",
  "serde",
@@ -366,7 +366,7 @@ checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
 
 [[package]]
 name = "daemon"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "alsa",
  "common",
@@ -1171,7 +1171,7 @@ dependencies = [
 
 [[package]]
 name = "launcher"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "common",
  "daemon",
