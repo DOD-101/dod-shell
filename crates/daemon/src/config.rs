@@ -53,11 +53,11 @@ impl Default for Config {
 }
 
 #[interface(
-    name = "dod.shell.Deamon.Config",
+    name = "dod.shell.Daemon.Config",
     proxy(
         gen_blocking = false,
-        default_path = "/dod/shell/Deamon",
-        default_service = "dod.shell.Deamon"
+        default_path = "/dod/shell/Daemon",
+        default_service = "dod.shell.Daemon"
     )
 )]
 impl Config {

@@ -6,7 +6,7 @@ version.workspace = true
 
 [dependencies]
 common.workspace = true
-deamon.workspace = true
+daemon.workspace = true
 dirs.workspace = true
 futures-util.workspace = true
 grass.workspace = true

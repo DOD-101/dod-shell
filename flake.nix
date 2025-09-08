@@ -89,7 +89,7 @@
               ./Cargo.toml
               ./Cargo.lock
               (craneLib.fileset.commonCargoSources ./crates/common)
-              (craneLib.fileset.commonCargoSources ./crates/deamon)
+              (craneLib.fileset.commonCargoSources ./crates/daemon)
               (craneLib.fileset.commonCargoSources crate)
             ];
           };
@@ -128,15 +128,15 @@
         );
         bar-release = make-release bar;
 
-        deamon = craneLib.buildPackage (
+        daemon = craneLib.buildPackage (
           individualCrateArgs
           // {
-            pname = "dod-shell-deamon";
-            cargoExtraArgs = "-p deamon";
-            src = fileSetForCrate ./crates/deamon;
+            pname = "dod-shell-daemon";
+            cargoExtraArgs = "-p daemon";
+            src = fileSetForCrate ./crates/daemon;
           }
         );
-        deamon-release = make-release deamon;
+        daemon-release = make-release daemon;
 
         cli = craneLib.buildPackage (
           individualCrateArgs
@@ -199,8 +199,8 @@
             launcher-release
             bar
             bar-release
-            deamon
-            deamon-release
+            daemon
+            daemon-release
             cli
             cli-release
             ;

@@ -1,11 +1,11 @@
 [package]
 edition.workspace = true
 license.workspace = true
-name = "deamon"
+name = "daemon"
 version.workspace = true
 
 [dependencies]
-alsa = "0.9.1"
+alsa = "0.10.0"
 common.workspace = true
 futures-util.workspace = true
 grass.workspace = true
@@ -26,5 +26,5 @@ zbus.workspace = true
 workspace = true
 
 [[bin]]
-name = "dod-shell-deamon"
+name = "dod-shell-daemon"
 path = "src/main.rs"

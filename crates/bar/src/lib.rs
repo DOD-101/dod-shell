@@ -19,7 +19,7 @@ use time::{OffsetDateTime, UtcOffset, macros::format_description};
 #[cfg(debug_assertions)]
 use gtk4_layer_shell::KeyboardMode;
 
-use deamon::{
+use daemon::{
     config::ConfigProxy,
     system_state::{BatteryStatus, ConnectionData, SystemStateData, SystemStateProxy},
 };
@@ -134,7 +134,7 @@ impl SimpleComponent for App {
                     gtk::Label {
                         #[watch]
                         set_label: &OffsetDateTime::from_unix_timestamp(model.system_state.time)
-                                        .expect("Unix timestamp from deamon should always be valid")
+                                        .expect("Unix timestamp from daemon should always be valid")
                                         .to_offset(
                                             UtcOffset::current_local_offset()
                                             .inspect_err(|e| log::error!("Failed to get local offset: {e}"))
@@ -272,7 +272,7 @@ impl SimpleComponent for App {
                 if tokio::select! {
                     Some(c) = config_stream.next() => {
                         let config = toml::from_str(&c.get().await?)
-                            .expect("Config string returned by deamon should always be valid.");
+                            .expect("Config string returned by daemon should always be valid.");
 
                         update_sender.send(AppMsg::ConfigUpdated(config))
                     }

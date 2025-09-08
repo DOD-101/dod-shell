@@ -1,7 +1,7 @@
 use relm4::RelmApp;
 use std::env;
 
-use deamon::config::ConfigProxy;
+use daemon::config::ConfigProxy;
 use launcher::App;
 
 fn main() -> zbus::Result<()> {
@@ -29,7 +29,7 @@ fn main() -> zbus::Result<()> {
     Ok(())
 }
 
-async fn get_all_config() -> zbus::Result<deamon::config::Config> {
+async fn get_all_config() -> zbus::Result<daemon::config::Config> {
     let connection = zbus::Connection::session().await?;
 
     let config_proxy = ConfigProxy::new(&connection).await?;

@@ -1,7 +1,7 @@
 // TODO: Move most of this into the lib
 use zbus::{Result, conn::Builder, object_server::InterfaceRef};
 
-use deamon::{
+use daemon::{
     config::{Config, ConfigProxy, ConfigValuesChanged},
     system_state::SystemState,
 };
@@ -10,24 +10,24 @@ use deamon::{
 async fn main() -> Result<()> {
     simple_logger::SimpleLogger::new().env().init().unwrap();
     let connection = Builder::session()?
-        .name("dod.shell.Deamon")?
+        .name("dod.shell.Daemon")?
         .serve_at(
-            "/dod/shell/Deamon",
+            "/dod/shell/Daemon",
             SystemState::new(common::Config::default()),
         )?
-        .serve_at("/dod/shell/Deamon", Config::default())?
+        .serve_at("/dod/shell/Daemon", Config::default())?
         .build()
         .await?;
 
     let obj_server = connection.object_server();
 
     let state_iface = obj_server
-        .interface::<_, SystemState>("/dod/shell/Deamon")
+        .interface::<_, SystemState>("/dod/shell/Daemon")
         .await
         .unwrap();
 
     let config_iface = obj_server
-        .interface::<_, Config>("/dod/shell/Deamon")
+        .interface::<_, Config>("/dod/shell/Daemon")
         .await
         .unwrap();
 
@@ -36,7 +36,7 @@ async fn main() -> Result<()> {
     loop {
         if update_config(&config_iface).await? {
             let config = toml::from_str::<common::Config>(&config_proxy.config().await?)
-                .expect("Config string returned by deamon should always be valid.");
+                .expect("Config string returned by daemon should always be valid.");
 
             let mut state = state_iface.get_mut().await;
 

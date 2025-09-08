@@ -81,7 +81,7 @@ pub enum AppMsg {
 /// Generated with [macro@relm4::component].
 #[relm4::component(pub)]
 impl SimpleComponent for App {
-    type Init = (Option<String>, deamon::config::Config);
+    type Init = (Option<String>, daemon::config::Config);
     type Input = AppMsg;
     type Output = ();
 
@@ -130,7 +130,7 @@ impl SimpleComponent for App {
         relm4::set_global_css(&init.1.css);
         let model = App::new_with_config(
             toml::from_str(&init.1.toml)
-                .expect("Config string returned by deamon should always be valid."),
+                .expect("Config string returned by daemon should always be valid."),
         );
 
         let results_box = model.results.results.widget();

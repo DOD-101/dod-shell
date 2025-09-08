@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/26.1.1 Chrome/138.0.7204.185 Electron/37.2.6 Safari/537.36" version="26.1.1">
   <diagram name="Page-1" id="9MBwZnzNivNegqvuTXYx">
-    <mxGraphModel dx="831" dy="1511" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="2363" dy="2183" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -109,7 +109,7 @@
         <mxCell id="83lpiCU1i9VFnbfGrdZY-40" value="Dbus / deamon version: v2" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
           <mxGeometry x="1172" y="-30" width="170" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="83lpiCU1i9VFnbfGrdZY-42" value="Deamon" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+        <mxCell id="83lpiCU1i9VFnbfGrdZY-42" value="Daemon" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="1197" y="80" width="63" height="330" as="geometry" />
         </mxCell>
         <mxCell id="83lpiCU1i9VFnbfGrdZY-43" value="" style="shape=flexArrow;endArrow=classic;startArrow=classic;html=1;rounded=0;" parent="1" edge="1">
@@ -150,34 +150,16 @@
         <mxCell id="83lpiCU1i9VFnbfGrdZY-53" value="CLI" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="600" y="260" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="83lpiCU1i9VFnbfGrdZY-54" value="The deamon could handle updates from the config and&lt;div&gt;then send those to the different components via dbus.&lt;/div&gt;&lt;div&gt;Then none of the components would have to handle&lt;/div&gt;&lt;div&gt;any of the updateing themselves and would just need to&lt;/div&gt;&lt;div&gt;have a dbus-connection to the deamon for all of their&amp;nbsp;&lt;/div&gt;&lt;div&gt;IPC needs. This would also allow for easy&amp;nbsp;&lt;/div&gt;&lt;div&gt;inter-Component comunication.&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;The common lib would just hold common types and not&lt;/div&gt;&lt;div&gt;have to worry about any updating or loading of configs,&lt;/div&gt;&lt;div&gt;which would all be handled by the deamon.&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;It would be good to have a way for the deamon to handle&lt;/div&gt;&lt;div&gt;&quot;registering&quot; different components dynamically, so that&amp;nbsp;&lt;/div&gt;&lt;div&gt;the CLI could gather information about them.&amp;nbsp;&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
+        <mxCell id="83lpiCU1i9VFnbfGrdZY-54" value="The daemon could handle updates from the config and&lt;div&gt;then send those to the different components via dbus.&lt;/div&gt;&lt;div&gt;Then none of the components would have to handle&lt;/div&gt;&lt;div&gt;any of the updateing themselves and would just need to&lt;/div&gt;&lt;div&gt;have a dbus-connection to the deamon for all of their&amp;nbsp;&lt;/div&gt;&lt;div&gt;IPC needs. This would also allow for easy&amp;nbsp;&lt;/div&gt;&lt;div&gt;inter-Component comunication.&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;The common lib would just hold common types and not&lt;/div&gt;&lt;div&gt;have to worry about any updating or loading of configs,&lt;/div&gt;&lt;div&gt;which would all be handled by the deamon.&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;It would be good to have a way for the deamon to handle&lt;/div&gt;&lt;div&gt;&quot;registering&quot; different components dynamically, so that&amp;nbsp;&lt;/div&gt;&lt;div&gt;the CLI could gather information about them.&amp;nbsp;&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
           <mxGeometry x="842" y="520" width="330" height="230" as="geometry" />
         </mxCell>
         <mxCell id="iHxTy6IVr4JcWS8I_kcv-1" value="Systemd:&amp;nbsp;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;The individual Compoents are all to be systemd services,&lt;/div&gt;&lt;div&gt;which could be either just bound to an exsisting target&amp;nbsp;&lt;/div&gt;&lt;div&gt;(e.g: when Hyprland starts) or we could create a custom&lt;/div&gt;&lt;div&gt;target, which might provide some more posibilities.&amp;nbsp;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&lt;br&gt;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;We also need to handle cases where the deamon crashes /&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;isn&#39;t currently running, as to not have all other widgets&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;completely fail.&amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
           <mxGeometry x="842" y="800" width="340" height="160" as="geometry" />
         </mxCell>
-        <mxCell id="wyNl2i99aJjwXgHYL_ni-1" value="Handeling of Config&amp;nbsp;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
-          <mxGeometry x="1160" y="1200" width="130" height="30" as="geometry" />
-        </mxCell>
-        <mxCell id="wyNl2i99aJjwXgHYL_ni-2" value="dod.shell.Deamon.Config" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="878" y="1280" width="160" height="40" as="geometry" />
-        </mxCell>
-        <mxCell id="wyNl2i99aJjwXgHYL_ni-3" value="Type 1 (Live)" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
-          <mxGeometry x="878" y="1210" width="90" height="30" as="geometry" />
-        </mxCell>
-        <mxCell id="wyNl2i99aJjwXgHYL_ni-5" value="relm4::App" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
-          <mxGeometry x="1440" y="1240" width="80" height="30" as="geometry" />
-        </mxCell>
-        <mxCell id="wyNl2i99aJjwXgHYL_ni-6" value="thread fetch updates" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
-          <mxGeometry x="1241" y="1280" width="130" height="30" as="geometry" />
-        </mxCell>
-        <mxCell id="wyNl2i99aJjwXgHYL_ni-7" value="LauncherApp {&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;config: LiveConfig&lt;/div&gt;&lt;div&gt;}&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
-          <mxGeometry x="1020" y="1398" width="120" height="70" as="geometry" />
-        </mxCell>
         <mxCell id="8Om0tSgameFFu74HcXnr-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=-0.022;entryY=0.425;entryDx=0;entryDy=0;entryPerimeter=0;" parent="1" source="83lpiCU1i9VFnbfGrdZY-36" target="83lpiCU1i9VFnbfGrdZY-42" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="vYMn3NniLLqMcaz0oFRV-1" value="Type 1: Long lived components that need hot-reloading of files&lt;div&gt;Type 2: Short lived components. Don&#39;t need hot-reloading&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+        <mxCell id="vYMn3NniLLqMcaz0oFRV-1" value="Type 1: Long lived components that need hot-reloading of files&lt;div&gt;Type 2: Short lived components. Don&#39;t need hot-reloading&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
           <mxGeometry x="1328" y="585" width="350" height="40" as="geometry" />
         </mxCell>
       </root>

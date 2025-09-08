@@ -43,7 +43,7 @@ enum Action {
     },
 }
 
-// TODO: Add deamon
+// TODO: Add daemon
 #[derive(Clone, ValueEnum, Debug)]
 /// The different components of the shell
 enum Component {

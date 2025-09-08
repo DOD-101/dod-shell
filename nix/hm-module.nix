@@ -106,21 +106,21 @@ in
               Type = "exec";
               Restart = "on-failure";
               RestartSec = 3;
-              Requires = [ "dod-shell-deamon.service" ];
-              After = [ "dod-shell-deamon.service" ];
+              Requires = [ "dod-shell-daemon.service" ];
+              After = [ "dod-shell-daemon.service" ];
             };
             Install = {
               WantedBy = [ "dod-shell.target" ];
             };
           };
-          dod-shell-deamon = {
+          dod-shell-daemon = {
             Unit = {
-              Description = "dod-shell deamon service";
+              Description = "dod-shell daemon service";
             };
             Service = {
-              ExecStart = "${getComponent "dod-shell-deamon"}/bin/dod-shell-deamon";
+              ExecStart = "${getComponent "dod-shell-daemon"}/bin/dod-shell-daemon";
               Type = "dbus";
-              BusName = "dod.shell.Deamon";
+              BusName = "dod.shell.Daemon";
               Restart = "on-failure";
               RestartSec = 3;
             };

@@ -404,11 +404,11 @@ impl SystemState {
 }
 
 #[interface(
-    name = "dod.shell.Deamon.SystemState",
+    name = "dod.shell.Daemon.SystemState",
     proxy(
         gen_blocking = false,
-        default_path = "/dod/shell/Deamon",
-        default_service = "dod.shell.Deamon"
+        default_path = "/dod/shell/Daemon",
+        default_service = "dod.shell.Daemon"
     )
 )]
 impl SystemState {
