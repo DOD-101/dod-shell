@@ -10,7 +10,7 @@ use relm4::{
         gdk::{Monitor, prelude::DisplayExt},
         gio::prelude::{ListModelExt, ListModelExtManual},
         glib::object::CastNone,
-        prelude::{BoxExt, GtkApplicationExt, OrientableExt, WidgetExt},
+        prelude::{GtkApplicationExt, OrientableExt, WidgetExt},
     },
     prelude::*,
 };
@@ -222,11 +222,40 @@ impl SimpleComponent for App {
                                     0.0.. => "",
                                     _ => unreachable!(),
                                   }
-                    }
+                    },
+                    #[name(battery_label_icon)]
+                    LabelIcon {
+                        // TODO: Add class for low battery
+                        #[watch]
+                        set_label:
+                            &model
+                                .system_state
+                                .battery
+                                .as_ref()
+                                .map(|v| v.charge.to_string())
+                                .unwrap_or_default(),
+                        #[watch]
+                        set_icon:
+                            if let Some(battery) = &*model.system_state.battery {
+                                if battery.status == BatteryStatus::Charging {
+                                    "󰂄"
+                                } else {
+                                    match *battery.charge {
+                                        1.0.. => "",
+                                        0.75.. => "",
+                                        0.50.. => "",
+                                        0.25.. => "",
+                                        0.0.. => "",
+                                        _ => unreachable!("Battery value should never be negative"),
+                                    }
+                                }
+                            } else {
+                                ""
+                            },
+                    },
                 }
             }
         }
-
     }
 
     fn init(
@@ -314,30 +343,6 @@ impl SimpleComponent for App {
                 .bar_main_window
                 .set_keyboard_mode(KeyboardMode::OnDemand);
         }
-
-        // BUG: This won't ever update
-        // -- Optional Widgets --
-        if model.config.bar.battery.is_some() {
-            let battery_widget = LabelIcon::default();
-            battery_widget.set_widget_name("battery");
-            battery_widget.set_label(&model.system_state.battery.to_string());
-            battery_widget.set_icon(
-                if model.system_state.battery_status == BatteryStatus::Charging {
-                    "󰂄"
-                } else {
-                    match *model.system_state.battery {
-                        1.0.. => "",
-                        0.75.. => "",
-                        0.50.. => "",
-                        0.25.. => "",
-                        0.0.. => "",
-                        _ => unreachable!("Battery value should never be negative"),
-                    }
-                },
-            );
-            widgets.end_box.append(&battery_widget);
-        }
-        // -- END --
 
         if init.2 {
             let monitor_list = relm4::gtk::gdk::Display::default()

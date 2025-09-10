@@ -8,6 +8,7 @@ license = "MIT or Apache-2.0"
 version = "0.2.0"
 
 [workspace.dependencies]
+anyhow = "1.0.99"
 common = { version = "0.2.0", path = "crates/common" }
 daemon = { version = "0.2.0", path = "crates/daemon" }
 dirs = "6.0.0"
@@ -23,6 +24,7 @@ sysinfo = { version = "0.37.0", default-features = false, features = [
   "disk",
   "system",
 ] }
+thiserror = "2.0.16"
 time = { version = "0.3.41", features = ["formatting", "local-offset"] }
 tokio = { version = "1.47.1", features = ["full"] }
 toml = "0.9.5"

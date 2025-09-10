@@ -12,9 +12,11 @@ use std::{
     sync::LazyLock,
 };
 
+use anyhow::Result;
+
 use zbus::{interface, zvariant};
 
-use common::types::Percentage;
+use common::{err::Error, types::Percentage};
 
 use alsa::{
     Mixer,
@@ -150,10 +152,10 @@ impl SystemState {
             .inspect_err(|e| log::error!("Failed to update key state information: {e}"))
             .unwrap_or_default();
 
-        if let Some(battery_data) = battery_data {
-            (self.data.battery, self.data.battery_status) = battery_data
-                .inspect_err(|e| log::error!("Failed to update battery information: {e}"))
-                .unwrap_or_default();
+        match battery_data {
+            Some(Ok(data)) => self.data.battery = zvariant::Optional::from(Some(data)),
+            Some(Err(e)) => log::error!("Failed to update battery information: {e}"),
+            None => (),
         }
 
         self.data.volume = SystemState::update_volume()
@@ -194,12 +196,10 @@ impl SystemState {
             // Check if this object implements the Device1 interface
             if let Some(device_props) = interfaces.get("org.bluez.Device1") {
                 // Check if the device is connected
-                if let Some(connected_value) = device_props.get("Connected") {
-                    if let Ok(is_connected) = bool::try_from(connected_value) {
-                        if is_connected {
-                            return Ok(true);
-                        }
-                    }
+                if let Some(connected_value) = device_props.get("Connected")
+                    && bool::try_from(connected_value).is_ok_and(|v| v)
+                {
+                    return Ok(true);
                 }
             }
         }
@@ -210,7 +210,7 @@ impl SystemState {
     /// Get's information about the battery, if one is set in the shell [Config](``common::config::Config``)
     ///
     /// Used in [``Self::update``]
-    async fn update_battery(&self) -> Option<std::io::Result<(Percentage, BatteryStatus)>> {
+    async fn update_battery(&self) -> Option<Result<BatteryData>> {
         if let Some(bat) = &self.config.bar.battery {
             let battery_path = PathBuf::from("/sys/class/power_supply/").join(bat);
 
@@ -228,8 +228,11 @@ impl SystemState {
                     .map(|s| s.trim().into());
 
             return match (percentage, status) {
-                (Ok(p), Ok(s)) => Some(Ok((p.into(), s))),
-                (Err(e), _) | (_, Err(e)) => Some(Err(e)),
+                (Ok(p), Ok(s)) => Some(Ok(BatteryData {
+                    charge: p.into(),
+                    status: s,
+                })),
+                (Err(e), _) | (_, Err(e)) => Some(Err(e.into())),
             };
         }
 
@@ -239,7 +242,7 @@ impl SystemState {
     /// Gathers information about the current internet connection
     ///
     /// Used in [``Self::update``]
-    async fn update_network(&self) -> Result<ConnectionData, Box<dyn std::error::Error>> {
+    async fn update_network(&self) -> Result<ConnectionData> {
         let connection = zbus::Connection::system().await?;
         let nm_iface = InterfaceName::from_str_unchecked(NM_SERVICE_NAME);
         let nm_proxy = Proxy::new(
@@ -334,7 +337,7 @@ impl SystemState {
     ///
     /// Field 0 signals if capslock is enabled
     /// Field 1 signals if numlock is enabled
-    async fn update_key_states() -> std::io::Result<(bool, bool)> {
+    async fn update_key_states() -> Result<(bool, bool)> {
         // Helper function to read the brightness of the given path
         let read_brightness = async |path: &str| {
             let content = fs::read_to_string(path).await?;
@@ -377,13 +380,11 @@ impl SystemState {
     /// If the default audio sink is muted returns `-1`
     ///
     /// Used in [``Self::update``]
-    fn update_volume() -> alsa::Result<Percentage> {
+    fn update_volume() -> Result<Percentage> {
         let mixer = Mixer::new("default", true)?;
 
         let selem_id = SelemId::new("Master", 0);
-        let selem = mixer
-            .find_selem(&selem_id)
-            .expect("Default card should have Master.");
+        let selem = mixer.find_selem(&selem_id).ok_or(Error::NoDefaultCard)?;
 
         let max = selem.get_playback_volume_range().1;
         for o in SelemChannelId::all() {
@@ -436,10 +437,8 @@ pub struct SystemStateData {
     pub workspace: i32,
     /// Data about the network connection
     pub network: ConnectionData,
-    /// Battery Charge
-    pub battery: Percentage,
-    /// Battery Status
-    pub battery_status: BatteryStatus,
+    /// Data about the Battery
+    pub battery: zvariant::Optional<BatteryData>,
     /// List of data about different disks on the system
     pub disks: Vec<DiskData>,
     /// If there are currently any devices connected via Bluetooth
@@ -487,7 +486,7 @@ pub enum ConnectionData {
 
 impl TryFrom<zvariant::Value<'_>> for ConnectionData {
     type Error = zvariant::Error;
-    fn try_from(value: zvariant::Value<'_>) -> Result<Self, Self::Error> {
+    fn try_from(value: zvariant::Value<'_>) -> zvariant::Result<Self> {
         if let zvariant::Value::Structure(v) = value {
             let mut field_iter = v.into_fields().into_iter();
 
@@ -496,22 +495,20 @@ impl TryFrom<zvariant::Value<'_>> for ConnectionData {
                 Some(zvariant::Value::I32(1)) => Ok(ConnectionData::Wireless {
                     signal: field_iter
                         .next()
-                        .ok_or(zvariant::Error::IncorrectType)?
+                        .ok_or(Self::Error::IncorrectType)?
                         .try_to_owned()?
                         .try_into()?,
                     ssid: field_iter
                         .next()
-                        .ok_or(zvariant::Error::IncorrectType)?
+                        .ok_or(Self::Error::IncorrectType)?
                         .try_into()?,
                 }),
                 Some(zvariant::Value::I32(2)) => Ok(ConnectionData::None),
-                _ => Err(zvariant::Error::IncorrectType),
+                _ => Err(Self::Error::IncorrectType),
             };
         }
 
-        dbg!("here");
-
-        Err(zvariant::Error::IncorrectType)
+        Err(Self::Error::IncorrectType)
     }
 }
 
@@ -527,7 +524,7 @@ impl From<ConnectionData> for zvariant::OwnedValue {
 impl TryFrom<zvariant::OwnedValue> for ConnectionData {
     type Error = zvariant::Error;
 
-    fn try_from(value: zvariant::OwnedValue) -> Result<Self, Self::Error> {
+    fn try_from(value: zvariant::OwnedValue) -> zvariant::Result<Self> {
         dbg!(value);
         todo!();
     }
@@ -542,6 +539,21 @@ impl From<ConnectionData> for zvariant::Structure<'_> {
         }
         .into()
     }
+}
+
+#[derive(
+    Default,
+    Debug,
+    Clone,
+    PartialEq,
+    PartialOrd,
+    zbus::zvariant::Value,
+    zbus::zvariant::OwnedValue,
+    zvariant::Type,
+)]
+pub struct BatteryData {
+    pub charge: Percentage,
+    pub status: BatteryStatus,
 }
 
 /// State of a battery

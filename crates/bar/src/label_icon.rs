@@ -32,13 +32,13 @@ impl Default for LabelIcon {
     }
 }
 
+//NOTE: We could change these to take Option<&str>
 impl LabelIcon {
     pub fn set_label(&self, label: &str) {
         let imp = imp::LabelIcon::from_obj(self);
 
         imp.label.set_label(label);
     }
-
     pub fn set_icon(&self, icon: &str) {
         let imp = imp::LabelIcon::from_obj(self);
 
