@@ -48,26 +48,30 @@ impl LauncherMode for LaunchMode {
     }
 
     fn finish(&self, query: &str, config: &Config, index: usize) {
-        let result = &self.search(query, config)[index];
+        let results = self.search(query, config);
+        let result = results.get(index);
 
-        let cmd = config
-            .launcher
-            .launch_mode
-            .apps
-            .iter()
-            .find_map(|a| {
-                if a.name == *result {
-                    Some(&a.cmd)
-                } else {
-                    None
-                }
-            })
-            .expect("Result has to be in self.data.apps.");
+        if let Some(result) = result {
+            let cmd = config
+                .launcher
+                .launch_mode
+                .apps
+                .iter()
+                .find_map(|a| {
+                    if a.name == *result {
+                        Some(&a.cmd)
+                    } else {
+                        None
+                    }
+                })
+                .expect("Result has to be in self.data.apps.");
 
-        let mut cmd_iter = cmd.split_whitespace();
+            let mut cmd_iter = cmd.split_whitespace();
 
-        let _ = Command::new(cmd_iter.next().unwrap())
-            .args(cmd_iter.collect::<Vec<&str>>())
-            .spawn();
+            let _ = Command::new(cmd_iter.next().unwrap())
+                .args(cmd_iter.collect::<Vec<&str>>())
+                .spawn();
+        }
+        // if the result is none we just exit, the assumption being there were no valid results
     }
 }

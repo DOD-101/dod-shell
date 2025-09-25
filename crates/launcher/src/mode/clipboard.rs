@@ -75,24 +75,30 @@ impl LauncherMode for ClipboardMode {
     }
 
     fn finish(&self, query: &str, config: &Config, index: usize) {
-        let val = &self.search(query, config)[index];
+        let results = &self.search(query, config);
+        let val = results.get(index);
 
-        let code = self.data[val];
+        if let Some(val) = val {
+            let code = self.data[val];
 
-        let mut child1 = Command::new("cliphist")
-            .arg("decode")
-            .arg(code.to_string())
-            .stdout(Stdio::piped())
-            .spawn()
-            .expect("failed to spawn cliphist");
+            let mut child1 = Command::new("cliphist")
+                .arg("decode")
+                .arg(code.to_string())
+                .stdout(Stdio::piped())
+                .spawn()
+                .expect("failed to spawn cliphist");
 
-        let mut child2 = Command::new("wl-copy")
-            .stdin(child1.stdout.take().unwrap())
-            .spawn()
-            .expect("failed to spawn wl-copy");
+            let mut child2 = Command::new("wl-copy")
+                .stdin(child1.stdout.take().unwrap())
+                .spawn()
+                .expect("failed to spawn wl-copy");
 
-        if !(child1.wait().is_ok_and(|v| v.success()) && child2.wait().is_ok_and(|v| v.success())) {
-            print!("ERROR: Failed to copy to clipboard.")
+            if !(child1.wait().is_ok_and(|v| v.success())
+                && child2.wait().is_ok_and(|v| v.success()))
+            {
+                print!("ERROR: Failed to copy to clipboard.")
+            }
         }
+        // if the result is none we just exit, the assumption being there were no valid results
     }
 }

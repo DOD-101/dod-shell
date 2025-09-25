@@ -15,9 +15,6 @@
 //!
 //!
 
-//BUG: When changing the position of the selected element and then changing the text an out of
-//bounds access occurs
-
 // TODO: Decide: Should we even have a lib target?
 use core::str;
 use gtk::prelude::*;
@@ -133,7 +130,7 @@ impl SimpleComponent for App {
                 .expect("Config string returned by daemon should always be valid."),
         );
 
-        let results_box = model.results.results.widget();
+        let results_box = model.results.results_widget();
         let widgets = view_output!();
 
         // Make launcher exit on pressing Escape
@@ -183,18 +180,8 @@ impl SimpleComponent for App {
     fn update(&mut self, msg: Self::Input, _sender: ComponentSender<Self>) {
         match msg {
             AppMsg::SearchUpdate(text) => {
-                {
-                    let mut results = self.results.results.guard();
-                    results.clear();
-                    self.mode
-                        .search(&text, &self.config)
-                        .into_iter()
-                        .for_each(|o| {
-                            results.push_back(o);
-                        });
-                }
-
-                self.results.reset_and_set();
+                self.results
+                    .set_results(self.mode.search(&text, &self.config));
             }
             AppMsg::SearchFinish(text) => {
                 self.mode
@@ -202,10 +189,10 @@ impl SimpleComponent for App {
                 relm4::main_application().quit();
             }
             AppMsg::ResultsMoveUp => {
-                self.results.decrease_and_set();
+                self.results.decrease_active();
             }
             AppMsg::ResultsMoveDown => {
-                self.results.increase_and_set();
+                self.results.increase_active();
             }
         }
     }

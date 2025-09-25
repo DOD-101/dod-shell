@@ -9,7 +9,7 @@ use relm4::prelude::*;
 #[derive(Debug)]
 pub struct LauncherResults {
     /// The results
-    pub results: FactoryVecDeque<LauncherResult>,
+    results: FactoryVecDeque<LauncherResult>,
     /// The index of the currently selected result
     selected_index: usize,
 }
@@ -82,10 +82,33 @@ impl Default for LauncherResults {
     }
 }
 
-// WARN: Not sure I fully love this api, since it seems rather error-prone
 impl LauncherResults {
-    /// Increase the [Self::selected_index] by one
-    fn increase(&mut self) {
+    /// Set [Self::results]
+    pub fn set_results(&mut self, results: Vec<String>) {
+        {
+            let mut guard = self.results.guard();
+
+            guard.clear();
+
+            for result in results {
+                guard.push_back(result);
+            }
+        }
+
+        self.selected_index = 0;
+        self.set_current_result_active();
+    }
+
+    /// Get the underlying [Self::results] widget
+    pub fn results_widget(&self) -> &gtk::Box {
+        self.results.widget()
+    }
+
+    /// Increase the [Self::selected_index] by one and update the results active state accordingly
+    pub fn increase_active(&mut self) {
+        self.set_current_result_inactive();
+
+        // increase the index
         if let Some(max_selected_index) = self.results.len().checked_sub(1) {
             self.selected_index += 1;
 
@@ -93,20 +116,26 @@ impl LauncherResults {
                 self.selected_index = 0;
             }
         }
+
+        self.set_current_result_active();
     }
 
-    /// Decrease the [Self::selected_index] by one
-    fn decrease(&mut self) {
+    /// Decrease the [Self::selected_index] by one and update the results active state accordingly
+    pub fn decrease_active(&mut self) {
+        self.set_current_result_inactive();
+
         if let Some(max_selected_index) = self.results.len().checked_sub(1) {
             self.selected_index = self
                 .selected_index
                 .checked_sub(1)
                 .unwrap_or(max_selected_index);
         }
+
+        self.set_current_result_active();
     }
 
-    /// Set the result at the [Self::selected_index] as active
-    fn set_active_result(&self) {
+    /// Set the result at the current [Self::selected_index] as active
+    fn set_current_result_active(&self) {
         if self.results.is_empty() {
             return;
         }
@@ -115,41 +144,14 @@ impl LauncherResults {
             .send(self.selected_index, LauncherResultInput::ResultActive);
     }
 
-    /// Set the result at the [Self::selected_index] as inactive
-    fn set_inactive_result(&self) {
+    /// Set the result at the current [Self::selected_index] as inactive
+    fn set_current_result_inactive(&self) {
         if self.results.is_empty() {
             return;
         }
 
         self.results
             .send(self.selected_index, LauncherResultInput::ResultInactive);
-    }
-
-    /// Increase the [Self::selected_index] by one and update the results active state accordingly
-    pub fn increase_and_set(&mut self) {
-        self.set_inactive_result();
-
-        self.increase();
-
-        self.set_active_result();
-    }
-
-    /// Decrease the [Self::selected_index] by one and update the results active state accordingly
-    pub fn decrease_and_set(&mut self) {
-        self.set_inactive_result();
-
-        self.decrease();
-
-        self.set_active_result();
-    }
-
-    /// Reset the [Self::selected_index] to 0 and update the results active state accordingly
-    pub fn reset_and_set(&mut self) {
-        self.set_inactive_result();
-
-        self.selected_index = 0;
-
-        self.set_active_result();
     }
 
     /// Get the [Self::selected_index]
