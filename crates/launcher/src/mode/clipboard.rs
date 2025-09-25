@@ -2,7 +2,10 @@
 //!
 //! This mode allows users to go through their clipboard history and pick a previous clipboard item
 //! to bring back into the active clipboard.
-use std::process::Command;
+use std::{
+    collections::HashMap,
+    process::{Command, Stdio},
+};
 
 use crate::mode::LauncherMode;
 
@@ -12,7 +15,7 @@ use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 /// See module level documentation
 pub struct ClipboardMode {
     /// Clipboard history
-    data: Vec<String>,
+    data: HashMap<String, u32>,
     /// The fuzzy matcher used to filter results
     matcher: SkimMatcherV2,
 }
@@ -29,8 +32,8 @@ impl Default for ClipboardMode {
 
         let data = output
             .lines()
-            .map(|s| s.split_once("\t").unwrap().1)
-            .map(String::from)
+            .map(|s| s.split_once("\t").unwrap())
+            .map(|v| (v.1.to_string(), v.0.parse().unwrap()))
             .collect();
 
         let matcher = SkimMatcherV2::default();
@@ -42,12 +45,17 @@ impl Default for ClipboardMode {
 impl LauncherMode for ClipboardMode {
     fn search(&self, query: &str, config: &Config) -> Vec<String> {
         if query.is_empty() {
-            return self.data[..(self.data.len().min(config.launcher.max_results))].into();
+            return self
+                .data
+                .keys()
+                .take(config.launcher.max_results)
+                .cloned()
+                .collect();
         }
 
         let mut options: Vec<(i64, String)> = self
             .data
-            .iter()
+            .keys()
             .filter_map(|o| {
                 let score = self.matcher.fuzzy_match(o, query).unwrap_or_default();
 
@@ -69,6 +77,22 @@ impl LauncherMode for ClipboardMode {
     fn finish(&self, query: &str, config: &Config, index: usize) {
         let val = &self.search(query, config)[index];
 
-        let _ = Command::new("wl-copy").arg(val).spawn();
+        let code = self.data[val];
+
+        let mut child1 = Command::new("cliphist")
+            .arg("decode")
+            .arg(code.to_string())
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("failed to spawn cliphist");
+
+        let mut child2 = Command::new("wl-copy")
+            .stdin(child1.stdout.take().unwrap())
+            .spawn()
+            .expect("failed to spawn wl-copy");
+
+        if !(child1.wait().is_ok_and(|v| v.success()) && child2.wait().is_ok_and(|v| v.success())) {
+            print!("ERROR: Failed to copy to clipboard.")
+        }
     }
 }
