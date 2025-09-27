@@ -57,20 +57,14 @@
             wrapGAppsHook
           ];
 
-          buildInputs =
-            with pkgs;
-            [
-              gtk4
-              gtk4-layer-shell
-              pkg-config
-              openssl
-              alsa-lib
-              wrapGAppsHook
-            ]
-            ++ lib.optionals pkgs.stdenv.isDarwin [
-              # Additional darwin specific inputs can be set here
-              pkgs.libiconv
-            ];
+          buildInputs = with pkgs; [
+            gtk4
+            gtk4-layer-shell
+            pkg-config
+            openssl
+            alsa-lib
+            wrapGAppsHook
+          ];
 
           # Additional environment variables can be set directly
           # MY_CUSTOM_VAR = "some value";
@@ -90,6 +84,7 @@
             fileset = lib.fileset.unions [
               ./Cargo.toml
               ./Cargo.lock
+              ./icons
               (craneLib.fileset.commonCargoSources ./crates/common)
               (craneLib.fileset.commonCargoSources ./crates/daemon)
               (craneLib.fileset.commonCargoSources crate)

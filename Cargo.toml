@@ -18,6 +18,8 @@ gtk4-layer-shell = "0.6.3"
 hyprland = "0.4.0-beta.2"
 log = "0.4.27"
 relm4 = { version = "0.10.0", default-features = false, features = ["macros"] }
+relm4-icons = "0.10.0"
+relm4-icons-build = "0.10.0"
 serde = { version = "1.0.219", features = ["derive"] }
 simple_logger = "5.0.0"
 sysinfo = { version = "0.37.0", default-features = false, features = [

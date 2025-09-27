@@ -24,6 +24,12 @@ use daemon::{
     system_state::{BatteryStatus, ConnectionData, SystemStateData, SystemStateProxy},
 };
 
+mod icon {
+    include!(concat!(env!("OUT_DIR"), "/icon_names.rs"));
+    pub use self::custom::*;
+    pub use self::shipped::*;
+}
+
 mod label_icon;
 mod workspaces;
 
@@ -97,7 +103,7 @@ impl SimpleComponent for App {
                             set_css_classes: &["cpu"],
                             #[watch]
                             set_label: &model.system_state.cpu_usage.to_string(),
-                            set_icon: "󰻠"
+                            set_icon: icon::PROCESSOR,
                         },
 
                         #[name(ram)]
@@ -105,7 +111,7 @@ impl SimpleComponent for App {
                             set_css_classes: &["ram"],
                             #[watch]
                             set_label: &model.system_state.mem_usage.to_string(),
-                            set_icon: ""
+                            set_icon: icon::RAM_FILLED,
                         },
 
                         #[name(drive)]
@@ -119,7 +125,7 @@ impl SimpleComponent for App {
                                         .find(|d| d.name == *model.config.bar.disk)
                                         .map_or("Err".to_string(), |d| d.used.to_string())
                                         ,
-                            set_icon: "󱛟"
+                            set_icon: icon::HARDDISK,
                         },
                     },
 
@@ -161,49 +167,49 @@ impl SimpleComponent for App {
                         }
                     },
                     #[name(internet_icon)]
-                    gtk::Label {
+                    gtk::Image {
                         set_css_classes: &["icon"],
                         #[watch]
                         set_class_active: ("active", model.system_state.network != ConnectionData::None),
                         #[watch]
-                        set_label: match model.system_state.network {
-                                        ConnectionData::Wired => "󰈁",
+                        set_icon_name: Some(match model.system_state.network {
+                                        ConnectionData::Wired => icon::LAN,
                                         ConnectionData::Wireless {signal, ..} => match *signal {
-                                            0.75.. => "󰤨",
-                                            0.50.. => "󰤥",
-                                            0.35.. => "󰤢",
-                                            _ => "󰤟",
+                                            0.75.. => icon::RADIOWAVES_1,
+                                            0.50.. => icon::RADIOWAVES_2,
+                                            0.35.. => icon::RADIOWAVES_3,
+                                            _ => icon::RADIOWAVES_4,
                                         },
-                                        ConnectionData::None =>  "󰤭"
-                        },
+                                        ConnectionData::None =>  icon::RADIOWAVES_5,
+                        }),
                     },
 
                     #[name(bluetooth_icon)]
-                    gtk::Label {
+                    gtk::Image {
                         set_css_classes: &["icon"],
                         #[watch]
                         set_class_active: ("active", model.system_state.bluetooth),
-                        set_label: "",
+                        set_icon_name: Some(icon::BLUETOOTH),
                     },
 
                     #[name(capslock_icon)]
-                    gtk::Label {
+                    gtk::Image {
                         set_css_classes: &["icon"],
                         #[watch]
                         set_visible: model.config.bar.show_capslock,
                         #[watch]
                         set_class_active: ("active", model.system_state.capslock),
-                        set_label: "󰘲",
+                        set_icon_name: Some(icon::KEYBOARD_CAPS_LOCK),
                     },
 
                     #[name(numlock_icon)]
-                    gtk::Label {
+                    gtk::Image {
                         set_css_classes: &["icon"],
                         #[watch]
                         set_visible: model.config.bar.show_numlock,
                         #[watch]
                         set_class_active: ("active", model.system_state.numlock),
-                        set_label: "󰎡",
+                        set_icon_name: Some(icon::DOCUMENT_PAGE_NUMBER_FILLED_SYMBOLIC),
                     },
 
                     #[name(volume_label_icon)]
@@ -214,18 +220,17 @@ impl SimpleComponent for App {
                         set_class_active: ("muted", *model.system_state.volume == -1.0),
                         #[watch]
                         set_icon: match *model.system_state.volume {
-                                    -1.0 => "󰖁",
-                                    _ if model.system_state.bluetooth => "󰂰",
-                                    0.0 => "󰝟",
-                                    0.66.. => "",
-                                    0.33.. => "",
-                                    0.0.. => "",
+                                    -1.0 => icon::SPEAKER_OFF_FILLED,
+                                    _ if model.system_state.bluetooth => icon::SPEAKER_BLUETOOTH_FILLED_SYMBOLIC,
+                                    0.0 => icon::SPEAKER_MUTE_FILLED,
+                                    0.66.. => icon::SPEAKER_2_FILLED,
+                                    0.33.. => icon::SPEAKER_1_FILLED,
+                                    0.0.. => icon::SPEAKER_0_FILLED,
                                     _ => unreachable!(),
                                   }
                     },
                     #[name(battery_label_icon)]
                     LabelIcon {
-                        // TODO: Add class for low battery
                         #[watch]
                         set_label:
                             &model
@@ -235,22 +240,34 @@ impl SimpleComponent for App {
                                 .map(|v| v.charge.to_string())
                                 .unwrap_or_default(),
                         #[watch]
+                        set_visible: model.system_state.battery.is_some(),
+                        #[watch]
+                        set_class_active: ("battery-low", model.system_state.battery.as_ref().is_some_and(|b| *b.charge <= 0.3)),
+                        #[watch]
                         set_icon:
                             if let Some(battery) = &*model.system_state.battery {
                                 if battery.status == BatteryStatus::Charging {
-                                    "󰂄"
+                                    if *battery.charge == 1.0 {
+                                        icon::BATTERY_LEVEL_100_CHARGED
+                                    } else {
+                                        icon::BATTERY_LEVEL_0_CHARGING
+                                    }
                                 } else {
                                     match *battery.charge {
-                                        1.0.. => "",
-                                        0.75.. => "",
-                                        0.50.. => "",
-                                        0.25.. => "",
-                                        0.0.. => "",
+                                        1.0.. => icon::BATTERY_LEVEL_100,
+                                        0.9.. => icon::BATTERY_LEVEL_90,
+                                        0.8.. => icon::BATTERY_LEVEL_80,
+                                        0.7.. => icon::BATTERY_LEVEL_70,
+                                        0.6.. => icon::BATTERY_LEVEL_60,
+                                        0.5.. => icon::BATTERY_LEVEL_50,
+                                        0.4.. => icon::BATTERY_LEVEL_40,
+                                        0.3.. => icon::BATTERY_LEVEL_30,
+                                        0.0.. => icon::BATTERY_LOW,
                                         _ => unreachable!("Battery value should never be negative"),
                                     }
                                 }
                             } else {
-                                ""
+                                icon::BATTERY_MISSING
                             },
                     },
                 }
@@ -395,6 +412,8 @@ pub fn launch_on_all_monitors() {
     let monitor = relm4::gtk::gdk::Display::default()
         .and_then(|d| d.monitors().item(0).and_downcast::<Monitor>())
         .expect("Failed to get primary Monitor.");
+
+    relm4_icons::initialize_icons(icon::GRESOURCE_BYTES, icon::RESOURCE_PREFIX);
 
     app.run::<App>((monitor, 0, true));
 }

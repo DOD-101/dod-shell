@@ -42,7 +42,7 @@ impl LabelIcon {
     pub fn set_icon(&self, icon: &str) {
         let imp = imp::LabelIcon::from_obj(self);
 
-        imp.icon.set_label(icon);
+        imp.icon.set_icon_name(Some(icon));
     }
 }
 
@@ -62,7 +62,7 @@ mod imp {
     #[derive(Debug, Default)]
     pub struct LabelIcon {
         pub(super) label: gtk::Label,
-        pub(super) icon: gtk::Label,
+        pub(super) icon: gtk::Image,
     }
 
     #[gtk::glib::object_subclass]
