@@ -2,10 +2,7 @@
 //!
 //! This mode allows users to go through their clipboard history and pick a previous clipboard item
 //! to bring back into the active clipboard.
-use std::{
-    collections::HashMap,
-    process::{Command, Stdio},
-};
+use std::process::{Command, Stdio};
 
 use crate::mode::LauncherMode;
 
@@ -15,7 +12,7 @@ use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 /// See module level documentation
 pub struct ClipboardMode {
     /// Clipboard history
-    data: HashMap<String, u32>,
+    data: Vec<(String, u32)>,
     /// The fuzzy matcher used to filter results
     matcher: SkimMatcherV2,
 }
@@ -47,15 +44,16 @@ impl LauncherMode for ClipboardMode {
         if query.is_empty() {
             return self
                 .data
-                .keys()
+                .iter()
                 .take(config.launcher.max_results)
+                .map(|v| &v.0)
                 .cloned()
                 .collect();
         }
 
-        let mut options: Vec<(i64, String)> = self
-            .data
-            .keys()
+        let keys = self.data.iter().map(|v| &v.0);
+
+        let mut options: Vec<(i64, String)> = keys
             .filter_map(|o| {
                 let score = self.matcher.fuzzy_match(o, query).unwrap_or_default();
 
@@ -79,7 +77,11 @@ impl LauncherMode for ClipboardMode {
         let val = results.get(index);
 
         if let Some(val) = val {
-            let code = self.data[val];
+            let code = self
+                .data
+                .iter()
+                .find_map(|v| if v.0 == *val { Some(v.1) } else { None })
+                .expect("Value should be valid since it was just returned by search.");
 
             let mut child1 = Command::new("cliphist")
                 .arg("decode")
