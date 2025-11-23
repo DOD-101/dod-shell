@@ -6,4 +6,6 @@ use thiserror::Error;
 pub enum Error {
     #[error("no default audio card")]
     NoDefaultCard,
+    #[error("failed to init WaylandInterface: {0}")]
+    WaylandInterfaceFailedInit(String),
 }

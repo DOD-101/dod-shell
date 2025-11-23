@@ -54,6 +54,10 @@
           nativeBuildInputs = with pkgs; [
             pkg-config
             openssl
+
+            libxkbcommon
+            udev
+
             wrapGAppsHook
           ];
 

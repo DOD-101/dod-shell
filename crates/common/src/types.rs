@@ -1,5 +1,5 @@
 //! Custom types used throughout the shell
-use std::{fmt::Display, ops::Deref};
+use std::{cell::UnsafeCell, fmt::Debug, fmt::Display, ops::Deref, sync::Once};
 
 /// Type representing a percentage
 ///
@@ -64,6 +64,141 @@ impl From<u8> for Percentage {
     }
 }
 
+/// A type to be initialized at a later time.
+///
+/// Using this type necessitates having a 2 Step creation process.
+///
+/// ## Step 1
+///
+/// Create the actual variable
+///
+/// ```
+/// # use common::types::DeferedInit;
+///
+/// let a: DeferedInit<String> = DeferedInit::default();
+///
+/// // ! Using `a.get_value()` or dereferencing `a` here will panic !
+///
+/// assert!(a.is_set() == false);
+///
+/// ```
+///
+/// ## Step 2
+///
+/// Actually populate wit with data (initialize it)
+///
+/// ```
+/// # use common::types::DeferedInit;
+///
+/// # let a: DeferedInit<String> = DeferedInit::default();
+///
+/// a.init("Hello World".to_string());
+///
+/// assert_eq!(a.get_value(), &"Hello World".to_string());
+///
+/// ```
+///
+/// ## When to use this
+///
+/// Usage of this type should be avoided in *most* cases.
+/// It should only be used when you *must* create the actual data in a later step and other options
+/// such as a Typestate pattern wouldn't work.
+///
+/// For an example usage see `crates/daemon/src/osk/wayland.rs`.
+pub struct DeferedInit<T> {
+    data: UnsafeCell<Option<T>>,
+    once: Once,
+}
+
+unsafe impl<T: Sync> Sync for DeferedInit<T> {}
+
+impl<T> Default for DeferedInit<T> {
+    fn default() -> Self {
+        DeferedInit {
+            data: UnsafeCell::new(None),
+            once: Once::new(),
+        }
+    }
+}
+
+impl<T: Debug> Debug for DeferedInit<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        unsafe {
+            f.debug_struct("DeferedInit")
+                .field("data", self.data.get().as_ref().expect(Self::POINTER_MSG))
+                .finish_non_exhaustive()
+        }
+    }
+}
+
+impl<T> Deref for DeferedInit<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.get_value()
+    }
+}
+
+impl<T> DeferedInit<T> {
+    const POINTER_MSG: &str = "Value pointer should never be null. This is a bug.";
+    /// Inner helper function for [`Self::init`]
+    ///
+    /// # Panics
+    ///
+    /// Panics if called with the internal value already set.
+    fn init_inner(&self, val: T) {
+        unsafe {
+            let value = self.data.get().as_mut().expect(Self::POINTER_MSG);
+
+            assert!(value.is_none());
+
+            *value = Some(val);
+        }
+    }
+
+    /// Sets the value of this [`DeferedInit<T>`].
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error containing the passed in value if it
+    /// has already been called.
+    pub fn init(&self, val: T) -> Result<(), T> {
+        if self.once.is_completed() {
+            return Err(val);
+        }
+
+        self.once.call_once(|| self.init_inner(val));
+
+        Ok(())
+    }
+
+    /// Returns a reference to the get value of this [`DeferedInit<T>`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal value hasn't been initialized (aka. [`Self::init`] hasn't been
+    /// called).
+    pub fn get_value(&self) -> &T {
+        unsafe {
+            let value = self.data.get().as_ref().expect(Self::POINTER_MSG);
+
+            value.as_ref().expect("Value was never initialized")
+        }
+    }
+
+    /// If the value has been set.
+    ///
+    /// If this function returns true it is safe to call [`Self::get_value`].
+    #[allow(clippy::missing_panics_doc)]
+    pub fn is_set(&self) -> bool {
+        unsafe {
+            let value = self.data.get().as_ref().expect(Self::POINTER_MSG);
+
+            value.is_some()
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -79,5 +214,20 @@ mod test {
         );
 
         assert_eq!(*Percentage::new(0.1), 0.1);
+    }
+
+    #[test]
+    fn defered_init() {
+        let defered_init: DeferedInit<&'static str> = DeferedInit::default();
+
+        assert!(!defered_init.is_set());
+
+        defered_init
+            .init("Hello")
+            .expect("First call to init. Shouldn't fail.");
+
+        assert!(defered_init.is_set());
+
+        assert_eq!(defered_init.get_value(), &"Hello");
     }
 }

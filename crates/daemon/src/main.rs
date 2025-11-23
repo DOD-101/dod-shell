@@ -1,14 +1,18 @@
 // TODO: Move most of this into the lib
-use zbus::{Result, conn::Builder, object_server::InterfaceRef};
+use zbus::{conn::Builder, object_server::InterfaceRef};
+
+use anyhow::{Ok, Result};
 
 use daemon::{
     config::{Config, ConfigProxy, ConfigValuesChanged},
+    osk::{Osk, state::State as OskState},
     system_state::SystemState,
 };
 
 #[tokio::main]
 async fn main() -> Result<()> {
     simple_logger::SimpleLogger::new().env().init().unwrap();
+
     let connection = Builder::session()?
         .name("dod.shell.Daemon")?
         .serve_at(
@@ -16,6 +20,8 @@ async fn main() -> Result<()> {
             SystemState::new(common::Config::default()),
         )?
         .serve_at("/dod/shell/Daemon", Config::default())?
+        .serve_at("/dod/shell/Daemon", Osk::new()?)?
+        .serve_at("/dod/shell/Daemon", OskState::default())?
         .build()
         .await?;
 
@@ -28,6 +34,16 @@ async fn main() -> Result<()> {
 
     let config_iface = obj_server
         .interface::<_, Config>("/dod/shell/Daemon")
+        .await
+        .unwrap();
+
+    let osk_iface = obj_server
+        .interface::<_, Osk>("/dod/shell/Daemon")
+        .await
+        .unwrap();
+
+    let osk_state_iface = obj_server
+        .interface::<_, OskState>("/dod/shell/Daemon")
         .await
         .unwrap();
 
@@ -44,6 +60,14 @@ async fn main() -> Result<()> {
         }
 
         update_state(&state_iface).await?;
+
+        {
+            let osk = osk_iface.get().await;
+
+            let _ = osk
+                .handle_wayland_events(osk_iface.signal_emitter(), &osk_state_iface)
+                .await;
+        }
 
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     }

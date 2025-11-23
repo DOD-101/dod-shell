@@ -26,14 +26,21 @@ sysinfo = { version = "0.37.0", default-features = false, features = [
   "disk",
   "system",
 ] }
+tempfile = "3.23.0"
 thiserror = "2.0.16"
 time = { version = "0.3.41", features = ["formatting", "local-offset"] }
 tokio = { version = "1.47.1", features = ["full"] }
 toml = "0.9.5"
+wayland-client = "0.31.11"
+wayland-protocols = { version = "0.32.9", features = ["client", "unstable"] }
+wayland-protocols-misc = { version = "0.3.9", features = ["client"] }
+xkbcommon = "0.9.0"
 zbus = { version = "5.9.0", features = [
   "option-as-array",
   "tokio",
 ], default-features = false }
+zvariant = { version = "5.8.0" }
+
 
 [workspace.lints.clippy]
 pedantic = "warn"
