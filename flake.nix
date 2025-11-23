@@ -214,10 +214,17 @@
             # Inherit inputs from checks.
             checks = self.checks.${system};
 
-            # Additional dev-shell environment variables can be set directly
-            # MY_CUSTOM_DEVELOPMENT_VAR = "something else";
+            DOD_WATCHEXEC_COMMAND = "cargo b";
 
-            packages = [ ];
+            packages = with pkgs; [
+              wev
+              watchexec
+              (writeShellScriptBin "dod-watch" ''
+                CMD="$DOD_WATCHEXEC_COMMAND" || "$1"
+
+                watchexec -w crates -r --stop-signal SIGKILL -- $CMD
+              '')
+            ];
           };
 
           full = craneLib.devShell {
