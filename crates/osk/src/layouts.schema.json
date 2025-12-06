@@ -1,0 +1,122 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "Layouts",
+	"description": "Format for the entire file",
+	"type": "object",
+	"properties": {
+		"layouts": { "type": "array", "items": { "$ref": "#/$defs/Layout" } },
+		"version": {
+			"type": "integer",
+			"format": "uint8",
+			"maximum": 255,
+			"minimum": 0
+		}
+	},
+	"required": ["version", "layouts"],
+	"$defs": {
+		"ArrowDirection": {
+			"type": "string",
+			"enum": ["Up", "Down", "Left", "Right"]
+		},
+		"Key": {
+			"oneOf": [
+				{ "type": "string", "enum": ["Enter", "Del", "Backspace", "Space"] },
+				{
+					"type": "object",
+					"properties": { "Mod": { "$ref": "#/$defs/ModKey" } },
+					"additionalProperties": false,
+					"required": ["Mod"]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"Utf": {
+							"type": "object",
+							"properties": {
+								"alt_label": { "type": "string" },
+								"label": { "type": "string" },
+								"shift_label": { "type": "string" }
+							},
+							"required": ["label", "shift_label", "alt_label"]
+						}
+					},
+					"additionalProperties": false,
+					"required": ["Utf"]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"Code": {
+							"type": "object",
+							"properties": {
+								"code": { "type": "integer", "format": "uint32", "minimum": 0 }
+							},
+							"required": ["code"]
+						}
+					},
+					"additionalProperties": false,
+					"required": ["Code"]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"Arrow": {
+							"type": "object",
+							"properties": {
+								"direction": { "$ref": "#/$defs/ArrowDirection" }
+							},
+							"required": ["direction"]
+						}
+					},
+					"additionalProperties": false,
+					"required": ["Arrow"]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"Fn": {
+							"type": "object",
+							"properties": {
+								"num": {
+									"type": "integer",
+									"format": "uint8",
+									"maximum": 255,
+									"minimum": 0
+								}
+							},
+							"required": ["num"]
+						}
+					},
+					"additionalProperties": false,
+					"required": ["Fn"]
+				},
+				{
+					"description": "Emtpy space in the keyboard",
+					"type": "string",
+					"const": "Spacer"
+				}
+			]
+		},
+		"Layout": {
+			"description": "Format for an individual layout",
+			"type": "object",
+			"properties": {
+				"keys": {
+					"description": "The actual keys of the layout in the format:\n\nVertical<Horizontal<Key>>",
+					"type": "array",
+					"items": { "type": "array", "items": { "$ref": "#/$defs/Key" } }
+				},
+				"name": { "description": "Name of the layout", "type": "string" },
+				"name_short": {
+					"description": "Shorter representation of the layout\n\ne.g: \"en-us\", \"de-de\"",
+					"type": "string"
+				}
+			},
+			"required": ["name", "name_short", "keys"]
+		},
+		"ModKey": {
+			"type": "string",
+			"enum": ["Shift", "Caps", "Ctrl", "Alt", "AltGr", "Super"]
+		}
+	}
+}

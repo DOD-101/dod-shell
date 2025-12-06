@@ -41,3 +41,21 @@
     }
   }
 }
+
+.osk-main-window {
+  button {
+    border: darkblue 3px solid;
+    font-size: 3rem;
+    min-width: 40px;
+    padding: 3px;
+    margin: 3px;
+
+    &:active {
+      background-color: greenyellow;
+    }
+
+    &:hover {
+      background-color: blue;
+    }
+  }
+}

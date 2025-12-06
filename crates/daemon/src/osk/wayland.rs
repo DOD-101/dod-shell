@@ -110,6 +110,11 @@ impl WaylandInterface {
     pub fn press_key_code(&self, key: u32, mods: &[Mod]) {
         let mod_mask = Mod::join_mods(mods);
 
+        self.press_key_code_with_mask(key, mod_mask);
+    }
+
+    /// Press a key based off of it's key code with a mod mask.
+    pub fn press_key_code_with_mask(&self, key: u32, mod_mask: u32) {
         self.keyboard.modifiers(mod_mask, 0, 0, 0);
         self.keyboard.key(0, key, 1);
         self.keyboard.key(0, key, 0);

@@ -3,8 +3,6 @@
 //! This is primarily for use by dod-shell-osk.
 //!
 //! The main type is [``Osk``]
-use std::ops::BitOr;
-
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{
@@ -161,6 +159,27 @@ impl Osk {
 
         self.flush_wayland_connection()
     }
+
+    /// Press a single key with a combination of [`Mod`]s.
+    ///
+    /// In comparison to [`Self::press_key`] this method takes a mask of all modifiers rather than
+    /// a list of them.
+    ///
+    /// This method should only be used if you need to
+    ///
+    /// 1. press a non-charcter key (eg. `Escape`)
+    ///
+    /// 2. need to use a modifiers with the key
+    ///
+    /// Otherwise using either [`Self::type_string`] or [`Self::type_char`] will be simpler.
+    async fn press_key_with_mask(&self, key: u32, mod_mask: u32) -> fdo::Result<()> {
+        self.wayland_interface
+            .read()
+            .await
+            .press_key_code_with_mask(key, mod_mask);
+
+        self.flush_wayland_connection()
+    }
 }
 
 /// Keyboard modifiers for use with [`OskProxy::press_key`]
@@ -175,6 +194,8 @@ impl Osk {
     zvariant::Type,
     Serialize,
     Deserialize,
+    PartialEq,
+    Eq,
 )]
 pub enum Mod {
     Shift = 0x1,
@@ -186,14 +207,87 @@ pub enum Mod {
 
 impl Mod {
     /// Join a series of [`Mod`]s into a single bit mask
-    fn join_mods(mods: &[Self]) -> u32 {
-        mods.iter().fold(0_u32, |acc, val| acc | *val as u32)
+    #[must_use]
+    pub fn join_mods(mods: &[Self]) -> u32 {
+        mods.iter().fold(0_u32, |acc, val| acc | val.add_to(acc))
+    }
+
+    /// Check if `self` is in `others`
+    #[must_use]
+    pub fn contained_in(self, others: u32) -> bool {
+        (self as u32 & others) != 0
+    }
+
+    /// Removes `self` from `others`
+    ///
+    /// Will return `others` unchanged if it doesn't contain `self`
+    #[must_use]
+    pub fn remove_from(self, others: u32) -> u32 {
+        if self.contained_in(others) {
+            return others ^ self as u32;
+        }
+
+        others
+    }
+
+    /// Adds `self` to `others`
+    #[must_use]
+    pub fn add_to(self, others: u32) -> u32 {
+        others | self as u32
     }
 }
 
-impl BitOr for Mod {
-    type Output = u32;
-    fn bitor(self, rhs: Self) -> Self::Output {
-        self as u32 | rhs as u32
+#[cfg(test)]
+mod test {
+    use super::Mod;
+
+    #[test]
+    fn mod_join() {
+        let a = Mod::Shift;
+        let b = Mod::Ctrl;
+
+        let joined = Mod::join_mods(&[a, b]);
+
+        assert_eq!(joined, 5);
+    }
+
+    #[test]
+    fn mod_contain() {
+        let a = Mod::Shift;
+        let b = Mod::Ctrl;
+        let c = Mod::Super;
+
+        let joined = Mod::join_mods(&[a, b]);
+
+        assert!(b.contained_in(joined));
+
+        assert!(!c.contained_in(joined));
+    }
+
+    #[test]
+    fn mod_remove() {
+        let a = Mod::Shift;
+        let b = Mod::Ctrl;
+        let c = Mod::Super;
+
+        let abc = Mod::join_mods(&[a, b, c]);
+
+        let ac = Mod::join_mods(&[a, c]);
+
+        assert_eq!(b.remove_from(abc), ac);
+
+        assert_eq!(b.remove_from(ac), ac);
+    }
+
+    #[test]
+    fn mod_add() {
+        let a = Mod::Shift;
+        let b = Mod::Ctrl;
+        let c = Mod::Super;
+
+        let abc = Mod::join_mods(&[a, b, c]);
+        let ac = Mod::join_mods(&[a, c]);
+
+        assert_eq!(b.add_to(ac), abc);
     }
 }
