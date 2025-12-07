@@ -7,7 +7,7 @@ pub struct SymbolMap {
     active: ActiveSymbol,
 }
 
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ActiveSymbol {
     #[default]
     Default,

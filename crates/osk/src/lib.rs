@@ -8,7 +8,7 @@ use relm4::{
 };
 
 use crate::{
-    key::{GenericKey, GenericKeyInputMsg, OskRow, symbol::ActiveSymbol},
+    key::{GenericKey, OskKeyInputMsg, OskRow, symbol::ActiveSymbol},
     layouts::Layout,
 };
 
@@ -59,7 +59,7 @@ impl App {
         }
     }
 
-    fn send_to_all_keys(&self, message: GenericKeyInputMsg) {
+    fn send_to_all_keys(&self, message: OskKeyInputMsg) {
         let max_index = self.osk_rows.len();
 
         for i in 0..max_index {
@@ -70,7 +70,7 @@ impl App {
     fn calculate_active_symbol(&self) -> ActiveSymbol {
         let mods = self.active_mods;
 
-        if daemon::osk::Mod::Alt.contained_in(mods) {
+        if daemon::osk::Mod::Alt.contained_in(mods) || daemon::osk::Mod::AltGr.contained_in(mods) {
             return ActiveSymbol::Alt;
         }
 
@@ -84,7 +84,7 @@ impl App {
 
 #[derive(Debug)]
 pub enum AppMsg {
-    KeyPressed(key::GenericKeyMsg),
+    KeyPressed(key::OskKeyOutputMsg),
     /// Sent when the css has been changed
     CssUpdated(String),
 }
@@ -176,26 +176,26 @@ impl SimpleAsyncComponent for App {
     async fn update(&mut self, msg: Self::Input, _sender: relm4::AsyncComponentSender<Self>) {
         match msg {
             AppMsg::KeyPressed(k) => match k {
-                key::GenericKeyMsg::Utf(v) => {
+                key::OskKeyOutputMsg::Utf(v) => {
                     self.osk_proxy.type_string(v).await.unwrap();
                 }
-                key::GenericKeyMsg::Code(v) => self
+                key::OskKeyOutputMsg::Code(v) => self
                     .osk_proxy
                     .press_key_with_mask(v - 8, self.active_mods)
                     .await
                     .unwrap(),
-                key::GenericKeyMsg::Mod(v) => {
+                key::OskKeyOutputMsg::Mod(v) => {
                     if v.contained_in(self.active_mods) {
                         self.active_mods = v.remove_from(self.active_mods);
                     } else {
                         self.active_mods = v.add_to(self.active_mods);
                     }
 
-                    self.send_to_all_keys(GenericKeyInputMsg::ActiveSymbol(
+                    self.send_to_all_keys(OskKeyInputMsg::ActiveSymbol(
                         self.calculate_active_symbol(),
                     ));
                 }
-                key::GenericKeyMsg::Shift => {
+                key::OskKeyOutputMsg::Shift => {
                     self.shift_state = self.shift_state.next();
 
                     if self.shift_state.into() {
@@ -204,7 +204,7 @@ impl SimpleAsyncComponent for App {
                         self.active_mods = daemon::osk::Mod::Shift.remove_from(self.active_mods);
                     }
 
-                    self.send_to_all_keys(GenericKeyInputMsg::ActiveSymbol(
+                    self.send_to_all_keys(OskKeyInputMsg::ActiveSymbol(
                         self.calculate_active_symbol(),
                     ));
                 }

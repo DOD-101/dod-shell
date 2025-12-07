@@ -1,10 +1,10 @@
-use std::fmt::Display;
+use std::{fmt::Display, rc::Rc};
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
-use crate::key::{GenericKey, GenericKeyType, code_resolve, symbol::SymbolMap};
+use crate::key::{GenericKey, OskKeyOutputMsg, code_resolve, symbol::SymbolMap};
 
 const SUPPORTED_LAYOUT_FORMAT_VERSION: u8 = 1;
 
@@ -136,66 +136,60 @@ impl From<Key> for GenericKey {
     fn from(value: Key) -> Self {
         match value {
             Key::Mod(mod_key) => {
-                let key_type: GenericKeyType = match mod_key.try_into() {
-                    Ok(v) => GenericKeyType::Mod(v),
-                    Err(_) => GenericKeyType::Shift,
+                let msg: OskKeyOutputMsg = match mod_key.try_into() {
+                    Ok(v) => OskKeyOutputMsg::Mod(v),
+                    Err(_) => OskKeyOutputMsg::Shift,
                 };
-
-                GenericKey::builder()
-                    .symbol_map(SymbolMap::new_single_symbol(mod_key.to_string()))
-                    .key_type(key_type)
-                    .build()
+                GenericKey::new(
+                    SymbolMap::new_single_symbol(mod_key.to_string()),
+                    Rc::new(move |_| Some(msg.clone())),
+                )
             }
             Key::Utf {
                 label,
                 shift_label,
                 alt_label,
-            } => GenericKey::builder()
-                .symbol_map(SymbolMap::new(label, shift_label, alt_label))
-                .build(),
+            } => GenericKey::new(
+                SymbolMap::new(label, shift_label, alt_label),
+                Rc::new(|_| None),
+            ),
             Key::Code { code } => {
                 let mut chars = code_resolve::to_chars(code).into_iter().map(|v| {
                     let a = v.unwrap_or_default().to_string();
-
                     if &a == "\0" {
                         return String::default();
                     }
-
                     a
                 });
-
-                let key = GenericKey::builder()
-                    .key_type(GenericKeyType::Code(code))
-                    .symbol_map(SymbolMap::new(
+                GenericKey::new(
+                    SymbolMap::new(
                         chars.next().unwrap(),
                         chars.next().unwrap(),
                         chars.next().unwrap(),
-                    ))
-                    .build();
-
-                key
+                    ),
+                    Rc::new(move |_| Some(OskKeyOutputMsg::Code(code))),
+                )
             }
             Key::Arrow { .. } => todo!(),
             Key::Fn { .. } => todo!(),
-            Key::Enter => GenericKey::builder()
-                .key_type(GenericKeyType::Code(36))
-                .symbol_map(SymbolMap::new_single_symbol("Enter".to_string()))
-                .build(),
+            Key::Enter => GenericKey::new(
+                SymbolMap::new_single_symbol("Enter".to_string()),
+                Rc::new(|_| Some(OskKeyOutputMsg::Code(36))),
+            ),
             Key::Del => todo!(),
-            Key::Backspace => GenericKey::builder()
-                .key_type(GenericKeyType::Code(22))
-                .symbol_map(SymbolMap::new_single_symbol("󰭜".to_string()))
-                .build(),
-            Key::Space => GenericKey::builder()
-                .symbol_map(SymbolMap::new_single_symbol(" ".to_string()))
-                .build(),
-            Key::Spacer => GenericKey::builder()
-                .key_type(GenericKeyType::NonKey)
-                .build(),
-            Key::Escape => GenericKey::builder()
-                .key_type(GenericKeyType::Code(9))
-                .symbol_map(SymbolMap::new_single_symbol("Esc".to_string()))
-                .build(),
+            Key::Backspace => GenericKey::new(
+                SymbolMap::new_single_symbol("󰭜".to_string()),
+                Rc::new(|_| Some(OskKeyOutputMsg::Code(22))),
+            ),
+            Key::Space => GenericKey::new(
+                SymbolMap::new_single_symbol(" ".to_string()),
+                Rc::new(|_| Some(OskKeyOutputMsg::Code(65))),
+            ),
+            Key::Spacer => GenericKey::new(SymbolMap::default(), Rc::new(|_| None)),
+            Key::Escape => GenericKey::new(
+                SymbolMap::new_single_symbol("Esc".to_string()),
+                Rc::new(|_| Some(OskKeyOutputMsg::Code(9))),
+            ),
         }
     }
 }
