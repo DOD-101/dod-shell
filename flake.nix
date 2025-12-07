@@ -129,6 +129,16 @@
         );
         bar-release = make-release bar;
 
+        osk = craneLib.buildPackage (
+          individualCrateArgs
+          // {
+            pname = "dod-shell-osk";
+            cargoExtraArgs = "-p osk";
+            src = fileSetForCrate ./crates/osk;
+          }
+        );
+        osk-release = make-release osk;
+
         daemon = craneLib.buildPackage (
           individualCrateArgs
           // {
@@ -200,6 +210,8 @@
             launcher-release
             bar
             bar-release
+            osk
+            osk-release
             daemon
             daemon-release
             cli

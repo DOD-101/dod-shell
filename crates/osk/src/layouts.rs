@@ -1,5 +1,6 @@
 use std::{fmt::Display, rc::Rc};
 
+use daemon::osk::Mod;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::Display;
@@ -136,22 +137,49 @@ impl From<Key> for GenericKey {
     fn from(value: Key) -> Self {
         match value {
             Key::Mod(mod_key) => {
-                let msg: OskKeyOutputMsg = match mod_key.try_into() {
-                    Ok(v) => OskKeyOutputMsg::Mod(v),
-                    Err(_) => OskKeyOutputMsg::Shift,
+                let (msg, class) = match mod_key.try_into() {
+                    Ok(v) => (
+                        OskKeyOutputMsg::Mod(v),
+                        match v {
+                            Mod::Ctrl => "osk-ctrl",
+                            Mod::Alt => "osk-alt",
+                            Mod::Super => "osk-super",
+                            Mod::AltGr => "osk-altgr",
+                            Mod::Shift => unreachable!(),
+                        },
+                    ),
+                    Err(_) => (OskKeyOutputMsg::Shift, "osk-shift"),
                 };
+
+                let on_down = move |key: &mut GenericKey| -> Option<OskKeyOutputMsg> {
+                    let css_classes = key.css_classes_mut();
+
+                    if class != "osk-shift" {
+                        if css_classes.contains(&"osk-key-active") {
+                            css_classes.retain(|v| *v != "osk-key-active");
+                        } else {
+                            css_classes.push("osk-key-active");
+                        }
+                    }
+
+                    None
+                };
+
                 GenericKey::new(
                     SymbolMap::new_single_symbol(mod_key.to_string()),
                     Rc::new(move |_| Some(msg.clone())),
+                    Rc::new(on_down),
+                    vec!["osk-mod", class],
                 )
             }
             Key::Utf {
                 label,
                 shift_label,
                 alt_label,
-            } => GenericKey::new(
+            } => GenericKey::new_without_down(
                 SymbolMap::new(label, shift_label, alt_label),
                 Rc::new(|_| None),
+                vec!["osk-utf", "osk-normal"],
             ),
             Key::Code { code } => {
                 let mut chars = code_resolve::to_chars(code).into_iter().map(|v| {
@@ -161,34 +189,43 @@ impl From<Key> for GenericKey {
                     }
                     a
                 });
-                GenericKey::new(
+                GenericKey::new_without_down(
                     SymbolMap::new(
                         chars.next().unwrap(),
                         chars.next().unwrap(),
                         chars.next().unwrap(),
                     ),
                     Rc::new(move |_| Some(OskKeyOutputMsg::Code(code))),
+                    vec!["osk-code", "osk-normal"],
                 )
             }
             Key::Arrow { .. } => todo!(),
             Key::Fn { .. } => todo!(),
-            Key::Enter => GenericKey::new(
+            Key::Enter => GenericKey::new_without_down(
                 SymbolMap::new_single_symbol("Enter".to_string()),
                 Rc::new(|_| Some(OskKeyOutputMsg::Code(36))),
+                vec!["osk-enter"],
             ),
             Key::Del => todo!(),
-            Key::Backspace => GenericKey::new(
+            Key::Backspace => GenericKey::new_without_down(
                 SymbolMap::new_single_symbol("󰭜".to_string()),
                 Rc::new(|_| Some(OskKeyOutputMsg::Code(22))),
+                vec!["osk-backspace"],
             ),
-            Key::Space => GenericKey::new(
+            Key::Space => GenericKey::new_without_down(
                 SymbolMap::new_single_symbol(" ".to_string()),
                 Rc::new(|_| Some(OskKeyOutputMsg::Code(65))),
+                vec!["osk-space"],
             ),
-            Key::Spacer => GenericKey::new(SymbolMap::default(), Rc::new(|_| None)),
-            Key::Escape => GenericKey::new(
+            Key::Spacer => GenericKey::new_without_down(
+                SymbolMap::default(),
+                Rc::new(|_| None),
+                vec!["osk-spacer"],
+            ),
+            Key::Escape => GenericKey::new_without_down(
                 SymbolMap::new_single_symbol("Esc".to_string()),
                 Rc::new(|_| Some(OskKeyOutputMsg::Code(9))),
+                vec!["osk-escape"],
             ),
         }
     }

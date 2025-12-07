@@ -1,3 +1,5 @@
+use strum::EnumIs;
+
 #[derive(Default, Debug, Clone)]
 pub struct SymbolMap {
     default: String,
@@ -7,7 +9,7 @@ pub struct SymbolMap {
     active: ActiveSymbol,
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, EnumIs)]
 pub enum ActiveSymbol {
     #[default]
     Default,
@@ -48,10 +50,6 @@ impl SymbolMap {
 
     pub fn alt_symb(&self) -> &str {
         &self.alt
-    }
-
-    pub fn active(&self) -> &ActiveSymbol {
-        &self.active
     }
 
     pub fn set_active(&mut self, active: ActiveSymbol) {

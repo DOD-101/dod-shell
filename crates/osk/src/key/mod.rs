@@ -4,9 +4,13 @@ pub mod symbol;
 mod osk_key;
 mod osk_row;
 
+use strum::EnumIs;
+
+use crate::ShiftState;
+
 pub use {osk_key::GenericKey, osk_row::OskRow};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumIs)]
 pub enum OskKeyOutputMsg {
     Utf(String),
     Code(u32),
@@ -14,8 +18,8 @@ pub enum OskKeyOutputMsg {
     Shift,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum OskKeyInputMsg {
-    ActiveSymbol(symbol::ActiveSymbol),
+    ActiveMods(u32, ShiftState),
     Clicked,
 }

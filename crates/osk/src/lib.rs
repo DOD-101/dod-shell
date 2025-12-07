@@ -1,4 +1,7 @@
-use daemon::{config::ConfigProxy, osk::OskProxy};
+use daemon::{
+    config::ConfigProxy,
+    osk::{Mod, OskProxy},
+};
 use futures_util::StreamExt;
 use gtk4_layer_shell::{Layer, LayerShell};
 use relm4::{
@@ -6,9 +9,10 @@ use relm4::{
     gtk::{self, prelude::*},
     prelude::*,
 };
+use strum::EnumIs;
 
 use crate::{
-    key::{GenericKey, OskKeyInputMsg, OskRow, symbol::ActiveSymbol},
+    key::{GenericKey, OskKeyInputMsg, OskRow},
     layouts::Layout,
 };
 
@@ -65,20 +69,6 @@ impl App {
         for i in 0..max_index {
             self.osk_rows.send(i, message);
         }
-    }
-
-    fn calculate_active_symbol(&self) -> ActiveSymbol {
-        let mods = self.active_mods;
-
-        if daemon::osk::Mod::Alt.contained_in(mods) || daemon::osk::Mod::AltGr.contained_in(mods) {
-            return ActiveSymbol::Alt;
-        }
-
-        if daemon::osk::Mod::Shift.contained_in(mods) {
-            return ActiveSymbol::Shift;
-        }
-
-        ActiveSymbol::Default
     }
 }
 
@@ -165,7 +155,7 @@ impl SimpleAsyncComponent for App {
         });
 
         let monitor = relm4::gtk::gdk::Display::default()
-            .and_then(|d| d.monitors().item(0).and_downcast::<gtk::gdk::Monitor>())
+            .and_then(|d| d.monitors().item(1).and_downcast::<gtk::gdk::Monitor>())
             .expect("Failed to get primary Monitor.");
 
         widgets.osk_main_window.set_monitor(Some(&monitor));
@@ -178,12 +168,31 @@ impl SimpleAsyncComponent for App {
             AppMsg::KeyPressed(k) => match k {
                 key::OskKeyOutputMsg::Utf(v) => {
                     self.osk_proxy.type_string(v).await.unwrap();
+
+                    if self.shift_state.is_on() {
+                        self.active_mods = Mod::Shift.remove_from(self.active_mods);
+                        self.shift_state = self.shift_state.prev();
+                        self.send_to_all_keys(OskKeyInputMsg::ActiveMods(
+                            self.active_mods,
+                            self.shift_state,
+                        ));
+                    }
                 }
-                key::OskKeyOutputMsg::Code(v) => self
-                    .osk_proxy
-                    .press_key_with_mask(v - 8, self.active_mods)
-                    .await
-                    .unwrap(),
+                key::OskKeyOutputMsg::Code(v) => {
+                    self.osk_proxy
+                        .press_key_with_mask(v - 8, self.active_mods)
+                        .await
+                        .unwrap();
+
+                    if self.shift_state.is_on() {
+                        self.active_mods = Mod::Shift.remove_from(self.active_mods);
+                        self.shift_state = self.shift_state.prev();
+                        self.send_to_all_keys(OskKeyInputMsg::ActiveMods(
+                            self.active_mods,
+                            self.shift_state,
+                        ));
+                    }
+                }
                 key::OskKeyOutputMsg::Mod(v) => {
                     if v.contained_in(self.active_mods) {
                         self.active_mods = v.remove_from(self.active_mods);
@@ -191,21 +200,23 @@ impl SimpleAsyncComponent for App {
                         self.active_mods = v.add_to(self.active_mods);
                     }
 
-                    self.send_to_all_keys(OskKeyInputMsg::ActiveSymbol(
-                        self.calculate_active_symbol(),
+                    self.send_to_all_keys(OskKeyInputMsg::ActiveMods(
+                        self.active_mods,
+                        self.shift_state,
                     ));
                 }
                 key::OskKeyOutputMsg::Shift => {
                     self.shift_state = self.shift_state.next();
 
                     if self.shift_state.into() {
-                        self.active_mods = daemon::osk::Mod::Shift.add_to(self.active_mods);
+                        self.active_mods = Mod::Shift.add_to(self.active_mods);
                     } else {
-                        self.active_mods = daemon::osk::Mod::Shift.remove_from(self.active_mods);
+                        self.active_mods = Mod::Shift.remove_from(self.active_mods);
                     }
 
-                    self.send_to_all_keys(OskKeyInputMsg::ActiveSymbol(
-                        self.calculate_active_symbol(),
+                    self.send_to_all_keys(OskKeyInputMsg::ActiveMods(
+                        self.active_mods,
+                        self.shift_state,
                     ));
                 }
             },
@@ -214,7 +225,7 @@ impl SimpleAsyncComponent for App {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, EnumIs)]
 pub enum ShiftState {
     #[default]
     Off,
