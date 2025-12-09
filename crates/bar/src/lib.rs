@@ -1,7 +1,6 @@
 //! The bar component of the shell
 //!
 //! The bar is useful for displaying general information on the top of the screen.
-use common::Config;
 use futures_util::StreamExt;
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
 use hyprland::shared::HyprData;
@@ -19,6 +18,7 @@ use time::{OffsetDateTime, UtcOffset, macros::format_description};
 #[cfg(debug_assertions)]
 use gtk4_layer_shell::KeyboardMode;
 
+use common::{Config, classes, css::Class};
 use daemon::{
     config::ConfigProxy,
     system_state::{BatteryStatus, ConnectionData, SystemStateData, SystemStateProxy},
@@ -84,23 +84,23 @@ impl SimpleComponent for App {
             set_anchor: (Edge::Left, true),
             set_monitor: Some(&init.0),
             set_visible: true,
-            set_css_classes: &["bar-main-window"],
+            set_css_classes: &classes!(MainWindow, BarMainWindow),
             auto_exclusive_zone_enable: (),
 
             gtk::CenterBox {
                 set_orientation: gtk::Orientation::Horizontal,
-                set_css_classes: &["main-centerbox"],
+                add_css_class: Class::BarCenterbox.as_ref(),
 
                 #[wrap(Some)]
                 set_start_widget = &gtk::Box {
-                    set_css_classes: &["left"],
+                    add_css_class: Class::Left.as_ref(),
 
                     gtk::Box {
-                        set_css_classes: &["hardware-info"],
+                        add_css_class: Class::HardwareInfo.as_ref(),
 
                         #[name(cpu)]
                         LabelIcon {
-                            set_css_classes: &["cpu"],
+                            add_css_class: Class::Cpu.as_ref(),
                             #[watch]
                             set_label: &model.system_state.cpu_usage.to_string(),
                             set_icon: icon::PROCESSOR,
@@ -108,7 +108,7 @@ impl SimpleComponent for App {
 
                         #[name(ram)]
                         LabelIcon {
-                            set_css_classes: &["ram"],
+                            add_css_class: Class::Ram.as_ref(),
                             #[watch]
                             set_label: &model.system_state.mem_usage.to_string(),
                             set_icon: icon::RAM_FILLED,
@@ -135,7 +135,7 @@ impl SimpleComponent for App {
 
                 #[wrap(Some)]
                 set_center_widget = &gtk::Box {
-                    set_css_classes: &["center"],
+                    add_css_class: Class::Center.as_ref(),
                     #[name(date_time)]
                     gtk::Label {
                         #[watch]
@@ -152,12 +152,12 @@ impl SimpleComponent for App {
                 #[wrap(Some)]
                 #[name(end_box)]
                 set_end_widget = &gtk::Box {
-                    set_css_classes: &["right"],
+                    add_css_class: Class::Right.as_ref(),
                     set_orientation: gtk::Orientation::Horizontal,
 
                     #[name(internet_revealer)]
                     gtk::Revealer {
-                        set_css_classes: &["internet-name-revealer"],
+                        add_css_class: Class::InternetNameRevealer.as_ref(),
                         set_transition_type: gtk::RevealerTransitionType::SlideRight,
                         gtk::Label {
                             #[watch]
@@ -168,9 +168,9 @@ impl SimpleComponent for App {
                     },
                     #[name(internet_icon)]
                     gtk::Image {
-                        set_css_classes: &["icon"],
+                        set_css_classes: &classes!(Icon, InternetIcon),
                         #[watch]
-                        set_class_active: ("active", model.system_state.network != ConnectionData::None),
+                        set_class_active: (Class::Active.as_ref(), model.system_state.network != ConnectionData::None),
                         #[watch]
                         set_icon_name: Some(match model.system_state.network {
                                         ConnectionData::Wired => icon::LAN,
@@ -186,29 +186,29 @@ impl SimpleComponent for App {
 
                     #[name(bluetooth_icon)]
                     gtk::Image {
-                        set_css_classes: &["icon"],
+                        set_css_classes: &classes!(Icon, BluetoothIcon),
                         #[watch]
-                        set_class_active: ("active", model.system_state.bluetooth),
+                        set_class_active: (Class::Active.as_ref(), model.system_state.bluetooth),
                         set_icon_name: Some(icon::BLUETOOTH),
                     },
 
                     #[name(capslock_icon)]
                     gtk::Image {
-                        set_css_classes: &["icon"],
+                        set_css_classes: &classes!(Icon, CapsLockIcon),
                         #[watch]
                         set_visible: model.config.bar.show_capslock,
                         #[watch]
-                        set_class_active: ("active", model.system_state.capslock),
+                        set_class_active: (Class::Active.as_ref(), model.system_state.capslock),
                         set_icon_name: Some(icon::KEYBOARD_CAPS_LOCK),
                     },
 
                     #[name(numlock_icon)]
                     gtk::Image {
-                        set_css_classes: &["icon"],
+                        set_css_classes: &classes!(Icon, NumLockIcon),
                         #[watch]
                         set_visible: model.config.bar.show_numlock,
                         #[watch]
-                        set_class_active: ("active", model.system_state.numlock),
+                        set_class_active: (Class::Active.as_ref(), model.system_state.numlock),
                         set_icon_name: Some(icon::DOCUMENT_PAGE_NUMBER_FILLED_SYMBOLIC),
                     },
 
@@ -217,7 +217,7 @@ impl SimpleComponent for App {
                         #[watch]
                         set_label: &(if *model.system_state.volume > 0.0 { model.system_state.volume.to_string() } else { String::new() }),
                         #[watch]
-                        set_class_active: ("muted", *model.system_state.volume == -1.0),
+                        set_class_active: (Class::Muted.as_ref(), *model.system_state.volume == -1.0),
                         #[watch]
                         set_icon: match *model.system_state.volume {
                                     -1.0 => icon::SPEAKER_OFF_FILLED,
@@ -242,7 +242,7 @@ impl SimpleComponent for App {
                         #[watch]
                         set_visible: model.system_state.battery.is_some(),
                         #[watch]
-                        set_class_active: ("battery-low", model.system_state.battery.as_ref().is_some_and(|b| *b.charge <= 0.3)),
+                        set_class_active: (Class::BatteryLow.as_ref(), model.system_state.battery.as_ref().is_some_and(|b| *b.charge <= 0.3)),
                         #[watch]
                         set_icon:
                             if let Some(battery) = &*model.system_state.battery {

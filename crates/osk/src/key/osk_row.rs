@@ -2,6 +2,8 @@ use super::{GenericKey, OskKeyInputMsg, OskKeyOutputMsg};
 use gtk::prelude::*;
 use relm4::{gtk, prelude::*};
 
+use common::css::Class;
+
 #[derive(Debug, Clone)]
 pub struct OskRow(FactoryVecDeque<GenericKey>);
 
@@ -19,7 +21,7 @@ impl FactoryComponent for OskRow {
             #[local_ref]
             row -> gtk::Box {
                 set_align: gtk::Align::Center,
-                add_css_class: "osk-row",
+                add_css_class: Class::OskRow.as_ref(),
                 set_hexpand: true,
             }
         }

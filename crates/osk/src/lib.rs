@@ -1,7 +1,3 @@
-use daemon::{
-    config::ConfigProxy,
-    osk::{Mod, OskProxy},
-};
 use futures_util::StreamExt;
 use gtk4_layer_shell::{Layer, LayerShell};
 use relm4::{
@@ -10,6 +6,12 @@ use relm4::{
     prelude::*,
 };
 use strum::EnumIs;
+
+use common::css::Class;
+use daemon::{
+    config::ConfigProxy,
+    osk::{Mod, OskProxy},
+};
 
 use crate::{
     key::{GenericKey, OskKeyInputMsg, OskRow},
@@ -101,7 +103,7 @@ impl SimpleAsyncComponent for App {
         #[name(osk_main_window)]
         gtk::Window {
             init_layer_shell: (),
-            add_css_class: "osk-main-window",
+            add_css_class: Class::OskMainWindow.as_ref(),
             set_hexpand: true,
             set_anchor:  (gtk4_layer_shell::Edge::Bottom, true),
             set_layer: Layer::Overlay,
@@ -155,7 +157,7 @@ impl SimpleAsyncComponent for App {
         });
 
         let monitor = relm4::gtk::gdk::Display::default()
-            .and_then(|d| d.monitors().item(1).and_downcast::<gtk::gdk::Monitor>())
+            .and_then(|d| d.monitors().item(0).and_downcast::<gtk::gdk::Monitor>())
             .expect("Failed to get primary Monitor.");
 
         widgets.osk_main_window.set_monitor(Some(&monitor));

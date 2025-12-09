@@ -5,6 +5,8 @@
 //! currently selected item's index
 use relm4::prelude::*;
 
+use common::css::Class;
+
 /// See module level documentation
 #[derive(Debug)]
 pub struct LauncherResults {
@@ -48,7 +50,7 @@ impl FactoryComponent for LauncherResult {
         gtk::Label {
             set_label: &self.label,
             #[watch]
-            set_class_active: ("active", self.active),
+            set_class_active: (Class::Active.as_ref(), self.active),
         }
     }
 

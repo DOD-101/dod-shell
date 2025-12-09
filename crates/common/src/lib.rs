@@ -2,6 +2,7 @@
 use std::{path::PathBuf, sync::LazyLock};
 
 pub mod config;
+pub mod css;
 pub mod err;
 pub mod types;
 

@@ -48,6 +48,7 @@ impl LabelIcon {
 
 /// Implementation Details for [``super::LabelIcon``]
 mod imp {
+    use common::{classes, css::Class};
     use relm4::{
         WidgetRef,
         gtk::{
@@ -89,9 +90,9 @@ mod imp {
             self.label.set_parent(obj.widget_ref());
             self.icon.set_parent(obj.widget_ref());
 
-            obj.widget_ref().set_css_classes(&["label-icon"]);
-            self.label.set_css_classes(&["label-icon-label", "label"]);
-            self.icon.set_css_classes(&["label-icon-icon", "icon"]);
+            obj.widget_ref().add_css_class(Class::LabelIcon.as_ref());
+            self.label.set_css_classes(&classes!(LabelIconLabel, Label));
+            self.icon.set_css_classes(&classes!(LabelIconIcon, Icon));
         }
 
         fn dispose(&self) {

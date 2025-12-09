@@ -11,6 +11,7 @@
 //! It won't work with another compositor and using named workspaces isn't tested.
 //!
 //! </div>
+use common::{classes, css::Class};
 use hyprland::{
     dispatch,
     dispatch::{Dispatch, DispatchType},
@@ -55,10 +56,10 @@ impl SimpleComponent for Workspaces {
     view! {
         #[name(workspaces)]
         gtk::Box {
-            set_css_classes: &["workspaces"],
+            add_css_class: Class::Workspaces.as_ref(),
             #[local_ref]
             workspace_box -> gtk::Box {
-                set_css_classes: &["__workspaces_inner"],
+                add_css_class: Class::WorkspacesInner.as_ref(),
                 set_orientation: gtk::Orientation::Horizontal,
             },
         }
@@ -129,11 +130,11 @@ impl FactoryComponent for WorkspaceButton {
     view! {
         #[name(workspace_btn)]
         gtk::Button {
-            set_css_classes: &["workspace-btn"],
+            set_css_classes: &classes!(Workspace, WorkspaceButton),
             set_label: self.number.to_string().as_str(),
             connect_clicked => WorkspaceButtonMsg::Clicked,
             #[watch]
-            set_class_active: ("active", self.active),
+            set_class_active: (Class::Active.as_ref(), self.active),
         }
 
     }

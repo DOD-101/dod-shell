@@ -6,6 +6,7 @@ use super::{
 };
 use std::rc::Rc;
 
+use common::css::{Class, ClassList};
 use gtk::prelude::*;
 use relm4::{factory::CloneableFactoryComponent, gtk, prelude::*};
 
@@ -20,7 +21,7 @@ pub struct GenericKey {
     on_down: OnDown,
     on_up: OnUp,
 
-    css_classes: Vec<&'static str>,
+    css_classes: ClassList,
 }
 
 impl std::fmt::Debug for GenericKey {
@@ -37,23 +38,24 @@ impl GenericKey {
         symbol_map: SymbolMap,
         on_up: OnUp,
         on_down: OnDown,
-        mut css_classes: Vec<&'static str>,
+        css_classes: impl Into<ClassList>,
     ) -> Self {
-        css_classes.push("osk-key");
+        let mut class_list = css_classes.into();
+        class_list.insert(Class::OskKey);
         Self {
             symbol_map,
             on_down,
             on_up,
-            css_classes,
+            css_classes: class_list,
         }
     }
 
     pub fn new_without_down(
         symbol_map: SymbolMap,
         on_up: OnUp,
-        css_classes: Vec<&'static str>,
+        css_classes: impl Into<ClassList>,
     ) -> Self {
-        Self::new(symbol_map, on_up, Rc::new(|_| None), css_classes)
+        Self::new(symbol_map, on_up, Rc::new(|_| None), css_classes.into())
     }
 
     fn up(&self) -> Option<OskKeyOutputMsg> {
@@ -65,7 +67,7 @@ impl GenericKey {
         callback(self)
     }
 
-    pub fn css_classes_mut(&mut self) -> &mut Vec<&'static str> {
+    pub fn css_classes_mut(&mut self) -> &mut ClassList {
         &mut self.css_classes
     }
 }
@@ -90,7 +92,7 @@ impl FactoryComponent for GenericKey {
             #[watch]
             set_label: self.symbol_map.active_symb(),
             #[watch]
-            set_css_classes: &self.css_classes,
+            set_css_classes: &Vec::from(&self.css_classes),
             connect_clicked=> Self::Input::Clicked,
         }
     }
@@ -116,14 +118,18 @@ impl FactoryComponent for GenericKey {
                     self.symbol_map.set_active(ActiveSymbol::Default);
                 }
 
-                if self.css_classes.contains(&"osk-shift") {
+                if self.css_classes.contains(&Class::OskShift) {
                     match shift_state {
-                        ShiftState::Off => self
-                            .css_classes
-                            .retain(|v| *v != "osk-key-active" && *v != "osk-shift-lock"),
-
-                        ShiftState::On => self.css_classes.push("osk-key-active"),
-                        ShiftState::Locked => self.css_classes.push("osk-shift-lock"),
+                        ShiftState::Off => {
+                            self.css_classes.remove(&Class::OskKeyActive);
+                            self.css_classes.remove(&Class::OskShiftLock);
+                        }
+                        ShiftState::On => {
+                            self.css_classes.insert(Class::OskKeyActive);
+                        }
+                        ShiftState::Locked => {
+                            self.css_classes.insert(Class::OskShiftLock);
+                        }
                     }
                 }
             }

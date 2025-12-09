@@ -24,7 +24,7 @@ use relm4::{
     prelude::*,
 };
 
-use common::Config;
+use common::{Config, classes, css::Class};
 
 mod mode;
 mod results;
@@ -94,26 +94,26 @@ impl SimpleComponent for App {
             set_anchor: (Edge::Left, false),
             set_title: Some("Launcher"),
             set_default_size: (300, 100),
-            set_css_classes: &["launcher-main-window"],
+            set_css_classes: &classes!(MainWindow, LauncherMainWindow),
 
             gtk::Box {
                 set_orientation: gtk::Orientation::Vertical,
                 set_spacing: 5,
                 set_margin_all: 5,
-                set_css_classes: &["outer-box"],
+                add_css_class: Class::OuterBox.as_ref(),
 
                 #[name(main_entry)]
                 gtk::Entry {
                     set_placeholder_text: Some("Enter text..."),
                     connect_changed[sender] => move |this| { sender.input(AppMsg::SearchUpdate(this.text().to_string())); },
                     connect_activate[sender] => move |this| { sender.input(AppMsg::SearchFinish(this.text().to_string())); },
-                    set_css_classes: &["main-entry"],
+                    add_css_class: Class::MainEntry.as_ref(),
                 },
 
                 #[local_ref]
                 results_box -> gtk::Box {
                     set_orientation: gtk::Orientation::Vertical,
-                    set_css_classes: &["results-box"],
+                    add_css_class: Class::ResultsBox.as_ref(),
                 },
             }
         }
