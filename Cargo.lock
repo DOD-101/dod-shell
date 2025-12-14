@@ -363,6 +363,7 @@ name = "common"
 version = "0.2.0"
 dependencies = [
  "dirs",
+ "schemars",
  "serde",
  "strum",
  "thiserror 2.0.16",
@@ -407,6 +408,7 @@ dependencies = [
  "paste",
  "regex",
  "serde",
+ "serde_json",
  "simple_logger",
  "sysinfo",
  "tempfile",
@@ -1477,7 +1479,6 @@ dependencies = [
  "log",
  "relm4",
  "relm4-icons",
- "schemars",
  "serde",
  "serde_json",
  "simple_logger",

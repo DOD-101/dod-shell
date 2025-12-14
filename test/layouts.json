@@ -22,6 +22,7 @@
 					"Backspace"
 				],
 				[
+					"Spacer",
 					{ "Code": { "code": 24 } },
 					{ "Code": { "code": 25 } },
 					{ "Code": { "code": 26 } },
@@ -33,8 +34,7 @@
 					{ "Code": { "code": 32 } },
 					{ "Code": { "code": 33 } },
 					{ "Code": { "code": 34 } },
-					{ "Code": { "code": 35 } },
-					"Enter"
+					{ "Code": { "code": 35 } }
 				],
 				[
 					{ "Mod": "Shift" },
@@ -53,6 +53,7 @@
 				],
 				[
 					{ "Code": { "code": 94 } },
+					{ "Code": { "code": 52 } },
 					{ "Code": { "code": 53 } },
 					{ "Code": { "code": 54 } },
 					{ "Code": { "code": 55 } },
@@ -61,7 +62,8 @@
 					{ "Code": { "code": 58 } },
 					{ "Code": { "code": 59 } },
 					{ "Code": { "code": 60 } },
-					{ "Code": { "code": 61 } }
+					{ "Code": { "code": 61 } },
+					"Enter"
 				],
 				[
 					{ "Mod": "Ctrl" },

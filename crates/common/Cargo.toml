@@ -6,6 +6,7 @@ version.workspace = true
 
 [dependencies]
 dirs.workspace = true
+schemars = "1.0.4"
 serde.workspace = true
 strum.workspace = true
 thiserror.workspace = true

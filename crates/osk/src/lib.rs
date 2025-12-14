@@ -7,19 +7,15 @@ use relm4::{
 };
 use strum::EnumIs;
 
-use common::css::Class;
+use common::{config::layouts::Layout, css::Class};
 use daemon::{
     config::ConfigProxy,
     osk::{Mod, OskProxy},
 };
 
-use crate::{
-    key::{GenericKey, OskKeyInputMsg, OskRow},
-    layouts::Layout,
-};
+use crate::key::{GenericKey, OskKeyInputMsg, OskRow};
 
 mod key;
-pub mod layouts;
 
 #[derive(Debug)]
 pub struct App {

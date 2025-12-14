@@ -27,7 +27,7 @@ use common::CONFIG_PATH;
 ///
 /// Although they have the same name these two serve very different functions.
 ///
-/// [``common::Config``], as the docs state, related to the concrete format of `config.toml`
+/// [``common::Config``], as the docs state, relates to the concrete format of `config.toml`
 ///
 /// whereas
 ///
@@ -40,14 +40,18 @@ pub struct Config {
     pub toml: String,
     /// The css from `style.scss`
     pub css: String,
+    /// The osk layouts from `layouts.json`
+    pub layouts: String,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
             toml: toml::to_string(&common::Config::default())
-                .expect("Should never fail to serialize our toml fomat to toml."),
+                .expect("Should never fail to serialize our format to toml."),
             css: String::default(),
+            layouts: serde_json::to_string(&common::Layouts::default())
+                .expect("Should never fail to serialize our format to json"),
         }
     }
 }
@@ -73,6 +77,12 @@ impl Config {
         self.css.clone()
     }
 
+    /// Dbus property for the osk layouts
+    #[zbus(property)]
+    fn layouts(&self) -> String {
+        self.layouts.clone()
+    }
+
     /// Dbus property for both the toml config and css
     #[zbus(property)]
     fn all_config(&self) -> Config {
@@ -80,34 +90,59 @@ impl Config {
     }
 }
 
-/// Returned by [`Config::update`] to signal which configs have changed
-///
-/// Field [`Self::0`] signals if [`Config::toml`] has changed
-/// Field [`Self::1`] signals if [`field@Config::css`] has changed
+/// Returned by [`Config::update`] to signal which config values have changed
 #[derive(Default, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ConfigValuesChanged(pub bool, pub bool);
+pub struct ConfigValuesChanged {
+    /// Corresponds to [`Config::toml`]
+    toml: bool,
+    /// Corresponds to [`field@Config::css`]
+    css: bool,
+    /// Corresponds to [`field@Config::layouts`]
+    layouts: bool,
+}
 
 impl ConfigValuesChanged {
+    /// If any config value has changed
     #[must_use]
-    pub fn changes(&self) -> bool {
-        self.0 || self.1
+    pub fn any_changes(&self) -> bool {
+        self.toml || self.css || self.layouts
+    }
+
+    // If the toml value changed
+    #[must_use]
+    pub fn toml_changed(&self) -> bool {
+        self.toml
+    }
+
+    // If the css value changed
+    #[must_use]
+    pub fn css_changed(&self) -> bool {
+        self.css
+    }
+
+    // If the layouts value changed
+    #[must_use]
+    pub fn layouts_changed(&self) -> bool {
+        self.layouts
     }
 }
 
 impl Config {
+    /// Update the config values from disk
     pub async fn update(&mut self) -> ConfigValuesChanged {
         let mut changes = ConfigValuesChanged::default();
         let toml_path = CONFIG_PATH.join("config.toml");
         let scss_path = CONFIG_PATH.join("style.scss");
+        let layouts_path = CONFIG_PATH.join("layouts.json");
 
-        // Attempt to read the toml config
+        // -- toml --
         match fs::read_to_string(&toml_path).await {
             // If we can read it and it's changed make sure it is valid
             Ok(s) if self.toml != s => match toml::from_str::<common::Config>(&s) {
                 Ok(_) => {
                     self.toml = s;
 
-                    changes.0 = true;
+                    changes.toml = true;
                 }
                 Err(e) => {
                     log::error!("Failed to parse config: {e}");
@@ -120,11 +155,12 @@ impl Config {
             }
         }
 
+        // -- css --
         match grass::from_path(scss_path, &grass::Options::default()) {
             Ok(s) if self.css != s => {
                 self.css = s;
 
-                changes.1 = true;
+                changes.css = true;
             }
             // If the css hasn't changed don't do anything
             Ok(_) => (),
@@ -133,9 +169,27 @@ impl Config {
             }
         }
 
+        // -- layouts --
+        match fs::read_to_string(&layouts_path).await {
+            Ok(s) if self.layouts != s => {
+                match serde_json::from_str::<common::config::layouts::Layouts>(&s) {
+                    Ok(_) => {
+                        self.layouts = s;
+
+                        changes.layouts = true;
+                    }
+                    Err(e) => {
+                        log::error!("Failed to parse layouts: {e}");
+                    }
+                }
+            }
+            // If the layouts haven't changed don't do anything
+            Ok(_) => (),
+            Err(e) => {
+                log::error!("Failed to read config at {}: {e}", layouts_path.display());
+            }
+        }
+
         changes
     }
-
-    // async fn get_toml(&mut self) -> String {}
-    // async fn get_css(&mut self) -> String {}
 }

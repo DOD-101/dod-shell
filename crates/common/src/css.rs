@@ -47,6 +47,8 @@ pub enum Class {
     LabelIconLabel,
     LabelIconIcon,
 
+    OskButton,
+
     // Launcher
     LauncherMainWindow,
     OuterBox,

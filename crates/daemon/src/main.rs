@@ -4,7 +4,7 @@ use zbus::{conn::Builder, object_server::InterfaceRef};
 use anyhow::{Ok, Result};
 
 use daemon::{
-    config::{Config, ConfigProxy, ConfigValuesChanged},
+    config::{Config, ConfigProxy},
     osk::{Osk, state::State as OskState},
     system_state::SystemState,
 };
@@ -95,15 +95,19 @@ async fn update_config(iface: &InterfaceRef<Config>) -> Result<bool> {
 
     let changes = state.update().await;
 
-    if let ConfigValuesChanged(true, _) = changes {
+    if changes.toml_changed() {
         state.config_changed(iface.signal_emitter()).await?;
     }
 
-    if let ConfigValuesChanged(_, true) = changes {
+    if changes.css_changed() {
         state.css_changed(iface.signal_emitter()).await?;
     }
 
-    if changes.changes() {
+    if changes.layouts_changed() {
+        state.layouts_changed(iface.signal_emitter()).await?;
+    }
+
+    if changes.any_changes() {
         state.all_config_changed(iface.signal_emitter()).await?;
     }
 
@@ -111,5 +115,5 @@ async fn update_config(iface: &InterfaceRef<Config>) -> Result<bool> {
 
     log::trace!("Config updated. Took {delta}ms");
 
-    Ok(changes.0)
+    Ok(changes.toml_changed())
 }

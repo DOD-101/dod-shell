@@ -6,7 +6,7 @@ pub mod css;
 pub mod err;
 pub mod types;
 
-pub use config::Config;
+pub use config::{Config, layouts::Layouts};
 
 /// The path to the config dir
 ///
