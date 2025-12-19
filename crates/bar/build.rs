@@ -40,6 +40,7 @@ fn main() {
             "battery-level-0-charging",
             "battery-low",
             "battery-missing",
+            "keyboard-filled",
         ],
     );
 }

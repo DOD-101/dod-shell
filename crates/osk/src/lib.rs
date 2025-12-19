@@ -10,7 +10,7 @@ use strum::EnumIs;
 use common::{config::layouts::Layout, css::Class};
 use daemon::{
     config::ConfigProxy,
-    osk::{Mod, OskProxy},
+    osk::{Mod, OskProxy, state::StateProxy},
 };
 
 use crate::key::{GenericKey, OskKeyInputMsg, OskRow};
@@ -22,6 +22,8 @@ pub struct App {
     osk_rows: FactoryVecDeque<OskRow>,
     osk_proxy: OskProxy<'static>,
 
+    // TODO: Add "active_locked" to allow locking the current active value
+    active: bool,
     active_mods: u32,
     shift_state: ShiftState,
 }
@@ -56,9 +58,15 @@ impl App {
         Self {
             osk_rows: all_osk_rows,
             osk_proxy: init.osk_proxy,
+            active: bool::default(),
             active_mods: u32::default(),
             shift_state: ShiftState::default(),
         }
+    }
+
+    // TODO: See line 25
+    fn set_active(&mut self, active: bool) {
+        self.active = active;
     }
 
     fn send_to_all_keys(&self, message: OskKeyInputMsg) {
@@ -75,6 +83,8 @@ pub enum AppMsg {
     KeyPressed(key::OskKeyOutputMsg),
     /// Sent when the css has been changed
     CssUpdated(String),
+    // If the osk is active or not
+    Active(bool),
 }
 
 pub struct AppInit<'a> {
@@ -99,6 +109,8 @@ impl SimpleAsyncComponent for App {
         #[name(osk_main_window)]
         gtk::Window {
             init_layer_shell: (),
+            #[watch]
+            set_visible: model.active,
             add_css_class: Class::OskMainWindow.as_ref(),
             set_hexpand: true,
             set_anchor:  (gtk4_layer_shell::Edge::Bottom, true),
@@ -135,16 +147,24 @@ impl SimpleAsyncComponent for App {
             let connection = zbus::Connection::session().await?;
 
             let config_proxy = ConfigProxy::new(&connection).await?;
+            let osk_state_proxy = StateProxy::new(&connection).await?;
 
-            let mut css_stream = config_proxy.receive_css_changed().await;
+            let mut css_stream = config_proxy.receive_css_changed().await.fuse();
+            let mut active_stream = osk_state_proxy.receive_active_changed().await.fuse();
 
             loop {
-                if let Some(item) = css_stream.next().await
-                    && update_sender
-                        .send(AppMsg::CssUpdated(item.get().await?))
-                        .is_err()
-                {
-                    log::error!("Failed to update css.");
+                futures_util::select! {
+                    css = css_stream.select_next_some() => {
+                        if update_sender.send(AppMsg::CssUpdated(css.get().await?)).is_err() {
+                            log::error!("Failed to update css.");
+                        }
+                    }
+                    active = active_stream.select_next_some() => {
+                        if update_sender.send(AppMsg::Active(active.get().await?)).is_err() {
+                            log::error!("Failed to send updated `active` state.");
+                        }
+                    }
+
                 }
             }
 
@@ -219,6 +239,7 @@ impl SimpleAsyncComponent for App {
                 }
             },
             AppMsg::CssUpdated(css) => relm4::set_global_css(&css),
+            AppMsg::Active(active) => self.set_active(active),
         }
     }
 }

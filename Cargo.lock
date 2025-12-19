@@ -206,7 +206,6 @@ dependencies = [
  "relm4-icons-build",
  "simple_logger",
  "time",
- "tokio",
  "toml 0.9.5",
  "zbus",
 ]

@@ -9,7 +9,7 @@ use relm4::{
         gdk::{Monitor, prelude::DisplayExt},
         gio::prelude::{ListModelExt, ListModelExtManual},
         glib::object::CastNone,
-        prelude::{GtkApplicationExt, OrientableExt, WidgetExt},
+        prelude::{ButtonExt, GtkApplicationExt, OrientableExt, WidgetExt},
     },
     prelude::*,
 };
@@ -21,6 +21,7 @@ use gtk4_layer_shell::KeyboardMode;
 use common::{Config, classes, css::Class};
 use daemon::{
     config::ConfigProxy,
+    osk::state::StateProxy,
     system_state::{BatteryStatus, ConnectionData, SystemStateData, SystemStateProxy},
 };
 
@@ -48,6 +49,9 @@ pub struct App {
     workspaces: Controller<Workspaces>,
     system_state: SystemStateData,
     config: Config,
+
+    osk_active: bool,
+    osk_state_proxy: StateProxy<'static>,
 }
 
 /// Input messages for [App]
@@ -62,12 +66,15 @@ pub enum AppMsg {
     ConfigUpdated(Config),
     /// Sent when the css has been changed
     CssUpdated(String),
+
+    LaunchOsk,
+    OskActive(bool),
 }
 
 // NOTE: Should we allow users to config the icons?
 #[allow(clippy::float_cmp)]
-#[relm4::component(pub)]
-impl SimpleComponent for App {
+#[relm4::component(pub, async)]
+impl SimpleAsyncComponent for App {
     /// (The monitor to display the bar on, the monitor id the bar is on, if this is the main bar)
     // NOTE: We should add a BarInit (or AppInit) struct or type alias
     type Init = (Monitor, usize, bool);
@@ -154,6 +161,14 @@ impl SimpleComponent for App {
                 set_end_widget = &gtk::Box {
                     add_css_class: Class::Right.as_ref(),
                     set_orientation: gtk::Orientation::Horizontal,
+
+                    gtk::Button {
+                        set_css_classes: &classes!(OskButton, Icon),
+                        #[watch]
+                        set_class_active: (Class::Active.as_ref(), model.osk_active),
+                        set_icon_name: icon::KEYBOARD_FILLED,
+                        connect_clicked => AppMsg::LaunchOsk,
+                    },
 
                     #[name(internet_revealer)]
                     gtk::Revealer {
@@ -275,11 +290,11 @@ impl SimpleComponent for App {
         }
     }
 
-    fn init(
+    async fn init(
         init: Self::Init,
         root: Self::Root,
-        sender: ComponentSender<Self>,
-    ) -> ComponentParts<Self> {
+        sender: AsyncComponentSender<Self>,
+    ) -> AsyncComponentParts<Self> {
         let workspaces = hyprland::data::Workspaces::get()
             .unwrap()
             .iter()
@@ -292,10 +307,14 @@ impl SimpleComponent for App {
             })
             .collect();
 
+        let connection = zbus::Connection::session().await.unwrap();
+
         let model = Self {
             workspaces: Workspaces::builder().launch(workspaces).detach(),
             system_state: SystemStateData::default(),
             config: Config::default(),
+            osk_active: bool::default(),
+            osk_state_proxy: StateProxy::new(&connection).await.unwrap(),
         };
 
         // NOTE: We should probably generalize this to all type 1 components and move it to common
@@ -305,33 +324,36 @@ impl SimpleComponent for App {
         // of them and then send it to all bars
         let update_sender = sender.input_sender().clone();
         relm4::spawn(async move {
-            let connection = zbus::Connection::session().await?;
-
             let config_proxy = ConfigProxy::new(&connection).await?;
             let state_proxy = SystemStateProxy::new(&connection).await?;
+            let osk_state_proxy = StateProxy::new(&connection).await?;
 
-            let mut state_stream = state_proxy.receive_state_data_changed().await;
-            let mut config_stream = config_proxy.receive_config_changed().await;
-            let mut css_stream = config_proxy.receive_css_changed().await;
+            let mut state_stream = state_proxy.receive_state_data_changed().await.fuse();
+            let mut config_stream = config_proxy.receive_config_changed().await.fuse();
+            let mut css_stream = config_proxy.receive_css_changed().await.fuse();
+            let mut osk_active_stream = osk_state_proxy.receive_active_changed().await.fuse();
 
             loop {
-                if tokio::select! {
-                    Some(c) = config_stream.next() => {
+                if futures_util::select! {
+                    c = config_stream.select_next_some() => {
                         let config = toml::from_str(&c.get().await?)
                             .expect("Config string returned by daemon should always be valid.");
 
                         update_sender.send(AppMsg::ConfigUpdated(config))
                     }
-                    Some(c) = css_stream.next() => {
+                    c = css_stream.select_next_some() => {
                         update_sender.send(AppMsg::CssUpdated(c.get().await?))
                     }
-                    Some(s) = state_stream.next() => {
+                    s = state_stream.select_next_some() => {
                         update_sender.send(AppMsg::UpdatedSystemState(s.get().await?))
+                    }
+                    active = osk_active_stream.select_next_some() => {
+                        update_sender.send(AppMsg::OskActive(active.get().await?))
                     }
                 }
                 .is_err()
                 {
-                    log::error!("Failed to send config-related update to app.");
+                    log::error!("Failed to send related update to app.");
                 }
             }
 
@@ -380,10 +402,10 @@ impl SimpleComponent for App {
             }
         }
 
-        ComponentParts { model, widgets }
+        AsyncComponentParts { model, widgets }
     }
 
-    fn update(&mut self, msg: Self::Input, _sender: ComponentSender<Self>) {
+    async fn update(&mut self, msg: Self::Input, _sender: AsyncComponentSender<Self>) {
         match msg {
             AppMsg::UpdatedSystemState(data) => {
                 self.system_state = data;
@@ -397,6 +419,15 @@ impl SimpleComponent for App {
             }
             AppMsg::ConfigUpdated(config) => self.config = config,
             AppMsg::CssUpdated(css) => relm4::set_global_css(&css),
+            AppMsg::LaunchOsk => match self.osk_state_proxy.active().await {
+                Ok(active) => {
+                    if let Err(e) = self.osk_state_proxy.set_active(!active).await {
+                        log::error!("Failed to set osk active property: {e}");
+                    }
+                }
+                Err(e) => log::error!("Failed to get osk active property: {e}"),
+            },
+            AppMsg::OskActive(val) => self.osk_active = val,
         }
     }
 }
@@ -415,5 +446,5 @@ pub fn launch_on_all_monitors() {
 
     relm4_icons::initialize_icons(icon::GRESOURCE_BYTES, icon::RESOURCE_PREFIX);
 
-    app.run::<App>((monitor, 0, true));
+    app.run_async::<App>((monitor, 0, true));
 }
