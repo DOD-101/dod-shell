@@ -25,6 +25,8 @@ use zbus::{interface, zvariant};
 pub struct State {
     /// If the Osk is active
     active: bool,
+    /// If [`Self::active`] is locked (aka. can't be changed)
+    active_locked: bool,
     /// The text in the input field
     text: String,
     /// Where the cursor is in the input field
@@ -47,6 +49,7 @@ impl Default for State {
     fn default() -> Self {
         Self {
             active: bool::default(),
+            active_locked: bool::default(),
             text: String::default(),
             cursor: u32::default(),
             anchor: u32::default(),
@@ -80,7 +83,10 @@ impl State {
 
         match msg {
             WaylandStateMsg::Active(active) => {
-                changed_attrs!(active);
+                if self.active != active && self.set_active_inner(active) {
+                    self.active_changed(ctxt).await?;
+                    changed = true;
+                }
             }
             WaylandStateMsg::SurroundingText {
                 text,
@@ -102,6 +108,17 @@ impl State {
         }
 
         Ok(())
+    }
+
+    /// Helper function to make sure setting [`Self::active`] always respects [`Self::active_locked`]
+    fn set_active_inner(&mut self, active: bool) -> bool {
+        if self.active_locked {
+            false
+        } else {
+            self.active = active;
+
+            true
+        }
     }
 }
 
@@ -126,7 +143,17 @@ impl State {
 
     #[zbus(property)]
     fn set_active(&mut self, active: bool) {
-        self.active = active;
+        self.set_active_inner(active);
+    }
+
+    #[zbus(property)]
+    fn active_locked(&self) -> bool {
+        self.active_locked
+    }
+
+    #[zbus(property)]
+    fn set_active_locked(&mut self, active_locked: bool) {
+        self.active_locked = active_locked;
     }
 
     #[zbus(property)]

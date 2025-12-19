@@ -4,10 +4,12 @@ use relm4::{
     component::{AsyncComponentParts, AsyncComponentSender},
     gtk::{self, prelude::*},
     prelude::*,
+    tokio,
 };
+use std::error::Error;
 use strum::EnumIs;
 
-use common::{config::layouts::Layout, css::Class};
+use common::{Layouts, config::layouts::Layout, css::Class};
 use daemon::{
     config::ConfigProxy,
     osk::{Mod, OskProxy, state::StateProxy},
@@ -15,15 +17,25 @@ use daemon::{
 
 use crate::key::{GenericKey, OskKeyInputMsg, OskRow};
 
+#[allow(dead_code)]
+mod icon {
+    include!(concat!(env!("OUT_DIR"), "/icon_names.rs"));
+
+    #[allow(unused_imports)]
+    pub use self::custom::*;
+    pub use self::shipped::*;
+}
+
 mod key;
 
 #[derive(Debug)]
 pub struct App {
     osk_rows: FactoryVecDeque<OskRow>,
     osk_proxy: OskProxy<'static>,
+    osk_state_proxy: StateProxy<'static>,
 
-    // TODO: Add "active_locked" to allow locking the current active value
     active: bool,
+    active_locked: bool,
     active_mods: u32,
     shift_state: ShiftState,
 }
@@ -58,15 +70,12 @@ impl App {
         Self {
             osk_rows: all_osk_rows,
             osk_proxy: init.osk_proxy,
+            osk_state_proxy: init.osk_state_proxy,
             active: bool::default(),
+            active_locked: bool::default(),
             active_mods: u32::default(),
             shift_state: ShiftState::default(),
         }
-    }
-
-    // TODO: See line 25
-    fn set_active(&mut self, active: bool) {
-        self.active = active;
     }
 
     fn send_to_all_keys(&self, message: OskKeyInputMsg) {
@@ -80,22 +89,37 @@ impl App {
 
 #[derive(Debug)]
 pub enum AppMsg {
+    /// Sent by a [`key::GenericKey`] when pressed
     KeyPressed(key::OskKeyOutputMsg),
-    /// Sent when the css has been changed
+    /// The css has changed
     CssUpdated(String),
-    // If the osk is active or not
+    /// Set [`App::active`]
     Active(bool),
+    /// Set [`App::active_locked`]
+    ActiveLocked(bool),
+    /// Close the osk
+    ///
+    /// There is no guarantee that sending this actually close the osk. If [`App::active_locked`]
+    /// is `true` this won't override it.
+    Close,
+    /// Toggle [`App::active_locked`]
+    Lock,
 }
 
 pub struct AppInit<'a> {
     layout: Layout,
     osk_proxy: OskProxy<'a>,
+    osk_state_proxy: StateProxy<'a>,
 }
 
 impl<'a> AppInit<'a> {
     #[must_use]
-    pub fn new(layout: Layout, osk_proxy: OskProxy<'a>) -> Self {
-        Self { layout, osk_proxy }
+    pub fn new(layout: Layout, osk_proxy: OskProxy<'a>, osk_state_proxy: StateProxy<'a>) -> Self {
+        Self {
+            layout,
+            osk_proxy,
+            osk_state_proxy,
+        }
     }
 }
 
@@ -122,6 +146,27 @@ impl SimpleAsyncComponent for App {
                 set_orientation: gtk::Orientation::Vertical,
                 set_width_request: 5,
 
+                gtk::Box {
+                    set_halign: gtk::Align::End,
+                    gtk::Button {
+                        add_css_class: Class::OskLockButton.as_ref(),
+                        #[watch]
+                        set_class_active: (Class::Active.as_ref(), model.active_locked),
+                        #[watch]
+                        set_icon_name: if model.active_locked { icon::LOCK_SMALL } else { icon::LOCK_SMALL_OPEN },
+                        connect_clicked => AppMsg::Lock,
+                    },
+                    gtk::Button {
+                        add_css_class: Class::OskCloseButton.as_ref(),
+                        #[watch]
+                        set_class_active: (Class::Disabled.as_ref(), model.active_locked),
+                        #[watch]
+                        set_sensitive: !model.active_locked,
+                        set_icon_name: icon::CROSS_SMALL,
+                        connect_clicked => AppMsg::Close,
+                    },
+                },
+
                 #[local_ref]
                 row -> gtk::Box {
                     set_orientation: gtk::Orientation::Vertical,
@@ -144,6 +189,7 @@ impl SimpleAsyncComponent for App {
         let update_sender = sender.input_sender().clone();
 
         relm4::spawn(async move {
+            // HACK: Fix init of App to avoid needing to create a new dbus connection here
             let connection = zbus::Connection::session().await?;
 
             let config_proxy = ConfigProxy::new(&connection).await?;
@@ -151,6 +197,8 @@ impl SimpleAsyncComponent for App {
 
             let mut css_stream = config_proxy.receive_css_changed().await.fuse();
             let mut active_stream = osk_state_proxy.receive_active_changed().await.fuse();
+            let mut active_locked_stream =
+                osk_state_proxy.receive_active_locked_changed().await.fuse();
 
             loop {
                 futures_util::select! {
@@ -164,7 +212,11 @@ impl SimpleAsyncComponent for App {
                             log::error!("Failed to send updated `active` state.");
                         }
                     }
-
+                    active_locked = active_locked_stream.select_next_some() => {
+                        if update_sender.send(AppMsg::ActiveLocked(active_locked.get().await?)).is_err() {
+                            log::error!("Failed to send updated `active_locked` state.");
+                        }
+                    }
                 }
             }
 
@@ -239,7 +291,23 @@ impl SimpleAsyncComponent for App {
                 }
             },
             AppMsg::CssUpdated(css) => relm4::set_global_css(&css),
-            AppMsg::Active(active) => self.set_active(active),
+            AppMsg::Active(active) => self.active = active,
+            AppMsg::ActiveLocked(active_locked) => self.active_locked = active_locked,
+            AppMsg::Close => {
+                if self.osk_state_proxy.set_active(false).await.is_err() {
+                    log::error!("Failed to send updated `active` to daemon");
+                }
+            }
+            AppMsg::Lock => {
+                if self
+                    .osk_state_proxy
+                    .set_active_locked(!self.active_locked)
+                    .await
+                    .is_err()
+                {
+                    log::error!("Failed to send updated `active_locked` to daemon");
+                }
+            }
         }
     }
 }
@@ -278,4 +346,39 @@ impl From<ShiftState> for bool {
             ShiftState::On | ShiftState::Locked => true,
         }
     }
+}
+
+pub fn launch() -> Result<(), Box<dyn Error>> {
+    simple_logger::SimpleLogger::new().env().init().unwrap();
+
+    let rt = tokio::runtime::Runtime::new()?;
+
+    let (osk_proxy, osk_state_proxy, layouts) = rt.block_on(async {
+        let connection = zbus::Connection::session().await.unwrap();
+
+        (
+            daemon::osk::OskProxy::new(&connection).await.unwrap(),
+            daemon::osk::state::StateProxy::new(&connection)
+                .await
+                .unwrap(),
+            daemon::config::ConfigProxy::new(&connection)
+                .await
+                .unwrap()
+                .layouts()
+                .await
+                .unwrap(),
+        )
+    });
+
+    let app = RelmApp::new("dod-shell.osk");
+
+    let layouts = serde_json::from_str::<Layouts>(&layouts)?;
+
+    let layout = layouts.get_layout_by_name("German De").unwrap();
+
+    relm4_icons::initialize_icons(icon::GRESOURCE_BYTES, icon::RESOURCE_PREFIX);
+
+    app.run_async::<App>(AppInit::new(layout.clone(), osk_proxy, osk_state_proxy));
+
+    Ok(())
 }

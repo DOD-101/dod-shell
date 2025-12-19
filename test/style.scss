@@ -50,7 +50,7 @@ $osk-key-width: 3rem;
   padding: 5px;
   border-radius: 7px;
 
-  button {
+  .osk-key {
     border: darkblue 3px solid;
     border-radius: 5px;
     font-size: 3rem;
@@ -85,5 +85,29 @@ $osk-key-width: 3rem;
 
   .osk-shift-lock {
     font-weight: bolder;
+  }
+
+  .osk-close-button {
+    background-color: red;
+    border-radius: 50px;
+    padding: 4px;
+    margin: 0 3px;
+    font-weight: bolder;
+
+    &.disabled {
+      background-color: darken(grey, 25);
+      color: lighten(grey, 25);
+    }
+  }
+
+  .osk-lock-button {
+    background-color: lightslategrey;
+    border-radius: 50px;
+    padding: 4px;
+    margin: 0 3px;
+
+    &.active {
+      background-color: blue;
+    }
   }
 }

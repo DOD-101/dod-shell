@@ -21,6 +21,9 @@ toml.workspace = true
 xkbcommon = "0.9.0"
 zbus.workspace = true
 
+[build-dependencies]
+relm4-icons-build.workspace = true
+
 [lints]
 workspace = true
 

@@ -20,6 +20,7 @@ pub enum Class {
     Icon,
     Label,
     Active,
+    Disabled,
     Muted,
 
     // Bar
@@ -79,6 +80,9 @@ pub enum Class {
 
     OskNormal,
     OskKeyActive,
+
+    OskCloseButton,
+    OskLockButton,
 }
 
 #[derive(Debug, Clone)]

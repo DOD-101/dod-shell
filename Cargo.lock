@@ -1478,6 +1478,7 @@ dependencies = [
  "log",
  "relm4",
  "relm4-icons",
+ "relm4-icons-build",
  "serde",
  "serde_json",
  "simple_logger",
