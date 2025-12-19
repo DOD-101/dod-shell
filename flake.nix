@@ -230,16 +230,10 @@
             # Inherit inputs from checks.
             checks = self.checks.${system};
 
-            DOD_WATCHEXEC_COMMAND = "cargo b";
-
             packages = with pkgs; [
               wev
               watchexec
-              (writeShellScriptBin "dod-watch" ''
-                CMD="$DOD_WATCHEXEC_COMMAND" || "$1"
-
-                watchexec -w crates -r --stop-signal SIGKILL -- $CMD
-              '')
+              (writeShellScriptBin "dod-watch" (builtins.readFile ./dod-watch.sh))
             ];
           };
 
