@@ -110,15 +110,22 @@ pub struct AppInit<'a> {
     layout: Layout,
     osk_proxy: OskProxy<'a>,
     osk_state_proxy: StateProxy<'a>,
+    connection: zbus::Connection,
 }
 
 impl<'a> AppInit<'a> {
     #[must_use]
-    pub fn new(layout: Layout, osk_proxy: OskProxy<'a>, osk_state_proxy: StateProxy<'a>) -> Self {
+    pub fn new(
+        layout: Layout,
+        osk_proxy: OskProxy<'a>,
+        osk_state_proxy: StateProxy<'a>,
+        connection: zbus::Connection,
+    ) -> Self {
         Self {
             layout,
             osk_proxy,
             osk_state_proxy,
+            connection,
         }
     }
 }
@@ -180,6 +187,8 @@ impl SimpleAsyncComponent for App {
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
+        let connection = init.connection.clone();
+
         let model = App::new(init, &sender);
 
         let row = model.osk_rows.widget();
@@ -189,9 +198,6 @@ impl SimpleAsyncComponent for App {
         let update_sender = sender.input_sender().clone();
 
         relm4::spawn(async move {
-            // HACK: Fix init of App to avoid needing to create a new dbus connection here
-            let connection = zbus::Connection::session().await?;
-
             let config_proxy = ConfigProxy::new(&connection).await?;
             let osk_state_proxy = StateProxy::new(&connection).await?;
 
@@ -201,22 +207,20 @@ impl SimpleAsyncComponent for App {
                 osk_state_proxy.receive_active_locked_changed().await.fuse();
 
             loop {
-                futures_util::select! {
+                if futures_util::select! {
                     css = css_stream.select_next_some() => {
-                        if update_sender.send(AppMsg::CssUpdated(css.get().await?)).is_err() {
-                            log::error!("Failed to update css.");
-                        }
+                        update_sender.send(AppMsg::CssUpdated(css.get().await?))
                     }
                     active = active_stream.select_next_some() => {
-                        if update_sender.send(AppMsg::Active(active.get().await?)).is_err() {
-                            log::error!("Failed to send updated `active` state.");
-                        }
+                        update_sender.send(AppMsg::Active(active.get().await?))
                     }
                     active_locked = active_locked_stream.select_next_some() => {
-                        if update_sender.send(AppMsg::ActiveLocked(active_locked.get().await?)).is_err() {
-                            log::error!("Failed to send updated `active_locked` state.");
-                        }
+                        update_sender.send(AppMsg::ActiveLocked(active_locked.get().await?))
                     }
+                }
+                .is_err()
+                {
+                    log::error!("Failed processing update from daemon");
                 }
             }
 
@@ -348,37 +352,63 @@ impl From<ShiftState> for bool {
     }
 }
 
+/// Main entry point for launching the osk
+///
+/// ## Errors
+///
+/// This function errors if there is are any problems with:
+///
+/// 1. Creating a tokio runtime
+///
+/// 2. Getting the needed state from the daemon
+#[allow(clippy::missing_panics_doc)]
 pub fn launch() -> Result<(), Box<dyn Error>> {
-    simple_logger::SimpleLogger::new().env().init().unwrap();
+    simple_logger::SimpleLogger::new()
+        .env()
+        .init()
+        .expect("Should never fail to init logger.");
 
     let rt = tokio::runtime::Runtime::new()?;
 
-    let (osk_proxy, osk_state_proxy, layouts) = rt.block_on(async {
-        let connection = zbus::Connection::session().await.unwrap();
+    match rt.block_on(async {
+        let connection = zbus::Connection::session().await?;
 
-        (
-            daemon::osk::OskProxy::new(&connection).await.unwrap(),
-            daemon::osk::state::StateProxy::new(&connection)
-                .await
-                .unwrap(),
+        Ok((
+            daemon::osk::OskProxy::new(&connection).await?,
+            daemon::osk::state::StateProxy::new(&connection).await?,
             daemon::config::ConfigProxy::new(&connection)
-                .await
-                .unwrap()
+                .await?
                 .layouts()
-                .await
-                .unwrap(),
-        )
-    });
+                .await?,
+            connection,
+        ))
+    }) {
+        Ok((osk_proxy, osk_state_proxy, layouts, connection)) => {
+            // drop early to avoid keeping it around for the entire lifespan of the app
+            drop(rt);
 
-    let app = RelmApp::new("dod-shell.osk");
+            let app = RelmApp::new("dod-shell.osk");
 
-    let layouts = serde_json::from_str::<Layouts>(&layouts)?;
+            let layouts = serde_json::from_str::<Layouts>(&layouts)?;
 
-    let layout = layouts.get_layout_by_name("German De").unwrap();
+            let layout = layouts
+                .get_layout_by_name("German De")
+                .ok_or(common::err::Error::MissingOskLayout)?;
 
-    relm4_icons::initialize_icons(icon::GRESOURCE_BYTES, icon::RESOURCE_PREFIX);
+            relm4_icons::initialize_icons(icon::GRESOURCE_BYTES, icon::RESOURCE_PREFIX);
 
-    app.run_async::<App>(AppInit::new(layout.clone(), osk_proxy, osk_state_proxy));
+            app.run_async::<App>(AppInit::new(
+                layout.clone(),
+                osk_proxy,
+                osk_state_proxy,
+                connection,
+            ));
+        }
+
+        Err(e) => {
+            return Err(e);
+        }
+    }
 
     Ok(())
 }

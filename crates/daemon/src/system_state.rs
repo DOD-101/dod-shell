@@ -12,16 +12,11 @@ use std::{
     sync::LazyLock,
 };
 
-use anyhow::Result;
-
-use zbus::{interface, zvariant};
-
-use common::{err::Error, types::Percentage};
-
 use alsa::{
     Mixer,
     mixer::{SelemChannelId, SelemId},
 };
+use anyhow::Result;
 use hyprland::shared::HyprDataActive;
 use regex::Regex;
 use sysinfo::{CpuRefreshKind, Disks, MemoryRefreshKind, RefreshKind, System};
@@ -30,17 +25,20 @@ use tokio::fs;
 use zbus::{
     Proxy,
     fdo::PropertiesProxy,
+    interface,
     names::InterfaceName,
-    zvariant::{Array, ObjectPath, OwnedObjectPath, OwnedValue, Value},
+    zvariant::{self, Array, ObjectPath, OwnedObjectPath, OwnedValue, Value},
 };
 
-/// Dbus service name for `NetworkManager` used by [``SystemState::network``]
+use common::{err::Error, types::Percentage};
+
+/// Dbus service name for `NetworkManager` used by [``SystemState::update_network``]
 const NM_SERVICE_NAME: &str = "org.freedesktop.NetworkManager";
 
-/// [``Regex``] used by [``SystemState::key_states``]
+/// [``Regex``] used by [``SystemState::update_key_states``]
 static CAPSLOCK_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"input\d+::capslock").unwrap());
-/// [``Regex``] used by [``SystemState::key_states``]
+/// [``Regex``] used by [``SystemState::update_key_states``]
 static NUMLOCK_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"input\d+::numlock").unwrap());
 
@@ -520,13 +518,11 @@ impl From<ConnectionData> for zvariant::OwnedValue {
     }
 }
 
-// TODO: Impl
 impl TryFrom<zvariant::OwnedValue> for ConnectionData {
     type Error = zvariant::Error;
 
     fn try_from(value: zvariant::OwnedValue) -> zvariant::Result<Self> {
-        dbg!(value);
-        todo!();
+        Self::try_from(zvariant::Value::from(value))
     }
 }
 

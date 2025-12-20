@@ -353,7 +353,7 @@ impl SimpleAsyncComponent for App {
                 }
                 .is_err()
                 {
-                    log::error!("Failed to send related update to app.");
+                    log::error!("Failed processing update from daemon");
                 }
             }
 
