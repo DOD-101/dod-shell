@@ -4,12 +4,11 @@ use relm4::{
     component::{AsyncComponentParts, AsyncComponentSender},
     gtk::{self, prelude::*},
     prelude::*,
-    tokio,
 };
-use std::error::Error;
+use std::process::exit;
 use strum::EnumIs;
 
-use common::{Layouts, config::layouts::Layout, css::Class};
+use common::{Layouts, css::Class};
 use daemon::{
     config::ConfigProxy,
     osk::{Mod, OskProxy, state::StateProxy},
@@ -34,29 +33,64 @@ pub struct App {
     osk_proxy: OskProxy<'static>,
     osk_state_proxy: StateProxy<'static>,
 
+    layouts: Layouts,
+    layout_index: Option<usize>,
+
     active: bool,
     active_locked: bool,
     active_mods: u32,
     shift_state: ShiftState,
 }
 
+trait AppErrExt<T> {
+    fn abort_on_err(self) -> T;
+}
+
+impl<T, E: std::error::Error> AppErrExt<T> for Result<T, E> {
+    fn abort_on_err(self) -> T {
+        match self {
+            Ok(v) => v,
+            Err(e) => {
+                log::error!("Failed to init app: {e}");
+
+                exit(1)
+            }
+        }
+    }
+}
+
 impl App {
-    #[must_use]
-    pub fn new(init: AppInit<'static>, sender: &relm4::AsyncComponentSender<Self>) -> Self {
-        let mut all_osk_rows = FactoryVecDeque::builder()
-            .launch_default()
-            .forward(sender.input_sender(), AppMsg::KeyPressed);
+    fn send_to_all_keys(&self, message: OskKeyInputMsg) {
+        let max_index = self.osk_rows.len();
+
+        for i in 0..max_index {
+            self.osk_rows.send(i, message);
+        }
+    }
+
+    fn update_layout(&mut self, sender: &relm4::AsyncComponentSender<Self>) {
+        let Some(layout_index) = self.layout_index else {
+            return;
+        };
+
+        let layout = &self.layouts.layouts()[layout_index];
+
+        let all_rows = &mut self.osk_rows;
 
         {
-            let mut all_osk_rows_guard = all_osk_rows.guard();
+            let mut all_osk_rows_guard = all_rows.guard();
 
-            for row in init.layout.keys() {
+            all_osk_rows_guard.clear();
+
+            for row in layout.keys() {
                 let mut osk_row: FactoryVecDeque<GenericKey> = FactoryVecDeque::builder()
                     .launch_default()
                     .forward(sender.input_sender(), AppMsg::KeyPressed);
 
                 {
                     let mut row_guard = osk_row.guard();
+
+                    row_guard.clear();
 
                     for key in row {
                         row_guard.push_back(key.clone().into());
@@ -65,24 +99,6 @@ impl App {
 
                 all_osk_rows_guard.push_back(osk_row);
             }
-        }
-
-        Self {
-            osk_rows: all_osk_rows,
-            osk_proxy: init.osk_proxy,
-            osk_state_proxy: init.osk_state_proxy,
-            active: bool::default(),
-            active_locked: bool::default(),
-            active_mods: u32::default(),
-            shift_state: ShiftState::default(),
-        }
-    }
-
-    fn send_to_all_keys(&self, message: OskKeyInputMsg) {
-        let max_index = self.osk_rows.len();
-
-        for i in 0..max_index {
-            self.osk_rows.send(i, message);
         }
     }
 }
@@ -93,6 +109,8 @@ pub enum AppMsg {
     KeyPressed(key::OskKeyOutputMsg),
     /// The css has changed
     CssUpdated(String),
+    /// The layouts have changed
+    LayoutsUpdated(Layouts),
     /// Set [`App::active`]
     Active(bool),
     /// Set [`App::active_locked`]
@@ -106,33 +124,9 @@ pub enum AppMsg {
     Lock,
 }
 
-pub struct AppInit<'a> {
-    layout: Layout,
-    osk_proxy: OskProxy<'a>,
-    osk_state_proxy: StateProxy<'a>,
-    connection: zbus::Connection,
-}
-
-impl<'a> AppInit<'a> {
-    #[must_use]
-    pub fn new(
-        layout: Layout,
-        osk_proxy: OskProxy<'a>,
-        osk_state_proxy: StateProxy<'a>,
-        connection: zbus::Connection,
-    ) -> Self {
-        Self {
-            layout,
-            osk_proxy,
-            osk_state_proxy,
-            connection,
-        }
-    }
-}
-
 #[relm4::component(pub, async)]
 impl SimpleAsyncComponent for App {
-    type Init = AppInit<'static>;
+    type Init = ();
     type Input = AppMsg;
     type Output = ();
 
@@ -183,13 +177,52 @@ impl SimpleAsyncComponent for App {
     }
 
     async fn init(
-        init: Self::Init,
+        _init: Self::Init,
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
-        let connection = init.connection.clone();
+        let connection = zbus::Connection::session().await.abort_on_err();
 
-        let model = App::new(init, &sender);
+        let config_proxy = ConfigProxy::new(&connection).await.abort_on_err();
+        let osk_proxy = OskProxy::new(&connection).await.abort_on_err();
+        let osk_state_proxy = StateProxy::new(&connection).await.abort_on_err();
+
+        let mut layouts_stream = config_proxy.receive_layouts_changed().await.fuse();
+        let mut css_stream = config_proxy.receive_css_changed().await.fuse();
+        let mut active_stream = osk_state_proxy.receive_active_changed().await.fuse();
+        let mut active_locked_stream = osk_state_proxy.receive_active_locked_changed().await.fuse();
+
+        let model = {
+            let all_osk_rows = FactoryVecDeque::builder()
+                .launch_default()
+                .forward(sender.input_sender(), AppMsg::KeyPressed);
+
+            let layouts: Layouts = serde_json::from_str(
+                &layouts_stream
+                    .select_next_some()
+                    .await
+                    .get()
+                    .await
+                    .abort_on_err(),
+            )
+            .abort_on_err();
+
+            let mut app = Self {
+                osk_rows: all_osk_rows,
+                osk_proxy,
+                osk_state_proxy,
+                layout_index: layouts.get_default_layout_index(),
+                layouts,
+                active: bool::default(),
+                active_locked: bool::default(),
+                active_mods: u32::default(),
+                shift_state: ShiftState::default(),
+            };
+
+            app.update_layout(&sender);
+
+            app
+        };
 
         let row = model.osk_rows.widget();
 
@@ -198,14 +231,6 @@ impl SimpleAsyncComponent for App {
         let update_sender = sender.input_sender().clone();
 
         relm4::spawn(async move {
-            let config_proxy = ConfigProxy::new(&connection).await?;
-            let osk_state_proxy = StateProxy::new(&connection).await?;
-
-            let mut css_stream = config_proxy.receive_css_changed().await.fuse();
-            let mut active_stream = osk_state_proxy.receive_active_changed().await.fuse();
-            let mut active_locked_stream =
-                osk_state_proxy.receive_active_locked_changed().await.fuse();
-
             loop {
                 if futures_util::select! {
                     css = css_stream.select_next_some() => {
@@ -216,6 +241,10 @@ impl SimpleAsyncComponent for App {
                     }
                     active_locked = active_locked_stream.select_next_some() => {
                         update_sender.send(AppMsg::ActiveLocked(active_locked.get().await?))
+                    }
+                    layouts = layouts_stream.select_next_some() => {
+                        update_sender.send(AppMsg::LayoutsUpdated(serde_json::from_str(&layouts.get().await?)
+                            .expect("Should never fail to parse layout")))
                     }
                 }
                 .is_err()
@@ -237,7 +266,7 @@ impl SimpleAsyncComponent for App {
         AsyncComponentParts { model, widgets }
     }
 
-    async fn update(&mut self, msg: Self::Input, _sender: relm4::AsyncComponentSender<Self>) {
+    async fn update(&mut self, msg: Self::Input, sender: relm4::AsyncComponentSender<Self>) {
         match msg {
             AppMsg::KeyPressed(k) => match k {
                 key::OskKeyOutputMsg::Utf(v) => {
@@ -293,8 +322,30 @@ impl SimpleAsyncComponent for App {
                         self.shift_state,
                     ));
                 }
+                key::OskKeyOutputMsg::SwitchLayout => {
+                    if let Some(layout_index) = self.layout_index.as_mut() {
+                        *layout_index += 1;
+
+                        if *layout_index >= self.layouts.layouts().len() {
+                            *layout_index = 0;
+                        }
+
+                        self.update_layout(&sender);
+                    }
+                }
             },
             AppMsg::CssUpdated(css) => relm4::set_global_css(&css),
+            AppMsg::LayoutsUpdated(layouts) => {
+                self.layouts = layouts;
+
+                if let Some(layout_index) = self.layout_index.as_mut()
+                    && *layout_index >= self.layouts.layouts().len()
+                {
+                    *layout_index = 0;
+                }
+
+                self.update_layout(&sender);
+            }
             AppMsg::Active(active) => self.active = active,
             AppMsg::ActiveLocked(active_locked) => self.active_locked = active_locked,
             AppMsg::Close => {
@@ -362,53 +413,14 @@ impl From<ShiftState> for bool {
 ///
 /// 2. Getting the needed state from the daemon
 #[allow(clippy::missing_panics_doc)]
-pub fn launch() -> Result<(), Box<dyn Error>> {
+pub fn launch() {
     simple_logger::SimpleLogger::new()
         .env()
         .init()
         .expect("Should never fail to init logger.");
 
-    let rt = tokio::runtime::Runtime::new()?;
+    let app = RelmApp::new("dod-shell.osk");
+    relm4_icons::initialize_icons(icon::GRESOURCE_BYTES, icon::RESOURCE_PREFIX);
 
-    match rt.block_on(async {
-        let connection = zbus::Connection::session().await?;
-
-        Ok((
-            daemon::osk::OskProxy::new(&connection).await?,
-            daemon::osk::state::StateProxy::new(&connection).await?,
-            daemon::config::ConfigProxy::new(&connection)
-                .await?
-                .layouts()
-                .await?,
-            connection,
-        ))
-    }) {
-        Ok((osk_proxy, osk_state_proxy, layouts, connection)) => {
-            // drop early to avoid keeping it around for the entire lifespan of the app
-            drop(rt);
-
-            let app = RelmApp::new("dod-shell.osk");
-
-            let layouts = serde_json::from_str::<Layouts>(&layouts)?;
-
-            let layout = layouts
-                .get_layout_by_name("German De")
-                .ok_or(common::err::Error::MissingOskLayout)?;
-
-            relm4_icons::initialize_icons(icon::GRESOURCE_BYTES, icon::RESOURCE_PREFIX);
-
-            app.run_async::<App>(AppInit::new(
-                layout.clone(),
-                osk_proxy,
-                osk_state_proxy,
-                connection,
-            ));
-        }
-
-        Err(e) => {
-            return Err(e);
-        }
-    }
-
-    Ok(())
+    app.run_async::<App>(());
 }

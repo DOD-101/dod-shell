@@ -16,19 +16,34 @@ use serde::{Deserialize, Serialize};
 use strum::Display;
 
 /// Json format of `layouts.json`
-#[derive(Serialize, Deserialize, Debug, Default, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug, Default, JsonSchema, Clone)]
 pub struct Layouts {
     /// Version of the layout (reserved for future use)
     version: u8,
 
     /// Different layouts
     layouts: Vec<Layout>,
+
+    /// The default layout to use
+    default_layout: String,
 }
 
 impl Layouts {
     #[must_use]
     pub fn get_layout_by_name(&self, name: &str) -> Option<&Layout> {
         self.layouts.iter().find(|&layout| layout.name == name)
+    }
+
+    #[must_use]
+    pub fn get_default_layout(&self) -> Option<&Layout> {
+        self.get_layout_by_name(&self.default_layout)
+    }
+
+    #[must_use]
+    pub fn get_default_layout_index(&self) -> Option<usize> {
+        self.layouts
+            .iter()
+            .position(|l| l.name() == self.default_layout)
     }
 
     #[must_use]
@@ -72,30 +87,46 @@ impl Layout {
     }
 }
 
+/// All types of keys that can come up in a [`Layout`]
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
 pub enum Key {
+    /// A modifier key
     Mod(ModKey),
+    /// A key which sends a String when pressed
     Utf {
+        /// The string sent without modifiers
         label: String,
+        /// The string sent when the shift modifier is active
         shift_label: String,
+        /// The string sent when the alt modifier is active
         alt_label: String,
     },
-    Code {
-        code: u32,
-    },
+    /// A key which sends a key-code
+    Code { code: u32 },
+    /// An arrow key
     Arrow {
+        /// The direction of the arrow
         direction: ArrowDirection,
     },
+    /// A function key
     Fn {
+        /// The number of the function key
         num: u8,
     },
+    /// Enter
     Enter,
+    /// Delete
     Del,
+    /// Backspace
     Backspace,
+    /// Space bar
     Space,
     /// Emtpy space in the keyboard
     Spacer,
+    /// Escape
     Escape,
+    /// Key used to change to a different layout
+    LayoutSwitcher,
 }
 
 #[derive(

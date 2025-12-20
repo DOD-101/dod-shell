@@ -77,6 +77,7 @@ pub enum Class {
     OskSpace,
     OskSpacer,
     OskEscape,
+    OskLayoutSwitcher,
 
     OskNormal,
     OskKeyActive,

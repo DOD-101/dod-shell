@@ -16,6 +16,7 @@ pub enum OskKeyOutputMsg {
     Code(u32),
     Mod(daemon::osk::Mod),
     Shift,
+    SwitchLayout,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

@@ -1,10 +1,11 @@
 {
 	"$schema": "./layouts.schema.json",
 	"version": 1,
+	"default_layout": "German De",
 	"layouts": [
 		{
 			"name": "German De",
-			"name_short": "DE",
+			"name_short": "de-de",
 			"keys": [
 				[
 					"Escape",
@@ -22,7 +23,6 @@
 					"Backspace"
 				],
 				[
-					"Spacer",
 					{ "Code": { "code": 24 } },
 					{ "Code": { "code": 25 } },
 					{ "Code": { "code": 26 } },
@@ -70,7 +70,77 @@
 					{ "Mod": "Super" },
 					{ "Mod": "Alt" },
 					"Space",
-					{ "Mod": "AltGr" }
+					{ "Mod": "AltGr" },
+					"LayoutSwitcher"
+				]
+			]
+		},
+		{
+			"name": "English US",
+			"name_short": "en-us",
+			"keys": [
+				[
+					"Escape",
+					{ "Code": { "code": 10 } },
+					{ "Code": { "code": 11 } },
+					{ "Code": { "code": 12 } },
+					{ "Code": { "code": 13 } },
+					{ "Code": { "code": 14 } },
+					{ "Code": { "code": 15 } },
+					{ "Code": { "code": 16 } },
+					{ "Code": { "code": 17 } },
+					{ "Code": { "code": 18 } },
+					{ "Code": { "code": 19 } },
+					{ "Code": { "code": 20 } },
+					"Backspace"
+				],
+				[
+					{ "Code": { "code": 24 } },
+					{ "Code": { "code": 25 } },
+					{ "Code": { "code": 26 } },
+					{ "Code": { "code": 27 } },
+					{ "Code": { "code": 28 } },
+					{ "Code": { "code": 52 } },
+					{ "Code": { "code": 30 } },
+					{ "Code": { "code": 31 } },
+					{ "Code": { "code": 32 } },
+					{ "Code": { "code": 33 } },
+					{ "Code": { "code": 35 } }
+				],
+				[
+					{ "Mod": "Shift" },
+					{ "Code": { "code": 38 } },
+					{ "Code": { "code": 39 } },
+					{ "Code": { "code": 40 } },
+					{ "Code": { "code": 41 } },
+					{ "Code": { "code": 42 } },
+					{ "Code": { "code": 43 } },
+					{ "Code": { "code": 44 } },
+					{ "Code": { "code": 45 } },
+					{ "Code": { "code": 46 } },
+					{ "Code": { "code": 51 } }
+				],
+				[
+					{ "Code": { "code": 94 } },
+					{ "Code": { "code": 29 } },
+					{ "Code": { "code": 53 } },
+					{ "Code": { "code": 54 } },
+					{ "Code": { "code": 55 } },
+					{ "Code": { "code": 56 } },
+					{ "Code": { "code": 57 } },
+					{ "Code": { "code": 58 } },
+					{ "Code": { "code": 59 } },
+					{ "Code": { "code": 60 } },
+					{ "Code": { "code": 61 } },
+					"Enter"
+				],
+				[
+					{ "Mod": "Ctrl" },
+					{ "Mod": "Super" },
+					{ "Mod": "Alt" },
+					"Space",
+					{ "Mod": "AltGr" },
+					"LayoutSwitcher"
 				]
 			]
 		}

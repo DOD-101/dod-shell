@@ -175,6 +175,11 @@ impl From<Key> for GenericKey {
                 Rc::new(|_| Some(OskKeyOutputMsg::Code(9))),
                 &[Class::OskEscape],
             ),
+            Key::LayoutSwitcher => GenericKey::new_without_down(
+                SymbolMap::new_single_symbol("".to_string()),
+                Rc::new(|_| Some(OskKeyOutputMsg::SwitchLayout)),
+                &[Class::OskLayoutSwitcher],
+            ),
         }
     }
 }
