@@ -9,6 +9,7 @@ let
   cfg = config.dod-shell;
 
   tomlFormat = pkgs.formats.toml { };
+  jsonFormat = pkgs.formats.json { };
 
   filter-packages =
     release:
@@ -40,22 +41,75 @@ in
       description = "Components of the shell to install";
     };
 
-    scss = lib.mkOption {
-      type = lib.types.str;
-      default = "";
-      description = ''
-        SCSS written to 
-        {file}`$XDG_CONFIG_HOME/dod-shell/style.scss`.
-      '';
+    scss = {
+      text = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = ''
+          SCSS written to 
+          {file}`$XDG_CONFIG_HOME/dod-shell/style.scss`.
+
+          This is passed to `xdg.configFile."style.scss".text`.
+        '';
+      };
+      source = lib.mkOption {
+        type = with lib.types; nullOr path;
+        default = null;
+        description = ''
+          SCSS file linked to 
+          {file}`$XDG_CONFIG_HOME/dod-shell/style.scss`.
+
+          Passed to `xdg.configFile."style.scss".source`.
+        '';
+      };
     };
 
-    settings = lib.mkOption {
-      type = tomlFormat.type;
-      default = { };
-      description = ''
-        Configuration written to 
-        {file}`$XDG_CONFIG_HOME/dod-shell/config.toml`.
-      '';
+    config = {
+      config = lib.mkOption {
+        type = tomlFormat.type;
+        default = { };
+        description = ''
+          Configuration written to 
+          {file}`$XDG_CONFIG_HOME/dod-shell/config.toml`.
+
+          Passed to `xdg.configFile."config.toml".source` after being
+          generated.
+        '';
+      };
+      source = lib.mkOption {
+        type = with lib.types; nullOr path;
+        default = null;
+        description = ''
+          TOML file linked to 
+          {file}`$XDG_CONFIG_HOME/dod-shell/config.toml`.
+
+          Passed to `xdg.configFile."config.toml".source`.
+        '';
+      };
+    };
+
+    layouts = {
+      config = lib.mkOption {
+        type = jsonFormat.type;
+        default = { };
+        description = ''
+          Configuration written to 
+          {file}`$XDG_CONFIG_HOME/dod-shell/layouts.json`.
+
+          Passed to `xdg.configFile."layouts.json".source` after being
+          generated.
+        '';
+      };
+      source = lib.mkOption {
+        type = lib.types.path;
+        default = ../test/layouts.json;
+        description = ''
+          JSON file linked to 
+          {file}`$XDG_CONFIG_HOME/dod-shell/layouts.json`.
+
+          Passed to `xdg.configFile."layouts.json".source`.
+        '';
+      };
     };
 
     systemd-services = lib.mkOption {
@@ -77,9 +131,24 @@ in
   config = lib.mkIf cfg.enable {
     home.packages = cfg.components;
     xdg.configFile = {
-      "dod-shell/style.scss".text = cfg.scss;
-      "dod-shell/config.toml" = lib.mkIf (cfg.settings != { }) {
-        source = tomlFormat.generate "config.toml" cfg.settings;
+      "dod-shell/style.scss" = {
+        inherit (cfg.scss) text;
+
+        source = lib.mkIf (cfg.scss.source != null) cfg.scss.source;
+      };
+      "dod-shell/config.toml" = {
+        source =
+          if cfg.config.config != { } then
+            tomlFormat.generate "config.toml" cfg.config.config
+          else
+            cfg.config.source;
+      };
+      "dod-shell/layouts.json" = {
+        source =
+          if cfg.layouts.config != { } then
+            jsonFormat.generate "layouts.json" cfg.layouts.config
+          else
+            cfg.layouts.source;
       };
     };
 
@@ -87,7 +156,7 @@ in
       targets.dod-shell = {
         Unit = {
           Description = "dod-shell user services";
-          # Documentation  TODO: add documentation link
+          Documentation = "https://github.com/DOD-101/dod-shell/blob/master/README.md";
           After = [ "hyprland-session.target" ];
         };
         Install = {
@@ -95,9 +164,11 @@ in
         };
       };
       services =
-        lib.mkIf (cfg.systemd-services != [ ]) { }
-        // lib.mkIf (lib.lists.any (a: a == "dod-shell-bar") cfg.systemd-services) {
-          dod-shell-bar = {
+        let
+          if_in_services = name: lib.mkIf (lib.lists.any (a: a == name) cfg.systemd-services);
+        in
+        {
+          dod-shell-bar = if_in_services "dod-shell-bar" {
             Unit = {
               Description = "dod-shell bar component service";
             };
@@ -113,7 +184,25 @@ in
               WantedBy = [ "dod-shell.target" ];
             };
           };
-          dod-shell-daemon = {
+
+          dod-shell-osk = if_in_services "dod-shell-osk" {
+            Unit = {
+              Description = "dod-shell osk component service";
+            };
+            Service = {
+              ExecStart = "${getComponent "dod-shell-osk"}/bin/dod-shell-osk";
+              Type = "exec";
+              Restart = "on-failure";
+              RestartSec = 3;
+              Requires = [ "dod-shell-daemon.service" ];
+              After = [ "dod-shell-daemon.service" ];
+            };
+            Install = {
+              WantedBy = [ "dod-shell.target" ];
+            };
+          };
+
+          dod-shell-daemon = if_in_services "dod-shell-daemon" {
             Unit = {
               Description = "dod-shell daemon service";
             };

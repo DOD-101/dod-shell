@@ -55,19 +55,14 @@
             pkg-config
             openssl
 
-            libxkbcommon
-            udev
-
             wrapGAppsHook
           ];
 
           buildInputs = with pkgs; [
             gtk4
             gtk4-layer-shell
-            pkg-config
-            openssl
             alsa-lib
-            wrapGAppsHook
+            libxkbcommon
           ];
 
           # Additional environment variables can be set directly
