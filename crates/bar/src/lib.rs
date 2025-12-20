@@ -166,6 +166,8 @@ impl SimpleAsyncComponent for App {
                         set_css_classes: &classes!(OskButton, Icon),
                         #[watch]
                         set_class_active: (Class::Active.as_ref(), model.osk_active),
+                        #[watch]
+                        set_visible: model.config.bar.show_osk_button,
                         set_icon_name: icon::KEYBOARD_FILLED,
                         connect_clicked => AppMsg::LaunchOsk,
                     },

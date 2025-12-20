@@ -15,7 +15,12 @@ pub struct BarConfig {
     /// If this option is not set no information about the device's battery will be shown
     pub battery: Option<PathBuf>,
     /// Show if caps lock is enabled or not
+    #[serde(default)]
     pub show_capslock: bool,
     /// Show if num lock is enabled or not
+    #[serde(default)]
     pub show_numlock: bool,
+    /// Show osk button
+    #[serde(default)]
+    pub show_osk_button: bool,
 }
