@@ -12,7 +12,7 @@ futures-util.workspace = true
 grass.workspace = true
 hyprland.workspace = true
 log.workspace = true
-paste = "1.0.15"
+paste = { version = "0.2.1", package = "pastey" }
 regex = { version = "1.11.1", default-features = false, features = [
   "unicode-perl",
 ] }

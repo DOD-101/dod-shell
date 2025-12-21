@@ -12,10 +12,7 @@
 //!
 //! </div>
 use common::{classes, css::Class};
-use hyprland::{
-    dispatch,
-    dispatch::{Dispatch, DispatchType},
-};
+use hyprland::dispatch;
 
 use gtk::prelude::*;
 use relm4::{gtk::prelude::ButtonExt, prelude::*};

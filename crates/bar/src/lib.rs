@@ -25,6 +25,14 @@ use daemon::{
     system_state::{BatteryStatus, ConnectionData, SystemStateData, SystemStateProxy},
 };
 
+#[allow(
+    clippy::doc_markdown,
+    reason = "Upstream issue. Already fixed. Remove this when relm4-icons 10.0.1 is released."
+)]
+#[allow(
+    clippy::missing_docs_in_private_items,
+    reason = "Upstream missing docs."
+)]
 mod icon {
     //! Auto generated icons module
     //!
@@ -89,14 +97,14 @@ struct AppInit {
     /// Monitor to display the bar on
     monitor: Monitor,
     /// Id of the monitor the bar is on
-    monitor_id: usize,
+    monitor_id: i128,
     /// If this is the main bar
     main_bar: bool,
 }
 
 impl AppInit {
     /// Create a new [`Self`]
-    const fn new(monitor: Monitor, monitor_id: usize, main_bar: bool) -> Self {
+    const fn new(monitor: Monitor, monitor_id: i128, main_bar: bool) -> Self {
         Self {
             monitor,
             monitor_id,
@@ -167,7 +175,7 @@ impl SimpleAsyncComponent for App {
                                         .disks
                                         .iter()
                                         .find(|d| d.name == *model.config.bar.disk)
-                                        .map_or("Err".to_string(), |d| d.used.to_string())
+                                        .map_or_else(|| "Err".to_string(), |d| d.used.to_string())
                                         ,
                             set_icon: icon::HARDDISK,
                         },
@@ -334,8 +342,10 @@ impl SimpleAsyncComponent for App {
             .unwrap()
             .iter()
             .filter_map(|w| {
-                // INFO: Could create upstream method to check for special workspaces
-                if w.monitor_id == init.monitor_id as i128 && !w.name.contains("special:") {
+                // TODO: Create upstream method to check for special workspaces
+                if w.monitor_id.is_some_and(|v| v == init.monitor_id)
+                    && !w.name.contains("special:")
+                {
                     return Some(w.id);
                 }
                 None
@@ -432,7 +442,7 @@ impl SimpleAsyncComponent for App {
                 app.add_window(&builder.root);
 
                 builder
-                    .launch(AppInit::new(monitor.1, monitor.0, false))
+                    .launch(AppInit::new(monitor.1, monitor.0 as i128, false))
                     .detach_runtime();
             }
         }

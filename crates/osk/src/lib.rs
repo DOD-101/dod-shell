@@ -33,6 +33,14 @@ use crate::key::{GenericKey, OskKeyInputMsg, OskRow};
     dead_code,
     reason = "Some symbols are not used by the osk. This is ok since all components share the same icon dir."
 )]
+#[allow(
+    clippy::doc_markdown,
+    reason = "Upstream issue. Already fixed. Remove this when relm4-icons 10.0.1 is released."
+)]
+#[allow(
+    clippy::missing_docs_in_private_items,
+    reason = "Upstream missing docs."
+)]
 mod icon {
     //! Auto generated icons module
     //!

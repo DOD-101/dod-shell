@@ -45,7 +45,14 @@
           }
         );
 
-        src = craneLib.cleanCargoSource ./.;
+        src = lib.fileset.toSource {
+          root = ./.;
+
+          fileset = lib.fileset.unions [
+            (craneLib.fileset.commonCargoSources ./.)
+            ./icons
+          ];
+        };
 
         commonArgs = {
           inherit src;
@@ -55,7 +62,7 @@
             pkg-config
             openssl
 
-            wrapGAppsHook
+            wrapGAppsHook4
           ];
 
           buildInputs = with pkgs; [
@@ -165,7 +172,13 @@
       in
       {
         checks = {
-          inherit launcher cli;
+          inherit
+            launcher
+            cli
+            bar
+            daemon
+            osk
+            ;
 
           clippy = craneLib.cargoClippy (
             commonArgs
@@ -214,10 +227,6 @@
             ;
 
           default = launcher;
-        };
-
-        apps.default = flake-utils.lib.mkApp {
-          drv = launcher;
         };
 
         devShells = {
