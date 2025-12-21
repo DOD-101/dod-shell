@@ -29,6 +29,11 @@ let
     else
       component;
 
+  final_components = builtins.filter (
+    component:
+    !(lib.lists.any (removed_component: component == removed_component) cfg.removed-components)
+  ) cfg.components;
+
 in
 {
 
@@ -39,6 +44,17 @@ in
       type = with lib.types; listOf package;
       default = filter-packages true;
       description = "Components of the shell to install";
+    };
+
+    removed-components = lib.mkOption {
+      type = with lib.types; listOf package;
+      default = [ ];
+      description = ''
+        Components of the shell to not to install
+
+        Packages listed here will *not* be installed even if listed in
+        `components`.
+      '';
     };
 
     scss = {
@@ -114,7 +130,7 @@ in
 
     systemd-services = lib.mkOption {
       type = with lib.types; listOf str;
-      default = map (p: p.pname) cfg.components;
+      default = map (p: p.pname) final_components;
       description = ''
         Systemd services to create / enable
 
@@ -129,7 +145,7 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    home.packages = cfg.components;
+    home.packages = final_components;
     xdg.configFile = {
       "dod-shell/style.scss" = {
         inherit (cfg.scss) text;
