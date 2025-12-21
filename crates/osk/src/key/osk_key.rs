@@ -94,7 +94,7 @@ impl GenericKey {
     }
 
     /// Returns a mutable reference to the css classes of this [`GenericKey`].
-    pub fn css_classes_mut(&mut self) -> &mut ClassList {
+    pub const fn css_classes_mut(&mut self) -> &mut ClassList {
         &mut self.css_classes
     }
 }
@@ -120,7 +120,7 @@ impl From<Key> for GenericKey {
 
                 let class = Class::from(mod_key);
 
-                let on_down = move |key: &mut GenericKey| -> Option<OskKeyOutputMsg> {
+                let on_down = move |key: &mut Self| -> Option<OskKeyOutputMsg> {
                     let css_classes = key.css_classes_mut();
 
                     if !class.is_osk_shift() {
@@ -134,7 +134,7 @@ impl From<Key> for GenericKey {
                     None
                 };
 
-                GenericKey::new(
+                Self::new(
                     SymbolMap::new_single_symbol(mod_key.to_string()),
                     Rc::new(move |_| Some(msg.clone())),
                     Rc::new(on_down),
@@ -145,12 +145,18 @@ impl From<Key> for GenericKey {
                 label,
                 shift_label,
                 alt_label,
-            } => GenericKey::new_without_down(
+            } => Self::new_without_down(
                 SymbolMap::new(label, shift_label, alt_label),
-                Rc::new(|_| None),
+                Rc::new(|key| {
+                    Some(OskKeyOutputMsg::Utf(
+                        key.symbol_map.active_symb().to_string(),
+                    ))
+                }),
                 &[Class::OskUtf, Class::OskNormal],
             ),
             Key::Code { code } => {
+                const NEXT_EXPECT_MSG: &str =
+                    "Should never fail since we know the iterator to be 3 long";
                 let mut chars = crate::key::code_resolve::to_chars(code)
                     .into_iter()
                     .map(|v| {
@@ -160,11 +166,11 @@ impl From<Key> for GenericKey {
                         }
                         a
                     });
-                GenericKey::new_without_down(
+                Self::new_without_down(
                     SymbolMap::new(
-                        chars.next().unwrap(),
-                        chars.next().unwrap(),
-                        chars.next().unwrap(),
+                        chars.next().expect(NEXT_EXPECT_MSG),
+                        chars.next().expect(NEXT_EXPECT_MSG),
+                        chars.next().expect(NEXT_EXPECT_MSG),
                     ),
                     Rc::new(move |_| Some(OskKeyOutputMsg::Code(code))),
                     &[Class::OskCode, Class::OskNormal],
@@ -172,28 +178,28 @@ impl From<Key> for GenericKey {
             }
             Key::Arrow { .. } => todo!(),
             Key::Fn { .. } => todo!(),
-            Key::Enter => GenericKey::new_without_down(
+            Key::Enter => Self::new_without_down(
                 SymbolMap::new_single_symbol("Enter".to_string()),
                 Rc::new(|_| Some(OskKeyOutputMsg::Code(36))),
                 &[Class::OskEnter],
             ),
             Key::Del => todo!(),
-            Key::Backspace => GenericKey::new_without_down(
+            Key::Backspace => Self::new_without_down(
                 SymbolMap::new_single_symbol("󰭜".to_string()),
                 Rc::new(|_| Some(OskKeyOutputMsg::Code(22))),
                 &[Class::OskBackspace],
             ),
-            Key::Space => GenericKey::new_without_down(
+            Key::Space => Self::new_without_down(
                 SymbolMap::new_single_symbol(" ".to_string()),
                 Rc::new(|_| Some(OskKeyOutputMsg::Code(65))),
                 &[Class::OskSpace],
             ),
-            Key::Escape => GenericKey::new_without_down(
+            Key::Escape => Self::new_without_down(
                 SymbolMap::new_single_symbol("Esc".to_string()),
                 Rc::new(|_| Some(OskKeyOutputMsg::Code(9))),
                 &[Class::OskEscape],
             ),
-            Key::LayoutSwitcher => GenericKey::new_without_down(
+            Key::LayoutSwitcher => Self::new_without_down(
                 SymbolMap::new_single_symbol("".to_string()),
                 Rc::new(|_| Some(OskKeyOutputMsg::SwitchLayout)),
                 &[Class::OskLayoutSwitcher],
@@ -205,7 +211,7 @@ impl From<Key> for GenericKey {
 #[relm4::factory(pub)]
 #[allow(clippy::missing_docs_in_private_items, reason = "Issue with relm4")]
 impl FactoryComponent for GenericKey {
-    type Init = GenericKey;
+    type Init = Self;
     type Input = OskKeyInputMsg;
     type Output = OskKeyOutputMsg;
     type CommandOutput = ();

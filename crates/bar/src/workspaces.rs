@@ -27,17 +27,6 @@ pub struct Workspaces {
     pub workspaces: FactoryVecDeque<WorkspaceButton>,
 }
 
-// TODO: REMOVE THIS
-impl Default for Workspaces {
-    fn default() -> Self {
-        Self {
-            workspaces: FactoryVecDeque::builder()
-                .launch(gtk::Box::default())
-                .detach(),
-        }
-    }
-}
-
 /// Messages sent to [``Workspaces``]
 #[derive(Debug)]
 pub enum WorkspacesMsg {

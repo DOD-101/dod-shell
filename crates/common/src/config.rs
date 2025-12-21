@@ -1,8 +1,8 @@
 //! Config related items
 //!
-//! The primary config file is located at [``crate::CONFIG_PATH``]`/config.toml`
+//! The primary config file is located at <code>[crate::CONFIG_PATH]/config.toml</code>
 //!
-//! Layouts for the osk are located at [``crate::CONFIG_PATH``]`/layouts.json`
+//! Layouts for the osk are located at <code>[crate::CONFIG_PATH]/layouts.json</code>
 pub mod bar;
 pub mod launcher;
 

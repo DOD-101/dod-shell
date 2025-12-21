@@ -21,6 +21,7 @@ use zbus::{interface, zvariant};
     Serialize,
     Deserialize,
     PartialEq,
+    Eq,
 )]
 pub struct State {
     /// If the Osk is active
@@ -65,7 +66,7 @@ impl State {
     /// # Errors
     ///
     /// Errors if there is an issue sending the zbus signals.
-    pub async fn update_from_msg(
+    pub(super) async fn update_from_msg(
         &mut self,
         ctxt: &zbus::object_server::SignalEmitter<'_>,
         msg: WaylandStateMsg,
@@ -116,7 +117,7 @@ impl State {
     }
 
     /// Helper function to make sure setting [`Self::active`] always respects [`Self::active_locked`]
-    fn set_active_inner(&mut self, active: bool) -> bool {
+    const fn set_active_inner(&mut self, active: bool) -> bool {
         if self.active_locked {
             false
         } else {
@@ -135,12 +136,20 @@ impl State {
         default_service = "dod.shell.Daemon"
     )
 )]
+#[allow(
+    clippy::missing_const_for_fn,
+    reason = "It makes no sense for dbus methods to be const."
+)]
 impl State {
     /// Returns a snapshot of the entire current state.
     ///
     /// This is exposed as a D-Bus property for convenience, allowing clients
     /// to retrieve all state fields atomically rather than querying each
     /// property individually.
+    #[allow(
+        clippy::use_self,
+        reason = "Can't use Self here because of zbus macro."
+    )]
     #[zbus(property)]
     fn all(&self) -> State {
         self.clone()

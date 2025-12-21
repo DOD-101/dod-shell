@@ -236,7 +236,7 @@ impl Dispatch<zwp_input_method_v2::ZwpInputMethodV2, ()> for WaylandInterface {
                 );
                 None
             }
-            _ => todo!(),
+            _ => unimplemented!(),
         };
 
         // NOTE: Not sure if this the best way to get around blocking on the main tokio thread

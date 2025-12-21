@@ -50,7 +50,7 @@ const DATE_TIME_FORMAT: &[time::format_description::BorrowedFormatItem<'_>] =
 ///
 /// For more information see module level docs
 #[derive(Debug)]
-pub struct App {
+struct App {
     /// The workspaces widget
     workspaces: Controller<Workspaces>,
 
@@ -78,10 +78,31 @@ pub enum AppMsg {
     /// Sent when the css has been changed
     CssUpdated(String),
     /// Sent when pressing the osk button
-    // TODO: Change to ToggleOsk
-    LaunchOsk,
+    ToggleOsk,
     /// Received from the daemon when the active state of the osk has changed
     OskActive(bool),
+}
+
+/// Init Data for [`AppWidgets`]
+#[derive(Debug)]
+struct AppInit {
+    /// Monitor to display the bar on
+    monitor: Monitor,
+    /// Id of the monitor the bar is on
+    monitor_id: usize,
+    /// If this is the main bar
+    main_bar: bool,
+}
+
+impl AppInit {
+    /// Create a new [`Self`]
+    const fn new(monitor: Monitor, monitor_id: usize, main_bar: bool) -> Self {
+        Self {
+            monitor,
+            monitor_id,
+            main_bar,
+        }
+    }
 }
 
 /// Auto-generated widget for [`App`]
@@ -90,11 +111,10 @@ pub enum AppMsg {
     clippy::float_cmp,
     reason = "Float comparison shouldn't lead to issues in this case"
 )]
-#[relm4::component(pub, async)]
+#[allow(clippy::missing_docs_in_private_items, reason = "Issue with relm4")]
+#[relm4::component(async)]
 impl SimpleAsyncComponent for App {
-    /// (The monitor to display the bar on, the monitor id the bar is on, if this is the main bar)
-    // TODO: We should add a BarInit (or AppInit) struct or type alias
-    type Init = (Monitor, usize, bool);
+    type Init = AppInit;
     type Input = AppMsg;
     type Output = ();
 
@@ -106,7 +126,7 @@ impl SimpleAsyncComponent for App {
             set_anchor: (Edge::Top, true),
             set_anchor: (Edge::Right, true),
             set_anchor: (Edge::Left, true),
-            set_monitor: Some(&init.0),
+            set_monitor: Some(&init.monitor),
             set_visible: true,
             set_css_classes: &classes!(MainWindow, BarMainWindow),
             auto_exclusive_zone_enable: (),
@@ -186,7 +206,7 @@ impl SimpleAsyncComponent for App {
                         #[watch]
                         set_visible: model.config.bar.show_osk_button,
                         set_icon_name: icon::KEYBOARD_FILLED,
-                        connect_clicked => AppMsg::LaunchOsk,
+                        connect_clicked => AppMsg::ToggleOsk,
                     },
 
                     #[name(internet_revealer)]
@@ -279,8 +299,7 @@ impl SimpleAsyncComponent for App {
                         set_class_active: (Class::BatteryLow.as_ref(), model.system_state.battery.as_ref().is_some_and(|b| *b.charge <= 0.3)),
                         #[watch]
                         set_icon:
-                            if let Some(battery) = &*model.system_state.battery {
-                                if battery.status == BatteryStatus::Charging {
+                            (*model.system_state.battery).as_ref().map_or(icon::BATTERY_MISSING, |battery| if battery.status == BatteryStatus::Charging {
                                     if *battery.charge == 1.0 {
                                         icon::BATTERY_LEVEL_100_CHARGED
                                     } else {
@@ -299,10 +318,7 @@ impl SimpleAsyncComponent for App {
                                         0.0.. => icon::BATTERY_LOW,
                                         _ => unreachable!("Battery value should never be negative"),
                                     }
-                                }
-                            } else {
-                                icon::BATTERY_MISSING
-                            },
+                                }),
                     },
                 }
             }
@@ -319,7 +335,7 @@ impl SimpleAsyncComponent for App {
             .iter()
             .filter_map(|w| {
                 // INFO: Could create upstream method to check for special workspaces
-                if w.monitor_id == init.1 as i128 && !w.name.contains("special:") {
+                if w.monitor_id == init.monitor_id as i128 && !w.name.contains("special:") {
                     return Some(w.id);
                 }
                 None
@@ -339,8 +355,8 @@ impl SimpleAsyncComponent for App {
         // NOTE: We should probably generalize this to all type 1 components and move it to common
         // See comment above.
         //
-        // NOTE: It might also be good to not spawn this for all bars but have one thread for all
-        // of them and then send it to all bars
+        // TODO: Do not spawn this for all bars but have one thread for all of them and then send
+        // it to all bars
         let update_sender = sender.input_sender().clone();
         relm4::spawn(async move {
             let config_proxy = ConfigProxy::new(&connection).await?;
@@ -402,7 +418,7 @@ impl SimpleAsyncComponent for App {
                 .set_keyboard_mode(KeyboardMode::OnDemand);
         }
 
-        if init.2 {
+        if init.main_bar {
             let monitor_list = relm4::gtk::gdk::Display::default()
                 .expect("Failed to get display")
                 .monitors();
@@ -416,7 +432,7 @@ impl SimpleAsyncComponent for App {
                 app.add_window(&builder.root);
 
                 builder
-                    .launch((monitor.1, monitor.0, false))
+                    .launch(AppInit::new(monitor.1, monitor.0, false))
                     .detach_runtime();
             }
         }
@@ -438,7 +454,7 @@ impl SimpleAsyncComponent for App {
             }
             AppMsg::ConfigUpdated(config) => self.config = config,
             AppMsg::CssUpdated(css) => relm4::set_global_css(&css),
-            AppMsg::LaunchOsk => match self.osk_state_proxy.active().await {
+            AppMsg::ToggleOsk => match self.osk_state_proxy.active().await {
                 Ok(active) => {
                     if let Err(e) = self.osk_state_proxy.set_active(!active).await {
                         log::error!("Failed to set osk active property: {e}");
@@ -465,5 +481,5 @@ pub fn launch_on_all_monitors() {
 
     relm4_icons::initialize_icons(icon::GRESOURCE_BYTES, icon::RESOURCE_PREFIX);
 
-    app.run_async::<App>((monitor, 0, true));
+    app.run_async::<App>(AppInit::new(monitor, 0, true));
 }

@@ -1,4 +1,4 @@
-//! See [`Error`]
+//! See [`enum@Error`]
 use thiserror::Error;
 
 /// Custom errors for the shell

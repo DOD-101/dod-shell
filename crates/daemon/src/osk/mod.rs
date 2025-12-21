@@ -83,7 +83,8 @@ impl Osk {
         event_queue.roundtrip(&mut *self.wayland_interface.write().await)?;
 
         loop {
-            match self.state_receiver.lock().await.try_recv() {
+            let value = self.state_receiver.lock().await.try_recv();
+            match value {
                 Ok(msg) => {
                     state_iface
                         .get_mut()
@@ -215,7 +216,7 @@ impl Mod {
 
     /// Check if `self` is in `others`
     #[must_use]
-    pub fn contained_in(self, others: u32) -> bool {
+    pub const fn contained_in(self, others: u32) -> bool {
         (self as u32 & others) != 0
     }
 
@@ -223,7 +224,7 @@ impl Mod {
     ///
     /// Will return `others` unchanged if it doesn't contain `self`
     #[must_use]
-    pub fn remove_from(self, others: u32) -> u32 {
+    pub const fn remove_from(self, others: u32) -> u32 {
         if self.contained_in(others) {
             return others ^ self as u32;
         }
@@ -233,7 +234,7 @@ impl Mod {
 
     /// Adds `self` to `others`
     #[must_use]
-    pub fn add_to(self, others: u32) -> u32 {
+    pub const fn add_to(self, others: u32) -> u32 {
         others | self as u32
     }
 }

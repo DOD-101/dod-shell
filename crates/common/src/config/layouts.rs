@@ -33,7 +33,7 @@ pub struct Layouts {
 }
 
 impl Layouts {
-    /// Attempts to get a layout by it's [name](`field@Layout::name`)
+    /// Attempts to get a layout by it's [name](`Layout::name`)
     #[must_use]
     pub fn get_layout_by_name(&self, name: &str) -> Option<&Layout> {
         self.layouts.iter().find(|&layout| layout.name == name)
@@ -41,7 +41,7 @@ impl Layouts {
 
     /// Attempts to get the default layout
     ///
-    /// If this method fails that means that [`Self::default_layout`] is pointing to an
+    /// If this method fails that means that `default_layout` is pointing to an
     /// non-existent layout.
     #[must_use]
     pub fn get_default_layout(&self) -> Option<&Layout> {
@@ -50,7 +50,7 @@ impl Layouts {
 
     /// Attempts to get the index of the default layout
     ///
-    /// If this method fails that means that [`Self::default_layout`] is pointing to an
+    /// If this method fails that means that `default_layout` is pointing to an
     /// non-existent layout.
     #[must_use]
     pub fn get_default_layout_index(&self) -> Option<usize> {
@@ -59,7 +59,7 @@ impl Layouts {
             .position(|l| l.name() == self.default_layout)
     }
 
-    /// Returns a reference to [`field@Self::layouts`]
+    /// Returns a reference to the layouts of this [`Layouts`].
     #[must_use]
     pub fn layouts(&self) -> &[Layout] {
         &self.layouts
@@ -77,24 +77,24 @@ pub struct Layout {
     name_short: String,
     /// The actual keys of the layout in the format:
     ///
-    /// Vertical<Horizontal<Key>>
+    /// `Vertical<Horizontal<Key>>`
     keys: Vec<Vec<Key>>,
 }
 
 impl Layout {
-    /// Returns a reference to [`field@Self::name`]
+    /// Returns a reference to the name of this [`Layout`].
     #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Returns a reference to [`field@Self::short_name`]
+    /// Returns a reference to the name short of this [`Layout`].
     #[must_use]
     pub fn name_short(&self) -> &str {
         &self.name_short
     }
 
-    /// Returns a reference to [`field@Self::keys`]
+    /// Returns a reference to the keys of this [`Layout`].
     #[must_use]
     pub fn keys(&self) -> &[Vec<Key>] {
         &self.keys

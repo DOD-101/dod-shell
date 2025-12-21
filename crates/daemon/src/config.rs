@@ -85,6 +85,10 @@ impl Config {
 
     /// Dbus property for both the toml config and css
     #[zbus(property)]
+    #[allow(
+        clippy::use_self,
+        reason = "Can't use Self here because of zbus macro."
+    )]
     fn all_config(&self) -> Config {
         self.clone()
     }
@@ -104,25 +108,25 @@ pub struct ConfigValuesChanged {
 impl ConfigValuesChanged {
     /// If any config value has changed
     #[must_use]
-    pub fn any_changes(&self) -> bool {
+    pub const fn any_changes(&self) -> bool {
         self.toml || self.css || self.layouts
     }
 
     /// If the toml value changed
     #[must_use]
-    pub fn toml_changed(&self) -> bool {
+    pub const fn toml_changed(&self) -> bool {
         self.toml
     }
 
     /// If the css value changed
     #[must_use]
-    pub fn css_changed(&self) -> bool {
+    pub const fn css_changed(&self) -> bool {
         self.css
     }
 
     /// If the layouts value changed
     #[must_use]
-    pub fn layouts_changed(&self) -> bool {
+    pub const fn layouts_changed(&self) -> bool {
         self.layouts
     }
 }

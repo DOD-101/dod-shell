@@ -23,6 +23,10 @@ use daemon::{
 
 use crate::key::{GenericKey, OskKeyInputMsg, OskRow};
 
+#[allow(
+    dead_code,
+    reason = "Some symbols are not used by the osk. This is ok since all components share the same icon dir."
+)]
 mod icon {
     //! Auto generated icons module
     //!
@@ -38,7 +42,7 @@ mod key;
 ///
 /// For more information see module level docs
 #[derive(Debug)]
-pub struct App {
+struct App {
     /// Current rows of the osk
     osk_rows: FactoryVecDeque<OskRow>,
 
@@ -135,7 +139,7 @@ impl App {
 
 /// Input messages for [`AppWidgets`]
 #[derive(Debug)]
-pub enum AppMsg {
+enum AppMsg {
     /// Sent by a [`key::GenericKey`] when pressed
     KeyPressed(key::OskKeyOutputMsg),
     /// The css has changed
@@ -156,7 +160,8 @@ pub enum AppMsg {
 }
 
 /// Auto-generated widget for [`App`]
-#[relm4::component(pub, async)]
+#[allow(clippy::missing_docs_in_private_items, reason = "Issue with relm4")]
+#[relm4::component(async)]
 impl SimpleAsyncComponent for App {
     type Init = ();
     type Input = AppMsg;
@@ -404,7 +409,7 @@ impl SimpleAsyncComponent for App {
 ///
 /// This is used to emulate the behavior seen on most osks (e.g on smartphones)
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, EnumIs)]
-pub enum ShiftState {
+enum ShiftState {
     /// The shift key is off
     #[default]
     Off,

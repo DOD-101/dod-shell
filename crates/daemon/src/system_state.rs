@@ -137,7 +137,7 @@ impl SystemState {
         let (bluetooth, network, key_states, battery_data) = tokio::join!(
             self.update_bluetooth(),
             self.update_network(),
-            SystemState::update_key_states(),
+            Self::update_key_states(),
             self.update_battery()
         );
 
@@ -161,7 +161,7 @@ impl SystemState {
             None => (),
         }
 
-        self.data.volume = SystemState::update_volume()
+        self.data.volume = Self::update_volume()
             .inspect_err(|e| log::error!("Failed to update volume information: {e}"))
             .unwrap_or_default();
     }
@@ -497,8 +497,8 @@ impl TryFrom<zvariant::Value<'_>> for ConnectionData {
             let mut field_iter = v.into_fields().into_iter();
 
             return match field_iter.next() {
-                Some(zvariant::Value::I32(0)) => Ok(ConnectionData::Wired),
-                Some(zvariant::Value::I32(1)) => Ok(ConnectionData::Wireless {
+                Some(zvariant::Value::I32(0)) => Ok(Self::Wired),
+                Some(zvariant::Value::I32(1)) => Ok(Self::Wireless {
                     signal: field_iter
                         .next()
                         .ok_or(Self::Error::IncorrectType)?
@@ -509,7 +509,7 @@ impl TryFrom<zvariant::Value<'_>> for ConnectionData {
                         .ok_or(Self::Error::IncorrectType)?
                         .try_into()?,
                 }),
-                Some(zvariant::Value::I32(2)) => Ok(ConnectionData::None),
+                Some(zvariant::Value::I32(2)) => Ok(Self::None),
                 _ => Err(Self::Error::IncorrectType),
             };
         }
@@ -592,9 +592,9 @@ pub enum BatteryStatus {
 impl From<&str> for BatteryStatus {
     fn from(value: &str) -> Self {
         match value {
-            "Charging" => BatteryStatus::Charging,
-            "Discharging" => BatteryStatus::Discharging,
-            _ => BatteryStatus::Unknown,
+            "Charging" => Self::Charging,
+            "Discharging" => Self::Discharging,
+            _ => Self::Unknown,
         }
     }
 }

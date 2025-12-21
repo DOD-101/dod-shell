@@ -29,13 +29,13 @@ impl Percentage {
     ///
     /// `1.0 = 100%`
     #[must_use]
-    pub fn new(value: f64) -> Self {
+    pub const fn new(value: f64) -> Self {
         Self { value }
     }
 
     /// Return the internal [``f64``] value
     #[must_use]
-    pub fn get_value(&self) -> f64 {
+    pub const fn get_value(&self) -> f64 {
         self.value
     }
 }
@@ -119,7 +119,7 @@ unsafe impl<T: Sync> Sync for DeferedInit<T> {}
 
 impl<T> Default for DeferedInit<T> {
     fn default() -> Self {
-        DeferedInit {
+        Self {
             data: UnsafeCell::new(None),
             once: Once::new(),
         }
@@ -185,7 +185,7 @@ impl<T> DeferedInit<T> {
     ///
     /// Panics if the internal value hasn't been initialized (aka. [`Self::init`] hasn't been
     /// called).
-    pub fn get_value(&self) -> &T {
+    pub const fn get_value(&self) -> &T {
         unsafe {
             let value = self.data.get().as_ref().expect(Self::POINTER_MSG);
 
@@ -200,7 +200,7 @@ impl<T> DeferedInit<T> {
         clippy::missing_panics_doc,
         reason = "As stated by POINTER_MSG, any panic here would be a bug."
     )]
-    pub fn is_set(&self) -> bool {
+    pub const fn is_set(&self) -> bool {
         unsafe {
             let value = self.data.get().as_ref().expect(Self::POINTER_MSG);
 
