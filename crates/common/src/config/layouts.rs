@@ -121,8 +121,6 @@ pub enum Key {
     Backspace,
     /// Space bar
     Space,
-    /// Emtpy space in the keyboard
-    Spacer,
     /// Escape
     Escape,
     /// Key used to change to a different layout

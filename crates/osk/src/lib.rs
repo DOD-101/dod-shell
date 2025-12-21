@@ -117,7 +117,7 @@ pub enum AppMsg {
     ActiveLocked(bool),
     /// Close the osk
     ///
-    /// There is no guarantee that sending this actually close the osk. If [`App::active_locked`]
+    /// There is no guarantee that sending this actually closes the osk. If [`App::active_locked`]
     /// is `true` this won't override it.
     Close,
     /// Toggle [`App::active_locked`]
@@ -170,6 +170,7 @@ impl SimpleAsyncComponent for App {
 
                 #[local_ref]
                 row -> gtk::Box {
+                    add_css_class: Class::OskMainBox.as_ref(),
                     set_orientation: gtk::Orientation::Vertical,
                 }
             }

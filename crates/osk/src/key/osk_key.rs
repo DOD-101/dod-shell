@@ -165,11 +165,6 @@ impl From<Key> for GenericKey {
                 Rc::new(|_| Some(OskKeyOutputMsg::Code(65))),
                 &[Class::OskSpace],
             ),
-            Key::Spacer => GenericKey::new_without_down(
-                SymbolMap::default(),
-                Rc::new(|_| None),
-                &[Class::OskSpacer],
-            ),
             Key::Escape => GenericKey::new_without_down(
                 SymbolMap::new_single_symbol("Esc".to_string()),
                 Rc::new(|_| Some(OskKeyOutputMsg::Code(9))),
@@ -199,7 +194,7 @@ impl FactoryComponent for GenericKey {
             set_label: self.symbol_map.active_symb(),
             #[watch]
             set_css_classes: &Vec::from(&self.css_classes),
-            connect_clicked=> Self::Input::Clicked,
+            connect_clicked => Self::Input::Clicked,
         }
     }
 

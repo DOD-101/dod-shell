@@ -58,6 +58,7 @@ pub enum Class {
 
     // Osk
     OskMainWindow,
+    OskMainBox,
 
     OskRow,
 
@@ -75,7 +76,6 @@ pub enum Class {
     OskEnter,
     OskBackspace,
     OskSpace,
-    OskSpacer,
     OskEscape,
     OskLayoutSwitcher,
 

@@ -34,10 +34,10 @@
 					{ "Code": { "code": 32 } },
 					{ "Code": { "code": 33 } },
 					{ "Code": { "code": 34 } },
-					{ "Code": { "code": 35 } }
+					{ "Code": { "code": 35 } },
+					"Enter"
 				],
 				[
-					{ "Mod": "Shift" },
 					{ "Code": { "code": 38 } },
 					{ "Code": { "code": 39 } },
 					{ "Code": { "code": 40 } },
@@ -52,6 +52,7 @@
 					{ "Code": { "code": 51 } }
 				],
 				[
+					{ "Mod": "Shift" },
 					{ "Code": { "code": 94 } },
 					{ "Code": { "code": 52 } },
 					{ "Code": { "code": 53 } },
@@ -62,8 +63,7 @@
 					{ "Code": { "code": 58 } },
 					{ "Code": { "code": 59 } },
 					{ "Code": { "code": 60 } },
-					{ "Code": { "code": 61 } },
-					"Enter"
+					{ "Code": { "code": 61 } }
 				],
 				[
 					{ "Mod": "Ctrl" },
@@ -105,10 +105,10 @@
 					{ "Code": { "code": 31 } },
 					{ "Code": { "code": 32 } },
 					{ "Code": { "code": 33 } },
-					{ "Code": { "code": 35 } }
+					{ "Code": { "code": 35 } },
+					"Enter"
 				],
 				[
-					{ "Mod": "Shift" },
 					{ "Code": { "code": 38 } },
 					{ "Code": { "code": 39 } },
 					{ "Code": { "code": 40 } },
@@ -121,6 +121,7 @@
 					{ "Code": { "code": 51 } }
 				],
 				[
+					{ "Mod": "Shift" },
 					{ "Code": { "code": 94 } },
 					{ "Code": { "code": 29 } },
 					{ "Code": { "code": 53 } },
@@ -131,8 +132,7 @@
 					{ "Code": { "code": 58 } },
 					{ "Code": { "code": 59 } },
 					{ "Code": { "code": 60 } },
-					{ "Code": { "code": 61 } },
-					"Enter"
+					{ "Code": { "code": 61 } }
 				],
 				[
 					{ "Mod": "Ctrl" },
