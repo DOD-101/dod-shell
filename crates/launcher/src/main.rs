@@ -33,6 +33,9 @@ async fn get_all_config() -> zbus::Result<daemon::config::Config> {
     let connection = zbus::Connection::session().await?;
 
     let config_proxy = ConfigProxy::new(&connection).await?;
+    // TODO: We don't need to use all_config here since we only actually need
+    // the toml config for the app itself. We can set the css before launching and
+    // the osk_layouts we don't need at all
     let all_config = config_proxy.all_config().await?;
 
     Ok(all_config)

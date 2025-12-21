@@ -1,5 +1,10 @@
+//! Functions relating to [`xkb`] and working with keymaps
 use xkbcommon::xkb::{self, Keycode};
 
+/// Returns the keymap used by the osk
+///
+/// Currently this just statically returns the German keyboard layout, but this might change in the
+/// future
 fn keymap() -> xkb::Keymap {
     xkb::Keymap::new_from_names(
         &xkb::Context::new(xkb::CONTEXT_NO_FLAGS),
@@ -13,6 +18,9 @@ fn keymap() -> xkb::Keymap {
     .expect("Keymap creation should never fail.")
 }
 
+/// Takes a key-code and returns the characters associated with it with different modifiers
+///
+/// Returns the characters in order of `[no-modifers, shift, alt]`
 pub fn to_chars(code: u32) -> [Option<char>; 3] {
     let keymap = keymap();
 

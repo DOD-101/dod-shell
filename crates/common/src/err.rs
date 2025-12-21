@@ -1,8 +1,13 @@
+//! See [`Error`]
 use thiserror::Error;
 
-/// Custom Errors for the shell
+/// Custom errors for the shell
 #[derive(Debug, Error, Clone)]
 #[non_exhaustive]
+#[allow(
+    missing_docs,
+    reason = "The error macro gives a good description already"
+)]
 pub enum Error {
     #[error("no default audio card")]
     NoDefaultCard,

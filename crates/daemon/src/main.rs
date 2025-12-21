@@ -1,3 +1,5 @@
+//! Binary for the daemon. See lib for more information
+
 // TODO: Move most of this into the lib
 use zbus::{conn::Builder, object_server::InterfaceRef};
 
@@ -73,6 +75,7 @@ async fn main() -> Result<()> {
     }
 }
 
+/// Helper method to update the values of [`SystemState`]
 async fn update_state(iface: &InterfaceRef<SystemState>) -> Result<()> {
     let mut state = iface.get_mut().await;
 
@@ -88,6 +91,7 @@ async fn update_state(iface: &InterfaceRef<SystemState>) -> Result<()> {
     Ok(())
 }
 
+/// Helper method to update the values of [`Config`]
 async fn update_config(iface: &InterfaceRef<Config>) -> Result<bool> {
     let mut state = iface.get_mut().await;
 

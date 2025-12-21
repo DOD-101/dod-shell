@@ -1,12 +1,16 @@
+//! See [`OskRow`]
 use super::{GenericKey, OskKeyInputMsg, OskKeyOutputMsg};
 use gtk::prelude::*;
 use relm4::{gtk, prelude::*};
 
 use common::css::Class;
 
+/// A row of [`GenericKey`]s
 #[derive(Debug, Clone)]
 pub struct OskRow(FactoryVecDeque<GenericKey>);
 
+/// Auto-generated widget for [`OskRow`]
+#[allow(clippy::missing_docs_in_private_items, reason = "Issue with relm4")]
 #[relm4::factory(pub)]
 impl FactoryComponent for OskRow {
     type Init = FactoryVecDeque<GenericKey>;

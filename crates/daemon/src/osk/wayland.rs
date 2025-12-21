@@ -283,6 +283,7 @@ pub enum WaylandStateMsg {
     },
 }
 
+/// Creates a new enum with all the fields of the external enum
 macro_rules! wrap_external_enum {
     (
         // name of wrapper enum you want to generate

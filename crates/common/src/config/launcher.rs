@@ -13,6 +13,7 @@ pub struct LauncherConfig {
 /// Config relating to the `Launch` mode of the launcher
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct LaunchModeConfig {
+    /// All apps the launcher will show
     pub apps: Vec<LaunchApp>,
 }
 

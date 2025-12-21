@@ -1,3 +1,5 @@
+//! Build script to bundle icons
+
 fn main() {
     relm4_icons_build::bundle_icons(
         // Name of the file that will be generated at `OUT_DIR`

@@ -34,11 +34,13 @@ impl Default for LabelIcon {
 
 //NOTE: We could change these to take Option<&str>
 impl LabelIcon {
+    /// Set the lable part [`Self`]
     pub fn set_label(&self, label: &str) {
         let imp = imp::LabelIcon::from_obj(self);
 
         imp.label.set_label(label);
     }
+    /// Set the icon part [`Self`]
     pub fn set_icon(&self, icon: &str) {
         let imp = imp::LabelIcon::from_obj(self);
 
@@ -62,7 +64,13 @@ mod imp {
     /// Inner struct for [``super::LabelIcon``]
     #[derive(Debug, Default)]
     pub struct LabelIcon {
+        /// The label part
+        ///
+        /// This is the value or text you want to show next to the icon
         pub(super) label: gtk::Label,
+        /// The icon part
+        ///
+        /// This is the icon you want to display next to the label
         pub(super) icon: gtk::Image,
     }
 

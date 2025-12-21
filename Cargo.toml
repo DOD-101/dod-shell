@@ -43,11 +43,19 @@ zbus = { version = "5.9.0", features = [
 ], default-features = false }
 zvariant = { version = "5.8.0" }
 
+[workspace.lints.rust]
+missing_docs = "warn"
 
 [workspace.lints.clippy]
-pedantic = "warn"
-restriction = "allow" # maybe change to warn in the future
-style = "warn"
+nursery = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+style = { level = "warn", priority = -1 }
+
+allow_attributes_without_reason = "deny"
+doc_broken_link = "warn"
+future_not_send = "allow"
+missing_docs_in_private_items = "warn"
+too_long_first_doc_paragraph = "warn"
 
 [workspace.metadata]
 crane.name = "dod-shell"

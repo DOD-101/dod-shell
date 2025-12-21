@@ -1,13 +1,13 @@
-/// Items relating to the `layouts.json` file
-///
-/// This file (and the corresponding types) are used by the osk component for determining its
-/// layout.
-///
-/// ## Why a separate file?
-///
-/// Because the layout is quite large and it makes it easier to manage separately from the rest of
-/// the config. We also couldn't to `config.toml` since arrays in toml aren't sorted which is a
-/// deal-breaker. So it was either use a separate file or switch everything to json.
+//! Items relating to the `layouts.json` file
+//!
+//! This file (and the corresponding types) are used by the osk component for determining its
+//! layout.
+//!
+//! ## Why a separate file?
+//!
+//! Because the layout is quite large and it makes it easier to manage separately from the rest of
+//! the config. We also couldn't to `config.toml` since arrays in toml aren't sorted which is a
+//! deal-breaker. So it was either use a separate file or switch everything to json.
 use std::fmt::Display;
 
 use crate::css::Class;
@@ -22,6 +22,10 @@ pub struct Layouts {
     version: u8,
 
     /// Different layouts
+    #[allow(
+        clippy::struct_field_names,
+        reason = "Any other naming would be less clear here."
+    )]
     layouts: Vec<Layout>,
 
     /// The default layout to use
@@ -29,16 +33,25 @@ pub struct Layouts {
 }
 
 impl Layouts {
+    /// Attempts to get a layout by it's [name](`field@Layout::name`)
     #[must_use]
     pub fn get_layout_by_name(&self, name: &str) -> Option<&Layout> {
         self.layouts.iter().find(|&layout| layout.name == name)
     }
 
+    /// Attempts to get the default layout
+    ///
+    /// If this method fails that means that [`Self::default_layout`] is pointing to an
+    /// non-existent layout.
     #[must_use]
     pub fn get_default_layout(&self) -> Option<&Layout> {
         self.get_layout_by_name(&self.default_layout)
     }
 
+    /// Attempts to get the index of the default layout
+    ///
+    /// If this method fails that means that [`Self::default_layout`] is pointing to an
+    /// non-existent layout.
     #[must_use]
     pub fn get_default_layout_index(&self) -> Option<usize> {
         self.layouts
@@ -46,14 +59,12 @@ impl Layouts {
             .position(|l| l.name() == self.default_layout)
     }
 
+    /// Returns a reference to [`field@Self::layouts`]
     #[must_use]
     pub fn layouts(&self) -> &[Layout] {
         &self.layouts
     }
 }
-
-type Vertical<T> = Vec<T>;
-type Horizontal<T> = Vec<T>;
 
 /// Format for an individual layout
 #[derive(Serialize, Deserialize, Debug, Default, JsonSchema, Clone)]
@@ -67,20 +78,23 @@ pub struct Layout {
     /// The actual keys of the layout in the format:
     ///
     /// Vertical<Horizontal<Key>>
-    keys: Vertical<Horizontal<Key>>,
+    keys: Vec<Vec<Key>>,
 }
 
 impl Layout {
+    /// Returns a reference to [`field@Self::name`]
     #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    /// Returns a reference to [`field@Self::short_name`]
     #[must_use]
     pub fn name_short(&self) -> &str {
         &self.name_short
     }
 
+    /// Returns a reference to [`field@Self::keys`]
     #[must_use]
     pub fn keys(&self) -> &[Vec<Key>] {
         &self.keys
@@ -102,7 +116,10 @@ pub enum Key {
         alt_label: String,
     },
     /// A key which sends a key-code
-    Code { code: u32 },
+    Code {
+        /// The key code
+        code: u32,
+    },
     /// An arrow key
     Arrow {
         /// The direction of the arrow
@@ -127,14 +144,21 @@ pub enum Key {
     LayoutSwitcher,
 }
 
+/// Different types of Modifiers
 #[derive(
     Serialize, Deserialize, Debug, JsonSchema, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Display,
 )]
 pub enum ModKey {
+    /// Shift
     Shift,
+    /// Control / Ctrl
     Ctrl,
+    /// Alt
     Alt,
+    /// This is is the right alt key on German QWERTZ keyboards.
+    /// Officially called `ISO_Level3_Shift`.
     AltGr,
+    /// Super / "windows-key"
     #[strum(to_string = "")]
     Super,
 }
@@ -151,7 +175,9 @@ impl From<ModKey> for Class {
     }
 }
 
+/// Different directions an arrow key can point in
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, Copy)]
+#[allow(missing_docs, reason = "No docs needed.")]
 pub enum ArrowDirection {
     Up,
     Down,
@@ -165,10 +191,10 @@ impl Display for ArrowDirection {
             f,
             "{}",
             match self {
-                ArrowDirection::Up => "↑",
-                ArrowDirection::Down => "↓",
-                ArrowDirection::Left => "←",
-                ArrowDirection::Right => "→",
+                Self::Up => "↑",
+                Self::Down => "↓",
+                Self::Left => "←",
+                Self::Right => "→",
             }
         )
     }

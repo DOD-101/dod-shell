@@ -1,3 +1,4 @@
+//! See [`GenericKey`]
 use crate::ShiftState;
 
 use super::{
@@ -14,17 +15,32 @@ use daemon::osk::Mod;
 use gtk::prelude::*;
 use relm4::{factory::CloneableFactoryComponent, gtk, prelude::*};
 
-type OnUp = Rc<dyn Fn(&GenericKey) -> Option<OskKeyOutputMsg>>;
+/// Closure for when the key is pressed down
 // NOTE: Currently the OutputMsg isn't used here, but in the future it will be
 type OnDown = Rc<dyn Fn(&mut GenericKey) -> Option<OskKeyOutputMsg>>;
+/// Closure for when the key is released
+type OnUp = Rc<dyn Fn(&GenericKey) -> Option<OskKeyOutputMsg>>;
 
+/// A key for the osk
+///
+/// This is what actually gets displayed and can be pressed in the form of [`GenericKeyWidgets`]
+///
+/// ## Why "generic"?
+///
+/// Because all keys, no matter what they do need to be brought into this form the be used.
+///
+/// See [`Self::from::<key>()`] to see how this is done.
 #[derive(Clone)]
 pub struct GenericKey {
+    /// See [`SymbolMap`]
     symbol_map: SymbolMap,
 
+    /// Called when the key is pressed down
     on_down: OnDown,
+    /// Called when the key is released
     on_up: OnUp,
 
+    /// The keys css classes
     css_classes: ClassList,
 }
 
@@ -38,6 +54,9 @@ impl std::fmt::Debug for GenericKey {
 }
 
 impl GenericKey {
+    /// Create a new [`Self`] setting all values
+    ///
+    /// `css_classes` will have [`Class::OskKey`] added automatically.
     pub fn new(
         symbol_map: SymbolMap,
         on_up: OnUp,
@@ -54,6 +73,7 @@ impl GenericKey {
         }
     }
 
+    /// Create a new [`Self`] without [`Self::on_down`]
     pub fn new_without_down(
         symbol_map: SymbolMap,
         on_up: OnUp,
@@ -62,15 +82,18 @@ impl GenericKey {
         Self::new(symbol_map, on_up, Rc::new(|_| None), css_classes.into())
     }
 
+    /// Call [`Self::on_up`]
     fn up(&self) -> Option<OskKeyOutputMsg> {
         (self.on_up)(self)
     }
 
+    /// Call [`Self::on_down`]
     fn down(&mut self) -> Option<OskKeyOutputMsg> {
         let callback = self.on_down.clone();
         callback(self)
     }
 
+    /// Returns a mutable reference to the css classes of this [`GenericKey`].
     pub fn css_classes_mut(&mut self) -> &mut ClassList {
         &mut self.css_classes
     }
@@ -180,6 +203,7 @@ impl From<Key> for GenericKey {
 }
 
 #[relm4::factory(pub)]
+#[allow(clippy::missing_docs_in_private_items, reason = "Issue with relm4")]
 impl FactoryComponent for GenericKey {
     type Init = GenericKey;
     type Input = OskKeyInputMsg;

@@ -197,6 +197,7 @@ impl Osk {
     PartialEq,
     Eq,
 )]
+#[allow(missing_docs, reason = "See more link adds sufficient context.")]
 pub enum Mod {
     Shift = 0x1,
     Ctrl = 0x4,

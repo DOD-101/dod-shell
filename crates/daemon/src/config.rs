@@ -108,19 +108,19 @@ impl ConfigValuesChanged {
         self.toml || self.css || self.layouts
     }
 
-    // If the toml value changed
+    /// If the toml value changed
     #[must_use]
     pub fn toml_changed(&self) -> bool {
         self.toml
     }
 
-    // If the css value changed
+    /// If the css value changed
     #[must_use]
     pub fn css_changed(&self) -> bool {
         self.css
     }
 
-    // If the layouts value changed
+    /// If the layouts value changed
     #[must_use]
     pub fn layouts_changed(&self) -> bool {
         self.layouts

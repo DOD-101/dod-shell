@@ -1,3 +1,10 @@
+//! The osk (on-screen-keyboard) component of the shell
+//!
+//! This is useful if you have a device that can be / is used in a tablet like mode.
+//!
+//! The osk will activate automatically in most cases, if you enter any form of text field. For
+//! bringing it up manually enable the osk button on the bar component. For more information see
+//! [`common::config::bar::BarConfig`].
 use futures_util::StreamExt;
 use gtk4_layer_shell::{Layer, LayerShell};
 use relm4::{
@@ -16,33 +23,54 @@ use daemon::{
 
 use crate::key::{GenericKey, OskKeyInputMsg, OskRow};
 
-#[allow(dead_code)]
 mod icon {
+    //! Auto generated icons module
+    //!
+    //! See `build.rs` for more information.
     include!(concat!(env!("OUT_DIR"), "/icon_names.rs"));
 
-    #[allow(unused_imports)]
-    pub use self::custom::*;
     pub use self::shipped::*;
 }
 
 mod key;
 
+/// The main [``relm4::Component``] for the osk
+///
+/// For more information see module level docs
 #[derive(Debug)]
 pub struct App {
+    /// Current rows of the osk
     osk_rows: FactoryVecDeque<OskRow>,
+
+    /// Proxy for communication with the daemon
     osk_proxy: OskProxy<'static>,
+    /// Proxy for communication with the daemon
     osk_state_proxy: StateProxy<'static>,
 
+    /// Layouts received from the daemon
     layouts: Layouts,
+    /// The currently active layout
+    ///
+    /// If this is [`None`] that means there were no layouts  in [`Self::layouts`]
     layout_index: Option<usize>,
 
+    /// If the osk is currently shown
+    ///
+    /// This should always be synced with the daemon
     active: bool,
+    /// If [`Self::active`] can be changed
+    ///
+    /// This should always be synced with the daemon
     active_locked: bool,
+    /// A bit-mask of currently active modifiers
     active_mods: u32,
+    /// The current state the shift key is in
     shift_state: ShiftState,
 }
 
+/// Helper trait for exiting if something fails during [`App::init`]
 trait AppErrExt<T> {
+    /// If self is an [`Err`] logs it and exits, otherwise returns the [`Ok`] value
     fn abort_on_err(self) -> T;
 }
 
@@ -60,6 +88,7 @@ impl<T, E: std::error::Error> AppErrExt<T> for Result<T, E> {
 }
 
 impl App {
+    /// Sends the given message to all keys
     fn send_to_all_keys(&self, message: OskKeyInputMsg) {
         let max_index = self.osk_rows.len();
 
@@ -68,6 +97,7 @@ impl App {
         }
     }
 
+    /// Updates [`Self::osk_rows`] according to [`Self::layouts`] and [`Self::layout_index`]
     fn update_layout(&mut self, sender: &relm4::AsyncComponentSender<Self>) {
         let Some(layout_index) = self.layout_index else {
             return;
@@ -103,6 +133,7 @@ impl App {
     }
 }
 
+/// Input messages for [`AppWidgets`]
 #[derive(Debug)]
 pub enum AppMsg {
     /// Sent by a [`key::GenericKey`] when pressed
@@ -124,6 +155,7 @@ pub enum AppMsg {
     Lock,
 }
 
+/// Auto-generated widget for [`App`]
 #[relm4::component(pub, async)]
 impl SimpleAsyncComponent for App {
     type Init = ();
@@ -254,7 +286,7 @@ impl SimpleAsyncComponent for App {
                 }
             }
 
-            #[allow(unreachable_code)]
+            #[allow(unreachable_code, reason = "Needed for type inference")]
             Ok::<(), zbus::Error>(())
         });
 
@@ -368,16 +400,26 @@ impl SimpleAsyncComponent for App {
     }
 }
 
+/// States the shift key can be in
+///
+/// This is used to emulate the behavior seen on most osks (e.g on smartphones)
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, EnumIs)]
 pub enum ShiftState {
+    /// The shift key is off
     #[default]
     Off,
+    /// The shift key is on
+    ///
+    /// If it is pressed in this state it will return to being off after pressing
     On,
+    /// The shift key is on and won't return to off after being pressed
     Locked,
 }
 
+// TODO: Possibly change these to being &mut self
 impl ShiftState {
-    fn next(self) -> ShiftState {
+    /// Consumes self returning the next state
+    const fn next(self) -> Self {
         match self {
             Self::Off => Self::On,
             Self::On => Self::Locked,
@@ -385,12 +427,12 @@ impl ShiftState {
         }
     }
 
-    #[allow(dead_code)]
-    fn prev(self) -> ShiftState {
+    /// Consumes self returning the previous state
+    const fn prev(self) -> Self {
         match self {
-            ShiftState::Off => Self::Locked,
-            ShiftState::On => Self::Off,
-            ShiftState::Locked => Self::On,
+            Self::Off => Self::Locked,
+            Self::On => Self::Off,
+            Self::Locked => Self::On,
         }
     }
 }
@@ -413,7 +455,10 @@ impl From<ShiftState> for bool {
 /// 1. Creating a tokio runtime
 ///
 /// 2. Getting the needed state from the daemon
-#[allow(clippy::missing_panics_doc)]
+///
+/// ## Panics
+///
+/// Panics only if the logger fails to init, which should never happen.
 pub fn launch() {
     simple_logger::SimpleLogger::new()
         .env()

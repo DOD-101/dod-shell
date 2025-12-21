@@ -16,6 +16,7 @@ use std::{cell::UnsafeCell, fmt::Debug, fmt::Display, ops::Deref, sync::Once};
     zvariant::Type,
 )]
 pub struct Percentage {
+    /// The value
     value: f64,
 }
 
@@ -64,6 +65,8 @@ impl From<u8> for Percentage {
     }
 }
 
+// TODO: Look into Maybeuninit for this
+
 /// A type to be initialized at a later time.
 ///
 /// Using this type necessitates having a 2 Step creation process.
@@ -106,7 +109,9 @@ impl From<u8> for Percentage {
 ///
 /// For an example usage see `crates/daemon/src/osk/wayland.rs`.
 pub struct DeferedInit<T> {
+    /// The data to be initialized
     data: UnsafeCell<Option<T>>,
+    /// A lock to ensure initialization only happens once
     once: Once,
 }
 
@@ -140,7 +145,9 @@ impl<T> Deref for DeferedInit<T> {
 }
 
 impl<T> DeferedInit<T> {
+    /// Error message for [`Result::expect`] when dealing with pointers
     const POINTER_MSG: &str = "Value pointer should never be null. This is a bug.";
+
     /// Inner helper function for [`Self::init`]
     ///
     /// # Panics
@@ -189,7 +196,10 @@ impl<T> DeferedInit<T> {
     /// If the value has been set.
     ///
     /// If this function returns true it is safe to call [`Self::get_value`].
-    #[allow(clippy::missing_panics_doc)]
+    #[allow(
+        clippy::missing_panics_doc,
+        reason = "As stated by POINTER_MSG, any panic here would be a bug."
+    )]
     pub fn is_set(&self) -> bool {
         unsafe {
             let value = self.data.get().as_ref().expect(Self::POINTER_MSG);
@@ -204,7 +214,10 @@ mod test {
     use super::*;
 
     #[test]
-    #[allow(clippy::float_cmp)]
+    #[allow(
+        clippy::float_cmp,
+        reason = "The float comparison is tested to work here without problem."
+    )]
     fn new_percentages() {
         assert_eq!(Percentage::new(0.1).get_value(), 0.1);
 

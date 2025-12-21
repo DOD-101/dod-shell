@@ -26,7 +26,11 @@ use daemon::{
 };
 
 mod icon {
+    //! Auto generated icons module
+    //!
+    //! See `build.rs` for more information.
     include!(concat!(env!("OUT_DIR"), "/icon_names.rs"));
+
     pub use self::custom::*;
     pub use self::shipped::*;
 }
@@ -37,6 +41,7 @@ mod workspaces;
 use label_icon::LabelIcon;
 use workspaces::Workspaces;
 
+/// Format for the date & time label. See: [`AppWidgets::date_time`] source
 // TODO: Users should be able to adjust this format
 const DATE_TIME_FORMAT: &[time::format_description::BorrowedFormatItem<'_>] =
     format_description!("[hour]:[minute]:[second] | [year]-[month]-[day]");
@@ -46,37 +51,49 @@ const DATE_TIME_FORMAT: &[time::format_description::BorrowedFormatItem<'_>] =
 /// For more information see module level docs
 #[derive(Debug)]
 pub struct App {
+    /// The workspaces widget
     workspaces: Controller<Workspaces>,
+
+    /// The system state received from the daemon
     system_state: SystemStateData,
+    /// The current config received from the daemon
     config: Config,
 
+    /// If the osk is currently visible
     osk_active: bool,
+    /// Proxy for communication with the daemon
     osk_state_proxy: StateProxy<'static>,
 }
 
 /// Input messages for [App]
 #[derive(Debug)]
 pub enum AppMsg {
-    /// Sent when the [``SystemStateData``] has been changed
+    /// Received from the daemon when the [``SystemStateData``] has changed
     UpdatedSystemState(SystemStateData),
-    /// Sent when the [``Config``] has been changed
-    // NOTE: Should we generalize this updating of the config for all components of type 1
+    /// Received from the daemon when the [``Config``] has changed
+    // TODO: Should we generalize this updating of the config for all components of type 1
     // We could use another enum and then have a function wich takes a type T (aka an AppMsg enum)
     // wich impls From<GeneralConfigUpdateEnum>?
     ConfigUpdated(Config),
     /// Sent when the css has been changed
     CssUpdated(String),
-
+    /// Sent when pressing the osk button
+    // TODO: Change to ToggleOsk
     LaunchOsk,
+    /// Received from the daemon when the active state of the osk has changed
     OskActive(bool),
 }
 
+/// Auto-generated widget for [`App`]
 // NOTE: Should we allow users to config the icons?
-#[allow(clippy::float_cmp)]
+#[allow(
+    clippy::float_cmp,
+    reason = "Float comparison shouldn't lead to issues in this case"
+)]
 #[relm4::component(pub, async)]
 impl SimpleAsyncComponent for App {
     /// (The monitor to display the bar on, the monitor id the bar is on, if this is the main bar)
-    // NOTE: We should add a BarInit (or AppInit) struct or type alias
+    // TODO: We should add a BarInit (or AppInit) struct or type alias
     type Init = (Monitor, usize, bool);
     type Input = AppMsg;
     type Output = ();
@@ -359,7 +376,7 @@ impl SimpleAsyncComponent for App {
                 }
             }
 
-            #[allow(unreachable_code)]
+            #[allow(unreachable_code, reason = "Needed for type inference")]
             Ok::<(), zbus::Error>(())
         });
 

@@ -45,6 +45,10 @@ pub enum WorkspacesMsg {
     UpdateActiveWorkspace(i32),
 }
 
+// TODO: Adress missing docs upstream
+
+/// Auto-generated widget for [`Workspaces`]
+#[allow(clippy::missing_docs_in_private_items, reason = "Issue with relm4")]
 #[relm4::component(pub)]
 impl SimpleComponent for Workspaces {
     /// A Vector of workspace id's to show
@@ -112,12 +116,15 @@ pub struct WorkspaceButton {
     active: bool,
 }
 
-/// Messages sent to [``WorkspaceButton``]
+/// Input Messages for [``WorkspaceButton``]
 #[derive(Debug)]
 pub enum WorkspaceButtonMsg {
+    /// Sent when the button is pressed
     Clicked,
 }
 
+/// Auto-generated widget for [`WorkspaceButton`]
+#[allow(clippy::missing_docs_in_private_items, reason = "Issue with relm4")]
 #[relm4::factory(pub)]
 impl FactoryComponent for WorkspaceButton {
     /// The hyprland workspace of the button

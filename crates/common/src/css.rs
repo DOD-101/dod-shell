@@ -1,3 +1,4 @@
+//! Items relating to CSS
 use std::{
     collections::HashSet,
     fmt::Display,
@@ -6,10 +7,18 @@ use std::{
 
 use strum::{AsRefStr, Display, EnumIs, EnumMessage, EnumString};
 
+/// All CSS classes used thought the project
+///
+/// By having these be an enum it is easy to see which classes exist and change their names
+/// through the project more easily.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Hash, AsRefStr, Display, EnumMessage, EnumString, EnumIs,
 )]
 #[strum(serialize_all = "kebab-case")]
+#[allow(
+    missing_docs,
+    reason = "The individual class names have no further meaning which would require a doc comment."
+)]
 pub enum Class {
     MainWindow,
 
@@ -86,8 +95,12 @@ pub enum Class {
     OskLockButton,
 }
 
+/// A list of [`Class`]es
+///
+/// Ensures there are no duplicates and provides conversions
 #[derive(Debug, Clone)]
 pub struct ClassList {
+    /// The classes
     classes: HashSet<Class>,
 }
 
@@ -149,7 +162,7 @@ impl<const N: usize> From<&[Class; N]> for ClassList {
     }
 }
 
-/// Convenience macro to allow for creating an array of class strings
+/// Convenience macro to create an array of class strings
 #[macro_export]
 macro_rules! classes {
     ( $($class:ident),+ $(,)? ) => {

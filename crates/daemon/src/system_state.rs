@@ -63,10 +63,13 @@ pub struct SystemState {
     disks: Disks,
     /// Actual data
     data: SystemStateData,
+    /// The current config
+    // TODO: Making this an Rc or similiar smart pointer might be good
     config: common::Config,
 }
 
 impl SystemState {
+    /// Create a new new [`Self`] setting values other than config to default
     #[must_use]
     pub fn new(config: common::Config) -> Self {
         Self {
@@ -93,8 +96,10 @@ impl SystemState {
     /// Currently this method takes 6-10ms to run.
     /// It is critical that care is taken to maintain optimal performance, since this function
     /// hanging will cause large parts of the shell to hang themselves or break.
-    #[allow(clippy::cast_precision_loss)]
-    #[allow(clippy::cast_possible_truncation)]
+    #[allow(
+        clippy::cast_precision_loss,
+        reason = "Precision loss only occurs when calculating percentages, where we don't care since they are just for display."
+    )]
     pub async fn update(&mut self) {
         self.sys.refresh_specifics(
             RefreshKind::nothing()
@@ -393,7 +398,10 @@ impl SystemState {
                     return Ok(Percentage::from(-1.0));
                 }
 
-                #[allow(clippy::cast_precision_loss)]
+                #[allow(
+                    clippy::cast_precision_loss,
+                    reason = "Precision loss only occurs for calculating a percentage, where we don't care since they are just for display."
+                )]
                 return Ok((volume as f64 / max as f64).into());
             }
         }
@@ -537,6 +545,7 @@ impl From<ConnectionData> for zvariant::Structure<'_> {
     }
 }
 
+/// Data relating to a battery
 #[derive(
     Default,
     Debug,
@@ -548,11 +557,13 @@ impl From<ConnectionData> for zvariant::Structure<'_> {
     zvariant::Type,
 )]
 pub struct BatteryData {
+    /// What percentage the battery is charged to
     pub charge: Percentage,
+    /// The current status of the batter
     pub status: BatteryStatus,
 }
 
-/// State of a battery
+/// What the battery is currently doing
 #[derive(
     Default,
     Debug,
