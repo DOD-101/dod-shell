@@ -5,6 +5,12 @@
 //! The osk will activate automatically in most cases, if you enter any form of text field. For
 //! bringing it up manually enable the osk button on the bar component. For more information see
 //! [`common::config::bar::BarConfig`].
+
+// TODO: Make the osk not be hard coded to the German layout (a lot of work)
+
+// TODO: Add symbol map to the layout format to allow for changing of the icons for shift, enter,
+// etc.
+
 use futures_util::StreamExt;
 use gtk4_layer_shell::{Layer, LayerShell};
 use relm4::{

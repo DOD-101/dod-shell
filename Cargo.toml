@@ -55,6 +55,7 @@ allow_attributes_without_reason = "deny"
 doc_broken_link = "warn"
 future_not_send = "allow"
 missing_docs_in_private_items = "warn"
+significant_drop_tightening = "allow"
 too_long_first_doc_paragraph = "warn"
 
 [workspace.metadata]

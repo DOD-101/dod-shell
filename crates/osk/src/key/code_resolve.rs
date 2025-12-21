@@ -20,7 +20,7 @@ fn keymap() -> xkb::Keymap {
 
 /// Takes a key-code and returns the characters associated with it with different modifiers
 ///
-/// Returns the characters in order of `[no-modifers, shift, alt]`
+/// Returns the characters in order of `[no-modifiers, shift, alt]`
 pub fn to_chars(code: u32) -> [Option<char>; 3] {
     let keymap = keymap();
 
@@ -33,4 +33,30 @@ pub fn to_chars(code: u32) -> [Option<char>; 3] {
     }
 
     arr
+}
+
+/// Attempts to get the key code for a key name
+///
+/// Current implementation only checks level 0.
+pub fn get_key_code(key_name: &str) -> Option<u32> {
+    let keymap = keymap();
+
+    let mut ret = None;
+
+    keymap.key_for_each(|map, code| {
+        if ret.is_some() {
+            return;
+        }
+
+        let val = map.key_get_syms_by_level(code, 1, 0);
+        if !val.is_empty() {
+            let name = val[0].name();
+
+            if name.is_some_and(|v| v == key_name) {
+                ret = Some(code.raw());
+            }
+        }
+    });
+
+    ret
 }

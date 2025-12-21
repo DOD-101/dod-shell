@@ -8,8 +8,6 @@
 //! Because the layout is quite large and it makes it easier to manage separately from the rest of
 //! the config. We also couldn't to `config.toml` since arrays in toml aren't sorted which is a
 //! deal-breaker. So it was either use a separate file or switch everything to json.
-use std::fmt::Display;
-
 use crate::css::Class;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -176,7 +174,7 @@ impl From<ModKey> for Class {
 }
 
 /// Different directions an arrow key can point in
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, Copy, Display)]
 #[allow(missing_docs, reason = "No docs needed.")]
 pub enum ArrowDirection {
     Up,
@@ -185,17 +183,15 @@ pub enum ArrowDirection {
     Right,
 }
 
-impl Display for ArrowDirection {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Self::Up => "↑",
-                Self::Down => "↓",
-                Self::Left => "←",
-                Self::Right => "→",
-            }
-        )
+impl ArrowDirection {
+    /// Returns the symbol (aka. arrow icon) for the direction
+    #[must_use]
+    pub const fn as_symbol(&self) -> &str {
+        match self {
+            Self::Up => "↑",
+            Self::Down => "↓",
+            Self::Left => "←",
+            Self::Right => "→",
+        }
     }
 }

@@ -1,5 +1,5 @@
 //! See [`GenericKey`]
-use crate::ShiftState;
+use crate::{ShiftState, key::code_resolve::get_key_code};
 
 use super::{
     OskKeyInputMsg, OskKeyOutputMsg,
@@ -106,6 +106,10 @@ impl CloneableFactoryComponent for GenericKey {
 }
 
 impl From<Key> for GenericKey {
+    #[allow(
+        clippy::too_many_lines,
+        reason = "Might split this up in the future. But for now doing that would only hurt readability."
+    )]
     fn from(value: Key) -> Self {
         match value {
             Key::Mod(mod_key) => {
@@ -176,14 +180,40 @@ impl From<Key> for GenericKey {
                     &[Class::OskCode, Class::OskNormal],
                 )
             }
-            Key::Arrow { .. } => todo!(),
-            Key::Fn { .. } => todo!(),
+            Key::Arrow { direction } => Self::new_without_down(
+                SymbolMap::new_single_symbol(direction.as_symbol().to_string()),
+                Rc::new(move |_| {
+                    Some(OskKeyOutputMsg::Code(
+                        get_key_code(&format!("XK_{direction}"))
+                            .expect("Should never fail to resolve key code."),
+                    ))
+                }),
+                &[Class::OskArrow],
+            ),
+            Key::Fn { num } => Self::new_without_down(
+                SymbolMap::new_single_symbol(format!("F{num}")),
+                // TODO: Make the format of Fn key so that you can't even pass an invalid number
+                Rc::new(move |_| {
+                    get_key_code(&format!("XK_F{num}")).map_or_else(
+                        || {
+                            log::error!("Function key number is invalid. It won't do anything.");
+                            None
+                        },
+                        |val| Some(OskKeyOutputMsg::Code(val)),
+                    )
+                }),
+                &[Class::OskFn],
+            ),
             Key::Enter => Self::new_without_down(
                 SymbolMap::new_single_symbol("Enter".to_string()),
                 Rc::new(|_| Some(OskKeyOutputMsg::Code(36))),
                 &[Class::OskEnter],
             ),
-            Key::Del => todo!(),
+            Key::Del => Self::new_without_down(
+                SymbolMap::new_single_symbol("Del".to_string()),
+                Rc::new(|_| Some(OskKeyOutputMsg::Code(119))),
+                &[Class::OskDel],
+            ),
             Key::Backspace => Self::new_without_down(
                 SymbolMap::new_single_symbol("󰭜".to_string()),
                 Rc::new(|_| Some(OskKeyOutputMsg::Code(22))),
