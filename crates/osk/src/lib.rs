@@ -11,6 +11,8 @@
 // TODO: Add symbol map to the layout format to allow for changing of the icons for shift, enter,
 // etc.
 
+// TODO: add an actual way to generate the layout schema
+
 use futures_util::StreamExt;
 use gtk4_layer_shell::{Layer, LayerShell};
 use relm4::{

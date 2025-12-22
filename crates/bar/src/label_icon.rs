@@ -48,7 +48,7 @@ impl LabelIcon {
     }
 }
 
-/// Implementation Details for [``super::LabelIcon``]
+/// Implementation Details for [``LabelIcon``]
 mod imp {
     use common::{classes, css::Class};
     use relm4::{

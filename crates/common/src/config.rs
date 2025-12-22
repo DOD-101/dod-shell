@@ -11,7 +11,7 @@ pub mod layouts;
 use serde::{Deserialize, Serialize};
 
 /// Toml format of `config.toml`
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct Config {
     /// Config options relating to the bar component
     pub bar: bar::BarConfig,
