@@ -64,7 +64,6 @@ pub struct SystemState {
     /// Actual data
     data: SystemStateData,
     /// The current config
-    // TODO: Making this an Rc or similiar smart pointer might be good
     config: common::Config,
 }
 

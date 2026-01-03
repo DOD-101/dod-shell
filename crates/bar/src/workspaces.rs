@@ -31,19 +31,16 @@ pub enum WorkspacesMsg {
     UpdateActiveWorkspace(i32),
 }
 
-// TODO: Adress missing docs upstream
-
 /// Auto-generated widget for [`Workspaces`]
-#[allow(clippy::missing_docs_in_private_items, reason = "Issue with relm4")]
 #[relm4::component(pub)]
 impl SimpleComponent for Workspaces {
     /// A Vector of workspace id's to show
-    // TODO: Make this Arc<[i32]>
     type Init = Vec<i32>;
     type Input = WorkspacesMsg;
     type Output = ();
 
     view! {
+        /// Outer containing box
         #[name(workspaces)]
         gtk::Box {
             add_css_class: Class::Workspaces.as_ref(),
@@ -110,7 +107,6 @@ pub enum WorkspaceButtonMsg {
 }
 
 /// Auto-generated widget for [`WorkspaceButton`]
-#[allow(clippy::missing_docs_in_private_items, reason = "Issue with relm4")]
 #[relm4::factory(pub)]
 impl FactoryComponent for WorkspaceButton {
     /// The hyprland workspace of the button
@@ -121,6 +117,7 @@ impl FactoryComponent for WorkspaceButton {
     type ParentWidget = gtk::Box;
 
     view! {
+        /// Button to change workspace
         #[name(workspace_btn)]
         gtk::Button {
             set_css_classes: &classes!(Workspace, WorkspaceButton),

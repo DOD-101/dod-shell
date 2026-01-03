@@ -10,7 +10,6 @@ use common::css::Class;
 pub struct OskRow(FactoryVecDeque<GenericKey>);
 
 /// Auto-generated widget for [`OskRow`]
-#[allow(clippy::missing_docs_in_private_items, reason = "Issue with relm4")]
 #[relm4::factory(pub)]
 impl FactoryComponent for OskRow {
     type Init = FactoryVecDeque<GenericKey>;
@@ -21,8 +20,10 @@ impl FactoryComponent for OskRow {
 
     view! {
         #[root]
+        /// Outer container box
         gtk::Box {
             #[local_ref]
+            /// Inner box containing the actual keys
             row -> gtk::Box {
                 set_align: gtk::Align::Center,
                 add_css_class: Class::OskRow.as_ref(),

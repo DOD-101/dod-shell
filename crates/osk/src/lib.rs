@@ -176,7 +176,6 @@ enum AppMsg {
 }
 
 /// Auto-generated widget for [`App`]
-#[allow(clippy::missing_docs_in_private_items, reason = "Issue with relm4")]
 #[relm4::component(async)]
 impl SimpleAsyncComponent for App {
     type Init = ();
@@ -184,6 +183,7 @@ impl SimpleAsyncComponent for App {
     type Output = ();
 
     view! {
+        /// Main window of osk
         #[name(osk_main_window)]
         gtk::Window {
             init_layer_shell: (),

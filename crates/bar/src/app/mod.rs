@@ -124,7 +124,6 @@ pub enum AppMsg {
     clippy::float_cmp,
     reason = "Float comparison shouldn't lead to issues in this case"
 )]
-#[allow(clippy::missing_docs_in_private_items, reason = "Issue with relm4")]
 #[relm4::component(async, pub)]
 impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
     type Init = AppInit<I>;
@@ -132,6 +131,7 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
     type Output = ();
 
     view! {
+        /// Main window of the bar
         #[name(bar_main_window)]
         gtk::Window {
             init_layer_shell: (),

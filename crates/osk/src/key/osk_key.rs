@@ -239,7 +239,6 @@ impl From<Key> for GenericKey {
 }
 
 #[relm4::factory(pub)]
-#[allow(clippy::missing_docs_in_private_items, reason = "Issue with relm4")]
 impl FactoryComponent for GenericKey {
     type Init = Self;
     type Input = OskKeyInputMsg;
@@ -249,6 +248,7 @@ impl FactoryComponent for GenericKey {
 
     view! {
         #[root]
+        /// Button for the key
         gtk::Button {
             #[watch]
             set_label: self.symbol_map.active_symb(),
