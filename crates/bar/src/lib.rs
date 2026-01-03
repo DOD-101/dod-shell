@@ -9,7 +9,6 @@ use relm4::{
     },
     prelude::*,
 };
-use time::macros::format_description;
 
 #[allow(
     clippy::doc_markdown,
@@ -32,11 +31,6 @@ mod icon {
 mod app;
 mod label_icon;
 mod workspaces;
-
-/// Format for the date & time label. See: [`app::AppWidgets::date_time`] source
-// TODO: Users should be able to adjust this format
-const DATE_TIME_FORMAT: &[time::format_description::BorrowedFormatItem<'_>] =
-    format_description!("[hour]:[minute]:[second] | [year]-[month]-[day]");
 
 /// Launches the Bar on all monitors
 ///

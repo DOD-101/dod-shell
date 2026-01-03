@@ -23,4 +23,15 @@ pub struct BarConfig {
     /// Show osk button
     #[serde(default)]
     pub show_osk_button: bool,
+    /// Format for displaying the date and time
+    ///
+    /// See: <https://time-rs.github.io/book/api/format-description.html>
+    #[serde(default = "date_time_default")]
+    pub date_time_format: String,
+}
+
+/// Default for [`BarConfig::date_time_format`]
+#[must_use]
+pub fn date_time_default() -> String {
+    "[hour]:[minute]:[second] | [year]-[month]-[day]".to_string()
 }

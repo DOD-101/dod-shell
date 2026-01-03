@@ -36,7 +36,7 @@ use relm4::{
     prelude::*,
 };
 use std::{marker::PhantomData, sync::Arc};
-use time::{OffsetDateTime, UtcOffset};
+use time::{OffsetDateTime, UtcOffset, format_description};
 
 pub mod primary;
 pub mod secondary;
@@ -105,12 +105,9 @@ where
 /// Input messages for [App]
 #[derive(Debug, Clone)]
 pub enum AppMsg {
-    /// Received from the daemon when the [``SystemStateData``] has changed
+    /// Received when the [``SystemStateData``] has changed
     UpdatedSystemState(Arc<SystemStateData>),
-    /// Received from the daemon when the [``common::Config``] has changed
-    // TODO: Should we generalize this updating of the config for all components of type 1
-    // We could use another enum and then have a function wich takes a type T (aka an AppMsg enum)
-    // wich impls From<GeneralConfigUpdateEnum>?
+    /// Received when the [``common::Config``] has changed
     ConfigUpdated(Arc<BarConfig>),
     /// Sent when pressing the osk button
     ToggleOsk,
@@ -189,13 +186,7 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
                     #[name(date_time)]
                     gtk::Label {
                         #[watch]
-                        set_label: &OffsetDateTime::from_unix_timestamp(model.system_state.time)
-                                        .expect("Unix timestamp from daemon should always be valid")
-                                        .to_offset(
-                                            UtcOffset::current_local_offset()
-                                            .inspect_err(|e| log::error!("Failed to get local offset: {e}"))
-                                            .unwrap_or(UtcOffset::UTC))
-                                        .format(&crate::DATE_TIME_FORMAT).unwrap()
+                        set_label: &model.set_date_time_label(),
                     }
                 },
 
@@ -437,5 +428,28 @@ impl<I: Init + 'static> App<I> {
                 },
                 |disk| disk.used.to_string(),
             )
+    }
+
+    /// Helper function to set the [`AppWidgets::date_time`] label
+    fn set_date_time_label(&self) -> String {
+        let format_description = format_description::parse_owned::<2>(
+            &self.config.date_time_format,
+        )
+        .unwrap_or_else(|err| {
+            log::error!("Invalid format description for date and time: {err}");
+
+            format_description::parse_owned::<2>(&common::config::bar::date_time_default())
+                .expect("Parsing default format description should never fail.")
+        });
+
+        OffsetDateTime::from_unix_timestamp(self.system_state.time)
+            .expect("Unix timestamp from daemon should always be valid")
+            .to_offset(
+                UtcOffset::current_local_offset()
+                    .inspect_err(|e| log::error!("Failed to get local offset: {e}"))
+                    .unwrap_or(UtcOffset::UTC),
+            )
+            .format(&format_description)
+            .unwrap()
     }
 }
