@@ -173,15 +173,8 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
 
                         #[name(drive)]
                         LabelIcon {
-                            // TODO: There should be a way for the user to know which disks are available
                             #[watch]
-                            set_label: &model
-                                        .system_state
-                                        .disks
-                                        .iter()
-                                        .find(|d| d.name == *model.config.disk)
-                                        .map_or_else(|| "Err".to_string(), |d| d.used.to_string())
-                                        ,
+                            set_label: &model.set_drive_label(),
                             set_icon: icon::HARDDISK,
                         },
                     },
@@ -421,5 +414,28 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
             },
             AppMsg::OskActive(val) => self.osk_active = val,
         }
+    }
+}
+
+impl<I: Init + 'static> App<I> {
+    /// Helper function to set the [`AppWidgets::drive`] label
+    fn set_drive_label(&self) -> String {
+        self.system_state
+            .disks
+            .iter()
+            .find(|d| d.name == *self.config.disk)
+            .map_or_else(
+                || {
+                    log::error!("Failed to find disk: {}", self.config.disk);
+                    log::info!("Available disks: ");
+
+                    for (pos, disk) in self.system_state.disks.iter().enumerate() {
+                        log::info!("{}. {}", pos + 1, disk.name);
+                    }
+
+                    "Err".to_string()
+                },
+                |disk| disk.used.to_string(),
+            )
     }
 }
