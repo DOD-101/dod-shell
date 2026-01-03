@@ -239,7 +239,7 @@ impl Dispatch<zwp_input_method_v2::ZwpInputMethodV2, ()> for WaylandInterface {
             _ => unimplemented!(),
         };
 
-        // NOTE: Not sure if this the best way to get around blocking on the main tokio thread
+        // to not block on the main tokio thread
         let sender = state.state_sender.clone();
         thread::spawn(move || {
             if let Some(msg) = msg

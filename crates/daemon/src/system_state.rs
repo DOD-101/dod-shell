@@ -140,8 +140,6 @@ impl SystemState {
             self.update_battery()
         );
 
-        // NOTE: Might be nice to use a macro here
-
         self.data.bluetooth = bluetooth
             .inspect_err(|e| log::error!("Failed to update bluetooth information: {e}"))
             .unwrap_or_default();

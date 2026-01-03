@@ -328,7 +328,7 @@ impl SimpleAsyncComponent for App {
 
                     if self.shift_state.is_on() {
                         self.active_mods = Mod::Shift.remove_from(self.active_mods);
-                        self.shift_state = self.shift_state.prev();
+                        self.shift_state.prev();
                         self.send_to_all_keys(OskKeyInputMsg::ActiveMods(
                             self.active_mods,
                             self.shift_state,
@@ -343,7 +343,7 @@ impl SimpleAsyncComponent for App {
 
                     if self.shift_state.is_on() {
                         self.active_mods = Mod::Shift.remove_from(self.active_mods);
-                        self.shift_state = self.shift_state.prev();
+                        self.shift_state.prev();
                         self.send_to_all_keys(OskKeyInputMsg::ActiveMods(
                             self.active_mods,
                             self.shift_state,
@@ -363,7 +363,7 @@ impl SimpleAsyncComponent for App {
                     ));
                 }
                 key::OskKeyOutputMsg::Shift => {
-                    self.shift_state = self.shift_state.next();
+                    self.shift_state.next();
 
                     if self.shift_state.into() {
                         self.active_mods = Mod::Shift.add_to(self.active_mods);
@@ -437,11 +437,10 @@ enum ShiftState {
     Locked,
 }
 
-// TODO: Possibly change these to being &mut self
 impl ShiftState {
     /// Consumes self returning the next state
-    const fn next(self) -> Self {
-        match self {
+    const fn next(&mut self) {
+        *self = match self {
             Self::Off => Self::On,
             Self::On => Self::Locked,
             Self::Locked => Self::Off,
@@ -449,8 +448,8 @@ impl ShiftState {
     }
 
     /// Consumes self returning the previous state
-    const fn prev(self) -> Self {
-        match self {
+    const fn prev(&mut self) {
+        *self = match self {
             Self::Off => Self::Locked,
             Self::On => Self::Off,
             Self::Locked => Self::On,

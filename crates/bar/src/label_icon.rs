@@ -32,7 +32,6 @@ impl Default for LabelIcon {
     }
 }
 
-//NOTE: We could change these to take Option<&str>
 impl LabelIcon {
     /// Set the lable part [`Self`]
     pub fn set_label(&self, label: &str) {
