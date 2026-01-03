@@ -35,7 +35,8 @@ impl Init for Primary {
 
         state_broker.subscribe(sender.input_sender().clone());
 
-        relm4::spawn(async move {
+        // We need to use spawn_local here to avoid panics when setting the css
+        relm4::spawn_local(async move {
             let unwraped: StateBroker<SendingUpdates>;
             loop {
                 match Arc::try_unwrap(state_broker) {
