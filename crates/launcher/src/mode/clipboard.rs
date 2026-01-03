@@ -6,7 +6,7 @@ use std::process::{Command, Stdio};
 
 use crate::mode::LauncherMode;
 
-use common::Config;
+use common::config::launcher::LauncherConfig;
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 
 /// See module level documentation
@@ -40,12 +40,12 @@ impl Default for ClipboardMode {
 }
 
 impl LauncherMode for ClipboardMode {
-    fn search(&self, query: &str, config: &Config) -> Vec<String> {
+    fn search(&self, query: &str, config: &LauncherConfig) -> Vec<String> {
         if query.is_empty() {
             return self
                 .data
                 .iter()
-                .take(config.launcher.max_results)
+                .take(config.max_results)
                 .map(|v| &v.0)
                 .cloned()
                 .collect();
@@ -67,12 +67,12 @@ impl LauncherMode for ClipboardMode {
 
         options.sort_by_key(|o| o.0);
 
-        options.truncate(config.launcher.max_results);
+        options.truncate(config.max_results);
 
         options.into_iter().map(|o| o.1).collect()
     }
 
-    fn finish(&self, query: &str, config: &Config, index: usize) {
+    fn finish(&self, query: &str, config: &LauncherConfig, index: usize) {
         let results = &self.search(query, config);
         let val = results.get(index);
 

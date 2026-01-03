@@ -15,16 +15,18 @@
 //!
 //!
 
-// TODO: Decide: Should we even have a lib target?
 use core::str;
 use gtk::prelude::*;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell}; // Import the additional types
 use relm4::{
+    RelmApp,
     actions::{AccelsPlus, RelmAction, RelmActionGroup},
     prelude::*,
 };
+use std::env;
 
-use common::{Config, classes, css::Class};
+use common::{Config, classes, config::launcher::LauncherConfig, css::Class};
+use daemon::config::ConfigProxy;
 
 mod mode;
 mod results;
@@ -42,12 +44,12 @@ pub struct App {
     /// The instance of [AllMode] for the launcher
     mode: AllMode,
     /// Config options
-    config: Config,
+    config: LauncherConfig,
 }
 
 impl App {
     /// Create a new [``Config``] with an already initialized config
-    fn new_with_config(config: Config) -> Self {
+    fn new_with_config(config: LauncherConfig) -> Self {
         Self {
             config,
             ..Default::default()
@@ -78,7 +80,11 @@ pub enum AppMsg {
 /// Generated with [macro@relm4::component].
 #[relm4::component(pub)]
 impl SimpleComponent for App {
-    type Init = (Option<String>, daemon::config::Config);
+    type Init = (
+        Option<String>,
+        common::config::launcher::LauncherConfig,
+        String,
+    );
     type Input = AppMsg;
     type Output = ();
 
@@ -124,11 +130,8 @@ impl SimpleComponent for App {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        relm4::set_global_css(&init.1.css);
-        let model = App::new_with_config(
-            toml::from_str(&init.1.toml)
-                .expect("Config string returned by daemon should always be valid."),
-        );
+        relm4::set_global_css(&init.2);
+        let model = App::new_with_config(init.1);
 
         let results_box = model.results.results_widget();
         let widgets = view_output!();
@@ -196,4 +199,40 @@ impl SimpleComponent for App {
             }
         }
     }
+}
+
+pub fn launch() -> zbus::Result<()> {
+    let handle = std::thread::spawn(|| {
+        let rt =
+            tokio::runtime::Runtime::new().expect("Should never fail to create tokio runtime.");
+        rt.block_on(get_all_config())
+    });
+
+    let search_term = env::args().nth(1);
+    let app = RelmApp::new("dod-shell.launcher");
+
+    let (config, css) = handle
+        .join()
+        .expect("Should never fail to join thread here")?;
+    // Running using `with_args` to stop gtk errors caused by trying to parse the command-line
+    // arguments itself
+    //
+    // See: https://relm4.org/book/stable/cli.html
+    app.with_args(Vec::new())
+        .run::<App>((search_term, config, css));
+
+    Ok(())
+}
+
+async fn get_all_config() -> zbus::Result<(common::config::launcher::LauncherConfig, String)> {
+    let connection = zbus::Connection::session().await?;
+
+    let config_proxy = ConfigProxy::new(&connection).await?;
+
+    let config: Config = toml::from_str(&config_proxy.config().await?)
+        .expect("Config string returned by daemon should always be valid.");
+
+    let css = config_proxy.css().await?;
+
+    Ok((config.launcher, css))
 }
