@@ -209,6 +209,63 @@ impl<T> DeferedInit<T> {
     }
 }
 
+/// A value which has been
+pub trait ValidatedValue<Value, Output, Error>
+where
+    Self: Sized,
+    Error: std::error::Error,
+{
+    /// Create a new [`ValidatedValue`]
+    ///
+    /// ## Performance
+    ///
+    /// This method will call the passed `convert` function on the value to ensure it is indeed
+    /// valid. The performance of `convert` is therefor important to consider.
+    ///
+    /// ## Errors
+    ///
+    /// This function will return the error (along with the passed value) if conversion with the
+    /// `convert` function fails.
+    fn new(value: Value) -> Result<Self, (Error, Value)> {
+        let unchecked = Self::new_unchecked(value);
+
+        if let Err(e) = unchecked.convert_inner() {
+            return Err((e, unchecked.into_value()));
+        }
+
+        Ok(unchecked)
+    }
+
+    /// Create a new [`ValidatedValue`] without checking that it is actually valid
+    ///
+    /// ## Warning
+    ///
+    /// Since this function never actually checks if the value will convert this can lead to panics
+    /// further down the road when convert is called.
+    ///
+    /// This function exists primarily for use within [`ValidatedValue::new`]. Be careful when
+    /// using it!
+    fn new_unchecked(value: Value) -> Self;
+
+    /// Method used to convert self to value
+    fn convert(&self) -> Output {
+        self.convert_inner()
+            .expect("Value is validated  and should never fail.")
+    }
+
+    /// Inner method of [`ValidatedValue::convert`]
+    ///
+    /// This is where the actually conversion happens.
+    ///
+    /// ## Errors
+    ///
+    /// Errors returned are those encountered during conversion.
+    fn convert_inner(&self) -> Result<Output, Error>;
+
+    /// Return the contained `Value`
+    fn into_value(self) -> Value;
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -242,5 +299,30 @@ mod test {
         assert!(defered_init.is_set());
 
         assert_eq!(defered_init.get_value(), &"Hello");
+    }
+
+    #[test]
+    fn validated_value() {
+        struct ValidatedNumber(String);
+
+        impl ValidatedValue<String, usize, <usize as std::str::FromStr>::Err> for ValidatedNumber {
+            fn convert_inner(&self) -> Result<usize, <usize as std::str::FromStr>::Err> {
+                self.0.parse()
+            }
+
+            fn new_unchecked(value: String) -> Self {
+                Self(value)
+            }
+
+            fn into_value(self) -> String {
+                self.0
+            }
+        }
+
+        let val = "5";
+
+        let validated = ValidatedNumber::new(val.to_string()).expect("5 can be parsed");
+
+        let num = validated.convert();
     }
 }
