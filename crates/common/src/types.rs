@@ -1,5 +1,8 @@
 //! Custom types used throughout the shell
+use std::time::{Duration, Instant};
 use std::{cell::UnsafeCell, fmt::Debug, fmt::Display, ops::Deref, sync::Once};
+
+use log::Level;
 
 /// Type representing a percentage
 ///
@@ -206,6 +209,83 @@ impl<T> DeferedInit<T> {
 
             value.is_some()
         }
+    }
+}
+
+/// A Timer implemented using RAII
+///
+/// The timer is started once it is created and finished when dropped, where it will log the time
+/// taken using the log crate.
+pub struct Timer<'a> {
+    /// When the timer was created / started
+    start: Instant,
+    /// Name of the timer
+    ///
+    /// Used for logging when finished
+    name: &'a str,
+    /// At what level to log when the timer is finished / dropped
+    level: Level,
+    /// An optional target for how long the timer should take
+    ///
+    /// If this target is not met the log level will be set to [`Level::Warn`]
+    target: Option<Duration>,
+}
+
+impl<'a> Timer<'a> {
+    /// Creates a new timer
+    ///
+    /// By default the log level is [`log::Level::Trace`]
+    #[must_use]
+    pub fn new(name: &'a str, target: Option<Duration>) -> Self {
+        Self::new_with_level(name, Level::Trace, target)
+    }
+
+    /// Creates a new timer with a custom log level
+    #[must_use]
+    pub fn new_with_level(name: &'a str, level: Level, target: Option<Duration>) -> Self {
+        Self {
+            start: Instant::now(),
+            name,
+            level,
+            target,
+        }
+    }
+}
+
+impl Drop for Timer<'_> {
+    fn drop(&mut self) {
+        let elapsed = self.start.elapsed();
+
+        let time = if elapsed.as_millis() > 0 {
+            format!("{}ms", elapsed.as_millis())
+        } else {
+            format!("{}μs", elapsed.as_micros())
+        };
+
+        let target_missed = self.target.is_some_and(|duration| duration < elapsed);
+
+        let level = if target_missed {
+            Level::Warn
+        } else {
+            self.level
+        };
+
+        log::log!(
+            level,
+            "{} (took {}{})",
+            self.name,
+            time,
+            if target_missed {
+                format!(
+                    " (Target: {}μs)",
+                    self.target
+                        .expect("Should never fail since met_target checked that this is some.")
+                        .as_micros()
+                )
+            } else {
+                String::new()
+            }
+        );
     }
 }
 

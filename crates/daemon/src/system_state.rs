@@ -55,7 +55,7 @@ static NUMLOCK_PATTERN: LazyLock<Regex> =
 ///
 /// This struct implements [``zbus::object_server::Interface``], which means it acts as a dbus
 /// interface. For available zbus methods and properties see [``SystemStateProxy``]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SystemState {
     /// Used in [``Self::update``]
     sys: System,
@@ -68,7 +68,7 @@ pub struct SystemState {
 }
 
 impl SystemState {
-    /// Create a new new [`Self`] setting values other than config to default
+    /// Create a new [`Self`] setting values other than config to default
     #[must_use]
     pub fn new(config: common::Config) -> Self {
         Self {
