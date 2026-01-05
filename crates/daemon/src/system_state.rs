@@ -12,10 +12,7 @@ use std::{
     sync::LazyLock,
 };
 
-use alsa::{
-    Mixer,
-    mixer::{SelemChannelId, SelemId},
-};
+use alsa::mixer::{SelemChannelId, SelemId};
 use anyhow::Result;
 use hyprland::shared::HyprDataActive;
 use regex::Regex;
@@ -65,20 +62,11 @@ pub struct SystemState {
     data: SystemStateData,
     /// The current config
     config: common::Config,
+    /// Used in [`Self::update_volume`]
+    mixer: mixer_ref::AlsaMixerRef,
 }
 
 impl SystemState {
-    /// Create a new [`Self`] setting values other than config to default
-    #[must_use]
-    pub fn new(config: common::Config) -> Self {
-        Self {
-            sys: System::default(),
-            disks: Disks::default(),
-            data: SystemStateData::default(),
-            config,
-        }
-    }
-
     /// Set the internal [``common::Config``]
     ///
     /// This is used primarily if there has been a change to the on-disk config file.
@@ -99,12 +87,16 @@ impl SystemState {
         clippy::cast_precision_loss,
         reason = "Precision loss only occurs when calculating percentages, where we don't care since they are just for display."
     )]
+    #[allow(clippy::missing_panics_doc, reason = "See expect msg.")]
     pub async fn update(&mut self) {
+        let connection = zbus::Connection::system().await.expect("Shouldn't fail to connect to system dbus, since we have interacted with dbus before this point already.");
+
         self.sys.refresh_specifics(
             RefreshKind::nothing()
                 .with_cpu(CpuRefreshKind::nothing().with_cpu_usage())
                 .with_memory(MemoryRefreshKind::nothing().with_ram()),
         );
+
         self.data.cpu_usage = (f64::from(self.sys.global_cpu_usage()) / 100.0).into();
         self.data.used_mem = self.sys.used_memory();
         self.data.total_mem = self.sys.total_memory();
@@ -134,8 +126,8 @@ impl SystemState {
             .collect();
 
         let (bluetooth, network, key_states, battery_data) = tokio::join!(
-            self.update_bluetooth(),
-            self.update_network(),
+            self.update_bluetooth(&connection),
+            self.update_network(&connection),
             Self::update_key_states(),
             self.update_battery()
         );
@@ -158,7 +150,8 @@ impl SystemState {
             None => (),
         }
 
-        self.data.volume = Self::update_volume()
+        self.data.volume = self
+            .update_volume()
             .inspect_err(|e| log::error!("Failed to update volume information: {e}"))
             .unwrap_or_default();
     }
@@ -166,13 +159,12 @@ impl SystemState {
     /// Checks if any devices are connected via bluetooth
     ///
     /// Used in [``Self::update``]
-    async fn update_bluetooth(&self) -> zbus::Result<bool> {
-        let connection = zbus::Connection::system().await?;
+    async fn update_bluetooth(&self, connection: &zbus::Connection) -> zbus::Result<bool> {
         // Create a proxy to interact with BlueZ's ObjectManager interface
         // ObjectManager provides a way to discover all available objects and their interfaces
         // BlueZ: https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/
         let bluez_proxy = zbus::Proxy::new(
-            &connection,
+            connection,
             "org.bluez",
             "/",
             "org.freedesktop.DBus.ObjectManager",
@@ -242,11 +234,10 @@ impl SystemState {
     /// Gathers information about the current internet connection
     ///
     /// Used in [``Self::update``]
-    async fn update_network(&self) -> Result<ConnectionData> {
-        let connection = zbus::Connection::system().await?;
+    async fn update_network(&self, connection: &zbus::Connection) -> Result<ConnectionData> {
         let nm_iface = InterfaceName::from_str_unchecked(NM_SERVICE_NAME);
         let nm_proxy = Proxy::new(
-            &connection,
+            connection,
             NM_SERVICE_NAME,
             "/org/freedesktop/NetworkManager",
             nm_iface,
@@ -273,7 +264,7 @@ impl SystemState {
                 })?;
 
         for d in devices {
-            let device_proxy = PropertiesProxy::new(&connection, NM_SERVICE_NAME, &d).await?;
+            let device_proxy = PropertiesProxy::new(connection, NM_SERVICE_NAME, &d).await?;
 
             let device_iface =
                 InterfaceName::from_str_unchecked("org.freedesktop.NetworkManager.Device");
@@ -290,40 +281,38 @@ impl SystemState {
                 let wireless_iface = InterfaceName::from_str_unchecked(
                     "org.freedesktop.NetworkManager.Device.Wireless",
                 );
-                let wireless_properties = device_proxy.get_all(wireless_iface).await?;
+                let active_access_point = device_proxy
+                    .get(wireless_iface, "ActiveAccessPoint")
+                    .await?;
 
-                if let Some(access_point_value) = wireless_properties.get("ActiveAccessPoint") {
-                    let access_point_path: ObjectPath = access_point_value.downcast_ref()?;
-                    let access_point_proxy =
-                        PropertiesProxy::new(&connection, NM_SERVICE_NAME, access_point_path)
-                            .await?;
-                    let acc_point_iface = InterfaceName::from_str_unchecked(
-                        "org.freedesktop.NetworkManager.AccessPoint",
-                    );
+                let access_point_path: ObjectPath = active_access_point.downcast_ref()?;
+                let access_point_proxy =
+                    PropertiesProxy::new(connection, NM_SERVICE_NAME, access_point_path).await?;
+                let acc_point_iface =
+                    InterfaceName::from_str_unchecked("org.freedesktop.NetworkManager.AccessPoint");
 
-                    let ssid: Option<String> = access_point_proxy
-                        .get(acc_point_iface.clone(), "Ssid")
-                        .await
-                        .map(|s| {
-                            s.downcast_ref::<Array>()
-                                // See: https://networkmanager.dev/docs/api/latest/gdbus-org.freedesktop.NetworkManager.AccessPoint.html#gdbus-property-org-freedesktop-NetworkManager-AccessPoint.Ssid
-                                .expect("Ssid should be list of bytes")
-                                .try_into()
-                                .expect("Should be able to convert Array of bytes to Vec<u8>")
-                        })
-                        .map(|v: Vec<u8>| String::from_utf8_lossy(&v).to_string())
-                        .ok();
+                let ssid: Option<String> = access_point_proxy
+                    .get(acc_point_iface.clone(), "Ssid")
+                    .await
+                    .map(|s| {
+                        s.downcast_ref::<Array>()
+                            // See: https://networkmanager.dev/docs/api/latest/gdbus-org.freedesktop.NetworkManager.AccessPoint.html#gdbus-property-org-freedesktop-NetworkManager-AccessPoint.Ssid
+                            .expect("Ssid should be list of bytes")
+                            .try_into()
+                            .expect("Should be able to convert Array of bytes to Vec<u8>")
+                    })
+                    .map(|v: Vec<u8>| String::from_utf8_lossy(&v).to_string())
+                    .ok();
 
-                    let signal: Option<Percentage> = access_point_proxy
-                        .get(acc_point_iface, "Strength")
-                        .await
-                        .ok()
-                        .and_then(|v| u8::try_from(v).ok())
-                        .map(Percentage::from);
+                let signal: Option<Percentage> = access_point_proxy
+                    .get(acc_point_iface, "Strength")
+                    .await
+                    .ok()
+                    .and_then(|v| u8::try_from(v).ok())
+                    .map(Percentage::from);
 
-                    if let (Some(ssid), Some(signal)) = (ssid, signal) {
-                        return Ok(ConnectionData::Wireless { signal, ssid });
-                    }
+                if let (Some(ssid), Some(signal)) = (ssid, signal) {
+                    return Ok(ConnectionData::Wireless { signal, ssid });
                 }
             }
         }
@@ -380,30 +369,34 @@ impl SystemState {
     /// If the default audio sink is muted returns `-1`
     ///
     /// Used in [``Self::update``]
-    fn update_volume() -> Result<Percentage> {
-        let mixer = Mixer::new("default", true)?;
+    fn update_volume(&self) -> Result<Percentage> {
+        self.mixer.with_mixer(|mixer| {
 
-        let selem_id = SelemId::new("Master", 0);
-        let selem = mixer.find_selem(&selem_id).ok_or(Error::NoDefaultCard)?;
+            // Update the mixer
+            mixer.handle_events()?;
 
-        let max = selem.get_playback_volume_range().1;
-        for o in SelemChannelId::all() {
-            if let Ok(volume) = selem.get_playback_volume(*o) {
-                let muted = selem.get_playback_switch(*o)? == 0;
+            let selem_id = SelemId::new("Master", 0);
+            let selem = mixer.find_selem(&selem_id).ok_or(Error::NoDefaultCard)?;
 
-                if muted {
-                    return Ok(Percentage::from(-1.0));
+            let max = selem.get_playback_volume_range().1;
+            for o in SelemChannelId::all() {
+                if let Ok(volume) = selem.get_playback_volume(*o) {
+                    let muted = selem.get_playback_switch(*o)? == 0;
+
+                    if muted {
+                        return Ok(Percentage::from(-1.0));
+                    }
+
+                    #[allow(
+                        clippy::cast_precision_loss,
+                        reason = "Precision loss only occurs for calculating a percentage, where we don't care since they are just for display."
+                    )]
+                    return Ok((volume as f64 / max as f64).into());
                 }
-
-                #[allow(
-                    clippy::cast_precision_loss,
-                    reason = "Precision loss only occurs for calculating a percentage, where we don't care since they are just for display."
-                )]
-                return Ok((volume as f64 / max as f64).into());
             }
-        }
 
-        Ok(Percentage::default())
+            Ok(Percentage::default())
+        })?
     }
 }
 
@@ -592,6 +585,90 @@ impl From<&str> for BatteryStatus {
             "Charging" => Self::Charging,
             "Discharging" => Self::Discharging,
             _ => Self::Unknown,
+        }
+    }
+}
+
+mod mixer_ref {
+    //! See: [`AlsaMixerRef`]
+    use alsa::Mixer;
+    use std::{
+        sync::Mutex,
+        thread::{JoinHandle, spawn},
+    };
+    use strum::EnumIs;
+
+    /// Thread initialized mixer
+    ///
+    /// Because ALSA does not document thread-safety guarantees for mixers, this type assumes the
+    /// mixer is **not safe to access concurrently** and does not expose it for sharing.
+    ///
+    /// Access to the mixer is provided through [`Self::with_mixer`] to ensure the mixer is only used in a
+    /// controlled, serialized manner.
+    #[derive(Debug)]
+    pub struct AlsaMixerRef(Mutex<AlsaMixerRefInner>);
+
+    /// Inner states of [`AlsaMixerRef`]
+    #[derive(Debug, EnumIs)]
+    enum AlsaMixerRefInner {
+        /// The thread for creating the [`Mixer`] has been created, but not yet joined
+        ///
+        /// This is the first state the mixer is in.
+        Join(JoinHandle<Result<Mixer, alsa::Error>>),
+        /// The thread for creating the [`Mixer`] has finished and has been joined
+        ///
+        /// This state will be switched to the first time [`AlsaMixerRef::with_mixer`] is called
+        /// and will remain for the rest of the lifetime of [`AlsaMixerRef`]
+        Received(Result<Mixer, alsa::Error>),
+        /// This variant is only used in [`AlsaMixerRef::with_mixer`] and should never exists
+        /// outside of it.
+        ///
+        /// This is placed into the [`std::sync::MutexGuard`] with [`std::mem::replace`] temporarily.
+        Replaced,
+    }
+
+    impl Default for AlsaMixerRef {
+        fn default() -> Self {
+            Self(Mutex::new(AlsaMixerRefInner::Join(spawn(|| {
+                Mixer::new("default", true)
+            }))))
+        }
+    }
+
+    impl AlsaMixerRef {
+        /// Runs the given closure with a reference to the internal [`Mixer`]
+        pub fn with_mixer<F, R>(&self, f: F) -> Result<R, alsa::Error>
+        where
+            F: FnOnce(&Mixer) -> R,
+        {
+            let mut guard = self.0.lock().unwrap();
+
+            let inner = std::mem::replace(&mut *guard, AlsaMixerRefInner::Replaced);
+
+            match inner {
+                AlsaMixerRefInner::Join(join_handle) => {
+                    *guard = AlsaMixerRefInner::Received(join_handle.join().unwrap());
+
+                    // Drop the guard to prevent a deadlock
+                    drop(guard);
+
+                    // Recursively call self again
+                    self.with_mixer(f)
+                }
+                AlsaMixerRefInner::Received(result) => {
+                    let returned = match result {
+                        Ok(ref mixer) => Ok(f(mixer)),
+                        Err(err) => Err(err),
+                    };
+
+                    *guard = AlsaMixerRefInner::Received(result);
+
+                    returned
+                }
+                AlsaMixerRefInner::Replaced => {
+                    unreachable!("Inner should never be Replaced. This is a bug.")
+                }
+            }
         }
     }
 }

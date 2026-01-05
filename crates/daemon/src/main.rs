@@ -78,7 +78,8 @@ async fn main() -> Result<()> {
 
 /// Helper method to update the values of [`SystemState`]
 async fn update_state(iface: &InterfaceRef<SystemState>) -> Result<()> {
-    let _timer = Timer::new("SystemState updated", Some(Duration::from_millis(15)));
+    // Leave the target at 10 to avoid a warning on first run
+    let _timer = Timer::new("SystemState updated", Some(Duration::from_millis(10)));
 
     let mut state = iface.get_mut().await;
 

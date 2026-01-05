@@ -393,6 +393,7 @@ dependencies = [
  "serde",
  "serde_json",
  "simple_logger",
+ "strum",
  "sysinfo",
  "tempfile",
  "time",
