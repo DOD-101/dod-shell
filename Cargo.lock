@@ -177,7 +177,7 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "bar"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "common",
  "daemon",
@@ -308,7 +308,7 @@ checksum = "a1d728cc89cf3aee9ff92b05e62b19ee65a02b5702cff7d5a377e32c6ae29d8d"
 
 [[package]]
 name = "cli"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "clap",
  "common",
@@ -336,7 +336,7 @@ checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
 
 [[package]]
 name = "common"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "dirs",
  "env_logger",
@@ -383,7 +383,7 @@ checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
 
 [[package]]
 name = "daemon"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "alsa",
  "anyhow",
@@ -1267,7 +1267,7 @@ dependencies = [
 
 [[package]]
 name = "launcher"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "common",
  "daemon",
@@ -1464,7 +1464,7 @@ dependencies = [
 
 [[package]]
 name = "osk"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "common",
  "daemon",
