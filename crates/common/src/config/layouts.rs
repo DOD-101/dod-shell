@@ -9,12 +9,12 @@
 //! the config. We also couldn't to `config.toml` since arrays in toml aren't sorted which is a
 //! deal-breaker. So it was either use a separate file or switch everything to json.
 use crate::css::Class;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
 /// Json format of `layouts.json`
-#[derive(Serialize, Deserialize, Debug, Default, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct Layouts {
     /// Version of the layout (reserved for future use)
     version: u8,
@@ -28,6 +28,16 @@ pub struct Layouts {
 
     /// The default layout to use
     default_layout: String,
+}
+
+impl Default for Layouts {
+    fn default() -> Self {
+        Self {
+            version: 1,
+            layouts: Vec::default(),
+            default_layout: String::default(),
+        }
+    }
 }
 
 impl Layouts {
@@ -65,7 +75,8 @@ impl Layouts {
 }
 
 /// Format for an individual layout
-#[derive(Serialize, Deserialize, Debug, Default, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct Layout {
     /// Name of the layout
     name: String,
@@ -100,7 +111,8 @@ impl Layout {
 }
 
 /// All types of keys that can come up in a [`Layout`]
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum Key {
     /// A modifier key
     Mod(ModKey),
@@ -143,9 +155,8 @@ pub enum Key {
 }
 
 /// Different types of Modifiers
-#[derive(
-    Serialize, Deserialize, Debug, JsonSchema, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Display,
-)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Display)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum ModKey {
     /// Shift
     Shift,
@@ -174,7 +185,8 @@ impl From<ModKey> for Class {
 }
 
 /// Different directions an arrow key can point in
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, Copy, Display)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Display)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[allow(missing_docs, reason = "No docs needed.")]
 pub enum ArrowDirection {
     Up,

@@ -303,11 +303,17 @@ name = "cli"
 version = "0.2.0"
 dependencies = [
  "clap",
+ "common",
  "log",
  "prettytable",
+ "schemars",
+ "serde",
+ "serde_json",
  "simple_logger",
+ "strum",
  "sysinfo",
  "term 1.2.1",
+ "toml",
 ]
 
 [[package]]

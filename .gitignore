@@ -3,4 +3,5 @@
 .envrc.local
 result
 test/config*.toml
+test/layouts.schema.json
 .$dod-shell.drawio.bkp

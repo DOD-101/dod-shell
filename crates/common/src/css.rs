@@ -5,14 +5,25 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use strum::{AsRefStr, Display, EnumIs, EnumMessage, EnumString};
+use strum::{AsRefStr, Display, EnumIs, EnumIter, EnumMessage, EnumString};
 
 /// All CSS classes used thought the project
 ///
 /// By having these be an enum it is easy to see which classes exist and change their names
 /// through the project more easily.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, AsRefStr, Display, EnumMessage, EnumString, EnumIs,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    AsRefStr,
+    Display,
+    EnumMessage,
+    EnumString,
+    EnumIs,
+    EnumIter,
 )]
 #[strum(serialize_all = "kebab-case")]
 #[allow(

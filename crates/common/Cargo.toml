@@ -7,11 +7,14 @@ version.workspace = true
 [dependencies]
 dirs.workspace = true
 log.workspace = true
-schemars = "1.0.4"
+schemars = { workspace = true, optional = true }
 serde.workspace = true
 strum.workspace = true
 thiserror.workspace = true
 zvariant.workspace = true
+
+[features]
+schemars = ["dep:schemars"]
 
 [lints]
 workspace = true
