@@ -2,7 +2,7 @@
 //!
 //! This CLI is used to interact with the different components of the shell.
 use clap::{Parser, Subcommand, ValueEnum};
-use common::config;
+use common::{config, logger};
 use prettytable::{Table, row};
 use strum::{Display, IntoEnumIterator};
 use sysinfo::{Process, ProcessRefreshKind, System};
@@ -346,8 +346,8 @@ fn write_file<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C, overwrite: b
 }
 
 fn main() {
+    logger!();
     let args = Cli::parse();
-    simple_logger::SimpleLogger::new().env().init().unwrap();
 
     match args.action {
         Action::Launch { component } => launch(&component.to_string()),

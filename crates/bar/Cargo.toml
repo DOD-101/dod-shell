@@ -13,7 +13,6 @@ hyprland.workspace = true
 log.workspace = true
 relm4.workspace = true
 relm4-icons.workspace = true
-simple_logger.workspace = true
 time.workspace = true
 toml.workspace = true
 zbus.workspace = true

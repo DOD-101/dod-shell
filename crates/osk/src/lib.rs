@@ -473,16 +473,7 @@ impl From<ShiftState> for bool {
 /// 1. Creating a tokio runtime
 ///
 /// 2. Getting the needed state from the daemon
-///
-/// ## Panics
-///
-/// Panics only if the logger fails to init, which should never happen.
 pub fn launch() {
-    simple_logger::SimpleLogger::new()
-        .env()
-        .init()
-        .expect("Should never fail to init logger.");
-
     let app = RelmApp::new("dod-shell.osk");
     relm4_icons::initialize_icons(icon::GRESOURCE_BYTES, icon::RESOURCE_PREFIX);
 

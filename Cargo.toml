@@ -12,6 +12,7 @@ anyhow = "1.0.99"
 common = { version = "0.2.0", path = "crates/common" }
 daemon = { version = "0.2.0", path = "crates/daemon" }
 dirs = "6.0.0"
+env_logger = "0.11.8"
 futures-util = "0.3.31"
 grass = { version = "0.13.4", default-features = false }
 gtk4-layer-shell = "0.7.1"
@@ -23,7 +24,6 @@ relm4-icons-build = "0.10.0"
 schemars.version = "1.0.4"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.145"
-simple_logger = "5.0.0"
 strum = { version = "0.27.2", features = ["derive"] }
 sysinfo = { version = "0.37.0", default-features = false, features = [
   "disk",

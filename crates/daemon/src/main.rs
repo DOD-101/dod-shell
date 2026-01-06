@@ -4,7 +4,7 @@
 
 use std::time::Duration;
 
-use common::types::Timer;
+use common::{logger, types::Timer};
 use zbus::{conn::Builder, object_server::InterfaceRef};
 
 use anyhow::{Ok, Result};
@@ -34,7 +34,7 @@ const DBUS_PATH: &str = "/dod/shell/Daemon";
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    simple_logger::SimpleLogger::new().env().init().unwrap();
+    logger!();
 
     let connection = Builder::session()?
         .name("dod.shell.Daemon")?
