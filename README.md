@@ -15,24 +15,61 @@ Nonetheless if you are looking to write your own shell / widgets from scratch us
 
 - [ ] Write the actual components
 - [ ] Write tests 
-- [ ] Document all of the code
+- [x] Document all of the code
 
 ## ✨ Components ✨
 
+![Preview of all components](./assets/all-catppuccin-preview.png) 
+
+<details>
+    Image credit: [Apollo 17, NASA, Image Reprocessing: Andy Saunders](https://apod.nasa.gov/apod/ap251227.html)
+    Styling: Catppuccin (see my [NixOS config](https://github.com/dod-101/NixOs-dots) for more details) ]
+
+</details>
+
 ### Launcher
-WIP
+
+> Let's you launch apps, do simple calculations, search the web & view your clipboard history
+
+![Launcher preview](./assets/launcher-catppuccin-preview.png) 
 
 ### Bar 
-WIP
+
+> Displays useful system information
+
+![Bar preview](./assets/bar-catppuccin-preview.png) 
 
 ### Osk (On-screen-keyboard)
-WIP
 
-...more
+> Allows you type using your touchscreen
 
-## 🖌️ Styling 🖌️
+![Osk Preview](./assets/osk-catppuccin-preview.png) 
 
-Using gtk-css you can style the components via `~/.config/dod-shell/style.scss`
+### Overlay (Soon™)
+
+> Overlay to control different parts of the shell and other parts of your system
+
+
+## CLI
+
+<!-- TODO: Add proper auto-generated docs -->
+
+`dod-shell-cli help`
+
+## 🖌️ Styling & Config 🖌️
+
+All files are located in `$HOME/.config/dod-shell`
+
+- Style: `style.scss` (using gtk-css & scss as a pre-processor)
+
+- Main Config: `config.toml`
+
+- Osk layouts: `layouts.json` 
+
+> [!TIP] 
+>
+> Run `dod-shell-cli generate-config` to get a good place to start from including a json schema for `layouts.json`
+
 
 ## License
 
