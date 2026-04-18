@@ -3,7 +3,11 @@
 //! This mode allows the user to launch different applications.
 //!
 //! The applications are stored in the dod-shell config file.
-use std::process::Command;
+use std::{
+    os::unix::process::CommandExt,
+    process::{Command, Stdio},
+};
+
 
 use crate::mode::LauncherMode;
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
@@ -69,6 +73,10 @@ impl LauncherMode for LaunchMode {
 
             let _ = Command::new(cmd_iter.next().unwrap())
                 .args(cmd_iter.collect::<Vec<&str>>())
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .process_group(0)
                 .spawn();
         }
         // if the result is none we just exit, the assumption being there were no valid results

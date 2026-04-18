@@ -6,7 +6,7 @@
 //!
 //! Each mode represents a different functionality of the launcher.
 //!
-//! Modes are chosen based on a prefix of the search query.  
+//! Modes are chosen based on a prefix of the search query.
 //!
 //! WIP: Or in the future by command line arguments.
 //!
@@ -45,6 +45,8 @@ pub struct App {
     mode: AllMode,
     /// Config options
     config: LauncherConfig,
+    /// If the viewer is invisible
+    invisible: bool,
 }
 
 impl App {
@@ -73,6 +75,8 @@ pub enum AppMsg {
     ResultsMoveUp,
     /// Move the selected result down by one
     ResultsMoveDown,
+    /// Quit the application
+    Quit,
 }
 
 /// Widget associated with the [App] component
@@ -93,6 +97,8 @@ impl SimpleComponent for App {
         gtk::Window {
             init_layer_shell: (), // Do gtk4_layer_shell stuff here
             set_layer: Layer::Overlay,
+            #[watch]
+            set_visible: !model.invisible,
             auto_exclusive_zone_enable: (),
             set_focusable: true,
             set_keyboard_mode: KeyboardMode::OnDemand,
@@ -180,7 +186,7 @@ impl SimpleComponent for App {
         ComponentParts { model, widgets }
     }
 
-    fn update(&mut self, msg: Self::Input, _sender: ComponentSender<Self>) {
+    fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
         match msg {
             AppMsg::SearchUpdate(text) => {
                 self.results
@@ -189,13 +195,22 @@ impl SimpleComponent for App {
             AppMsg::SearchFinish(text) => {
                 self.mode
                     .finish(&text, &self.config, self.results.get_selected_index());
-                relm4::main_application().quit();
+                self.invisible = true;
+
+                let sender = sender.clone();
+                tokio::task::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    sender.input(AppMsg::Quit);
+                });
             }
             AppMsg::ResultsMoveUp => {
                 self.results.decrease_active();
             }
             AppMsg::ResultsMoveDown => {
                 self.results.increase_active();
+            }
+            AppMsg::Quit => {
+                relm4::main_application().quit();
             }
         }
     }
