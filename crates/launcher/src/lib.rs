@@ -183,6 +183,8 @@ impl SimpleComponent for App {
                 .send(AppMsg::SearchUpdate("".to_string()));
         }
 
+        widgets.main_entry.grab_focus();
+
         ComponentParts { model, widgets }
     }
 
