@@ -93,6 +93,8 @@ impl StateBroker<SendingUpdates> {
         let mut config_stream = config_proxy.receive_config_changed().await.fuse();
         let mut css_stream = config_proxy.receive_css_changed().await.fuse();
         let mut osk_active_stream = osk_state_proxy.receive_active_changed().await.fuse();
+        let mut osk_active_locked_stream =
+            osk_state_proxy.receive_active_locked_changed().await.fuse();
 
         loop {
             futures_util::select! {
@@ -110,6 +112,9 @@ impl StateBroker<SendingUpdates> {
                 }
                 active = osk_active_stream.select_next_some() => {
                     self.send_update(&AppMsg::OskActive(active.get().await?));
+                }
+                locked = osk_active_locked_stream.select_next_some() => {
+                    self.send_update(&AppMsg::OskLocked(locked.get().await?));
                 }
             }
         }

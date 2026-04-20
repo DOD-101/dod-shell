@@ -70,6 +70,8 @@ pub struct App<I: Init + 'static> {
 
     /// If the osk is currently visible
     osk_active: bool,
+    /// If the osk active state is currently locked
+    osk_locked: bool,
     /// Proxy for communication with the daemon
     osk_state_proxy: StateProxy<'static>,
 
@@ -113,6 +115,8 @@ pub enum AppMsg {
     ToggleOsk,
     /// Received from the daemon when the active state of the osk has changed
     OskActive(bool),
+    /// Received from the daemon when the lock state of the osk has changed
+    OskLocked(bool),
 }
 
 /// Auto-generated widget for [`App`]
@@ -200,6 +204,8 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
                         set_css_classes: &classes!(OskButton, Icon),
                         #[watch]
                         set_class_active: (Class::Active.as_ref(), model.osk_active),
+                        #[watch]
+                        set_class_active: (Class::Disabled.as_ref(), model.osk_locked),
                         #[watch]
                         set_visible: model.config.show_osk_button,
                         set_icon_name: icon::KEYBOARD_FILLED,
@@ -349,6 +355,7 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
             system_state: SystemStateData::default().into(),
             config: common::config::bar::BarConfig::default().into(),
             osk_active: bool::default(),
+            osk_locked: bool::default(),
             osk_state_proxy: StateProxy::new(&connection).await.unwrap(),
 
             _init: PhantomData,
@@ -404,6 +411,7 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
                 Err(e) => log::error!("Failed to get osk active property: {e}"),
             },
             AppMsg::OskActive(val) => self.osk_active = val,
+            AppMsg::OskLocked(val) => self.osk_locked = val,
         }
     }
 }
