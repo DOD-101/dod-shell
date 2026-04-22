@@ -8,7 +8,6 @@ use std::{
     process::{Command, Stdio},
 };
 
-
 use crate::mode::LauncherMode;
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 
