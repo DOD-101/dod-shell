@@ -12,8 +12,6 @@
 //!
 //! The default mode is [AllMode], which is less so a mode of it's own, but more so a mode to allow
 //! the selection of other modes via the prefixes.
-//!
-//!
 
 use core::str;
 use gtk::prelude::*;
@@ -172,16 +170,21 @@ impl SimpleComponent for App {
 
         action_group.register_for_widget(&widgets.launcher_main_window);
 
+        let mut entry_search = String::default();
         if let Some(initial_search) = init.0 {
-            relm4::gtk::prelude::GtkWindowExt::set_focus(&root, Some(&widgets.main_entry));
-
             widgets.main_entry.set_text(&initial_search);
-            widgets.main_entry.set_position(initial_search.len() as i32);
-        } else {
-            let _ = sender
-                .input_sender()
-                .send(AppMsg::SearchUpdate("".to_string()));
+
+            let len = initial_search.len() as i32;
+            widgets.main_entry.connect_has_focus_notify(move |e| {
+                e.set_position(len);
+            });
+
+            entry_search = initial_search;
         }
+
+        let _ = sender
+            .input_sender()
+            .send(AppMsg::SearchUpdate(entry_search));
 
         widgets.main_entry.grab_focus();
 
