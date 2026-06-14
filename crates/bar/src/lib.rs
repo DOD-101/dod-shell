@@ -10,6 +10,8 @@ use relm4::{
     prelude::*,
 };
 
+use crate::app::{App, primary::Primary};
+
 #[allow(
     clippy::doc_markdown,
     reason = "Upstream issue. Already fixed. Remove this when relm4-icons 10.0.1 is released."
@@ -30,6 +32,7 @@ mod icon {
 
 mod app;
 mod label_icon;
+mod time_playing;
 mod workspaces;
 
 /// Launches the Bar on all monitors
@@ -46,7 +49,5 @@ pub fn launch_on_all_monitors() {
 
     relm4_icons::initialize_icons(icon::GRESOURCE_BYTES, icon::RESOURCE_PREFIX);
 
-    app.run_async::<app::App<app::primary::Primary>>(app::AppInit::<app::primary::Primary>::new(
-        monitor, 0,
-    ));
+    app.run_async::<App<Primary>>(app::AppInit::<Primary>::new(monitor, 0));
 }

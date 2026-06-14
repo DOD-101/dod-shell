@@ -40,6 +40,22 @@
       color: mix(blue, white, 60);
     }
   }
+
+  $time-playing-progressbar-height: 6px;
+
+  .time-playing-progressbar > trough {
+    background-color: #333333;
+    border-radius: 6px;
+    min-height: $time-playing-progressbar-height;
+    /* margin-top: -8px; */
+    border: 1px solid #444444;
+  }
+
+  .time-playing-progressbar > trough > progress {
+    background-color: #f584e4;
+    border-radius: 5px;
+    min-height: $time-playing-progressbar-height;
+  }
 }
 
 $osk-key-width: 3rem;
@@ -61,10 +77,6 @@ $osk-key-width: 3rem;
     &:active {
       background-color: greenyellow;
     }
-
-    // &:hover {
-    //   background-color: red;
-    // }
   }
 
   .osk-backspace {

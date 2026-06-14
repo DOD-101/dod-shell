@@ -5,6 +5,7 @@
 use std::time::Duration;
 
 use common::{logger, types::Timer};
+use tokio::time::interval;
 use zbus::{conn::Builder, object_server::InterfaceRef};
 
 use anyhow::{Ok, Result};
@@ -12,6 +13,7 @@ use anyhow::{Ok, Result};
 use daemon::{
     config::{Config, ConfigProxy},
     osk::{Osk, state::State as OskState},
+    playback::Playback,
     system_state::SystemState,
 };
 
@@ -42,16 +44,25 @@ async fn main() -> Result<()> {
         .serve_at(DBUS_PATH, Osk::new()?)?
         .serve_at(DBUS_PATH, OskState::default())?
         .serve_at(DBUS_PATH, SystemState::default())?
+        .serve_at(DBUS_PATH, Playback::default())?
         .build()
         .await?;
 
     let obj_server = connection.object_server();
 
-    let (state_iface, config_iface, osk_iface, osk_state_iface) =
-        create_ifaces!(obj_server, DBUS_PATH, SystemState, Config, Osk, OskState);
+    let (state_iface, config_iface, osk_iface, osk_state_iface, mpris_iface) = create_ifaces!(
+        obj_server,
+        DBUS_PATH,
+        SystemState,
+        Config,
+        Osk,
+        OskState,
+        Playback
+    );
 
     let config_proxy = ConfigProxy::new(&connection).await?;
 
+    let mut interval = interval(Duration::from_secs(1));
     loop {
         if update_config(&config_iface).await? {
             let config = toml::from_str::<common::Config>(&config_proxy.config().await?)
@@ -72,7 +83,17 @@ async fn main() -> Result<()> {
                 .await;
         }
 
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        {
+            let _timer = Timer::new("Mpris data updated", Some(Duration::from_millis(10)));
+
+            mpris_iface
+                .get_mut()
+                .await
+                .update(mpris_iface.signal_emitter())
+                .await;
+        }
+
+        interval.tick().await;
     }
 }
 

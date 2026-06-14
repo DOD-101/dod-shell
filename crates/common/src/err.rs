@@ -2,7 +2,7 @@
 use thiserror::Error;
 
 /// Custom errors for the shell
-#[derive(Debug, Error, Clone)]
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 #[allow(
     missing_docs,

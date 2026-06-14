@@ -28,10 +28,19 @@ pub struct BarConfig {
     /// See: <https://time-rs.github.io/book/api/format-description.html>
     #[serde(default = "date_time_default")]
     pub date_time_format: String,
+    /// Same as [`Self::date_time_format`], but with `{artists}` & `{title}` for the current playback
+    #[serde(default = "date_time_playing_default")]
+    pub date_time_playing_format: String,
 }
 
 /// Default for [`BarConfig::date_time_format`]
 #[must_use]
 pub fn date_time_default() -> String {
     "[hour]:[minute]:[second] | [year]-[month]-[day]".to_string()
+}
+
+/// Default for [`BarConfig::date_time_playing_format`]
+#[must_use]
+pub fn date_time_playing_default() -> String {
+    "[hour]:[minute]:[second] | {artists} - {title} | [year]-[month]-[day]".to_string()
 }

@@ -36,7 +36,6 @@ use relm4::{
     prelude::*,
 };
 use std::{marker::PhantomData, sync::Arc};
-use time::{OffsetDateTime, UtcOffset, format_description};
 
 pub mod primary;
 pub mod secondary;
@@ -53,15 +52,22 @@ use daemon::{
     system_state::{BatteryStatus, ConnectionData, SystemStateData},
 };
 
-use crate::{icon, label_icon::LabelIcon, workspaces::Workspaces};
+use crate::{
+    icon,
+    label_icon::LabelIcon,
+    time_playing::{TimePlaying, TimePlayingInput},
+    workspaces::Workspaces,
+};
 
 /// The main [``relm4::Component``] for the bar
 ///
 /// For more information see module level docs
 #[derive(Debug)]
 pub struct App<I: Init + 'static> {
-    /// The workspaces widget
+    /// The [`Workspaces`] widget
     workspaces: Controller<Workspaces>,
+    /// [`TimePlaying`] widget
+    time_playing: AsyncController<TimePlaying>,
 
     /// The system state received from the daemon
     system_state: Arc<SystemStateData>,
@@ -187,11 +193,8 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
                 #[wrap(Some)]
                 set_center_widget = &gtk::Box {
                     add_css_class: Class::Center.as_ref(),
-                    #[name(date_time)]
-                    gtk::Label {
-                        #[watch]
-                        set_label: &model.set_date_time_label(),
-                    }
+                    #[local_ref]
+                    time_playing_widget -> gtk::Box {}
                 },
 
                 #[wrap(Some)]
@@ -352,6 +355,7 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
 
         let model = Self {
             workspaces: Workspaces::builder().launch(workspaces).detach(),
+            time_playing: TimePlaying::builder().launch(()).detach(),
             system_state: SystemStateData::default().into(),
             config: common::config::bar::BarConfig::default().into(),
             osk_active: bool::default(),
@@ -362,6 +366,7 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
         };
 
         let workspaces_widget = model.workspaces.widget();
+        let time_playing_widget = model.time_playing.widget();
         let widgets = view_output!();
 
         let internet_controller = gtk::EventControllerMotion::new();
@@ -401,7 +406,18 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
                     ))
                     .expect("Failed to send WorkspaceMsg to component.");
             }
-            AppMsg::ConfigUpdated(config) => self.config = config,
+            AppMsg::ConfigUpdated(config) => {
+                self.config = Arc::clone(&config);
+
+                if self
+                    .time_playing
+                    .sender()
+                    .send(TimePlayingInput::ConfigUpdated(config))
+                    .is_err()
+                {
+                    log::error!("Failed to send config update to TimePlaying component");
+                }
+            }
             AppMsg::ToggleOsk => match self.osk_state_proxy.active().await {
                 Ok(active) => {
                     if let Err(e) = self.osk_state_proxy.set_active(!active).await {
@@ -436,28 +452,5 @@ impl<I: Init + 'static> App<I> {
                 },
                 |disk| disk.used.to_string(),
             )
-    }
-
-    /// Helper function to set the [`AppWidgets::date_time`] label
-    fn set_date_time_label(&self) -> String {
-        let format_description = format_description::parse_owned::<2>(
-            &self.config.date_time_format,
-        )
-        .unwrap_or_else(|err| {
-            log::error!("Invalid format description for date and time: {err}");
-
-            format_description::parse_owned::<2>(&common::config::bar::date_time_default())
-                .expect("Parsing default format description should never fail.")
-        });
-
-        OffsetDateTime::from_unix_timestamp(self.system_state.time)
-            .expect("Unix timestamp from daemon should always be valid")
-            .to_offset(
-                UtcOffset::current_local_offset()
-                    .inspect_err(|e| log::error!("Failed to get local offset: {e}"))
-                    .unwrap_or(UtcOffset::UTC),
-            )
-            .format(&format_description)
-            .unwrap()
     }
 }

@@ -68,6 +68,9 @@ pub enum Class {
     LabelIconLabel,
     LabelIconIcon,
 
+    TimePlayingLabel,
+    TimePlayingProgressbar,
+
     OskButton,
 
     // Launcher

@@ -17,7 +17,6 @@ use anyhow::Result;
 use hyprland::shared::HyprDataActive;
 use regex::Regex;
 use sysinfo::{CpuRefreshKind, Disks, MemoryRefreshKind, RefreshKind, System};
-use time::UtcDateTime;
 use tokio::fs;
 use zbus::{
     Proxy,
@@ -101,7 +100,6 @@ impl SystemState {
         self.data.used_mem = self.sys.used_memory();
         self.data.total_mem = self.sys.total_memory();
         self.data.mem_usage = (self.data.used_mem as f64 / self.data.total_mem as f64).into();
-        self.data.time = UtcDateTime::now().unix_timestamp();
         self.data.workspace = hyprland::data::Workspace::get_active()
             .inspect_err(|e| log::error!("Failed to get an active workspace: {e}"))
             .map_or(0, |w| w.id);
@@ -427,8 +425,6 @@ pub struct SystemStateData {
     pub used_mem: u64,
     /// Memory (only RAM no SWAP) usage
     pub mem_usage: Percentage,
-    /// The time as a unix timestamp
-    pub time: i64,
     /// The current workspace number
     pub workspace: i32,
     /// Data about the network connection
