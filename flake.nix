@@ -156,13 +156,13 @@
           // {
             pname = "dod-shell-cli";
             cargoExtraArgs = "-p cli";
-            # Custom src since the cli depends on all other components
             src = lib.fileset.toSource {
               root = ./.;
               fileset = lib.fileset.unions [
                 ./Cargo.toml
                 ./Cargo.toml
-                (craneLib.fileset.commonCargoSources ./crates)
+                (craneLib.fileset.commonCargoSources ./crates/common)
+                (craneLib.fileset.commonCargoSources ./crates/cli)
               ];
             };
           }
