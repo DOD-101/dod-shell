@@ -233,7 +233,7 @@ impl AsyncComponent for TimePlaying {
 }
 
 impl TimePlaying {
-    /// Helper function to set the [`AppWidgets::date_time`] label
+    /// Helper function to set the main label
     fn update_date_time_label(&mut self, time: i64) -> String {
         OffsetDateTime::from_unix_timestamp(time)
             .expect("Unix timestamp from daemon should always be valid")
