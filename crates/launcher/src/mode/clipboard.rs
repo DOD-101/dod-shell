@@ -7,7 +7,10 @@ use std::process::{Command, Stdio};
 use crate::mode::LauncherMode;
 
 use common::config::launcher::LauncherConfig;
-use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
+use fuzzy_matcher::{
+    FuzzyMatcher,
+    skim::{SkimMatcherV2, SkimScoreConfig},
+};
 
 /// See module level documentation
 pub struct ClipboardMode {
@@ -33,7 +36,13 @@ impl Default for ClipboardMode {
             .map(|v| (v.1.to_string(), v.0.parse().unwrap()))
             .collect();
 
-        let matcher = SkimMatcherV2::default();
+        let config = SkimScoreConfig {
+            bonus_consecutive: 10,
+            bonus_head: 10,
+            ..Default::default()
+        };
+
+        let matcher = SkimMatcherV2::default().score_config(config);
 
         Self { data, matcher }
     }
@@ -54,14 +63,16 @@ impl LauncherMode for ClipboardMode {
         let keys = self.data.iter().map(|v| &v.0);
 
         let mut options: Vec<(i64, String)> = keys
-            .filter_map(|o| {
+            .enumerate()
+            .filter_map(|(i, o)| {
                 let score = self.matcher.fuzzy_match(o, query).unwrap_or_default();
 
                 if score == 0 {
                     return None;
                 }
 
-                Some((score, o.clone()))
+                // multiply by the position to take into account the historical order
+                Some((score * i as i64, o.clone()))
             })
             .collect();
 
