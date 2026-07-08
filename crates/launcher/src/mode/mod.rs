@@ -6,7 +6,7 @@ mod launch;
 mod math;
 mod search;
 
-use std::sync::Mutex;
+use std::{cell::LazyCell, sync::Mutex};
 
 pub use clipboard::ClipboardMode;
 use common::config::launcher::LauncherConfig;
@@ -34,8 +34,6 @@ trait NamedMode: LauncherMode {
     fn name(&self) -> &str;
 }
 
-// TODO: look into lazy-loading the modes
-
 /// The default mode of the Launcher
 ///
 /// By itself this mode doesn't do anything, but allows the selection of other modes via prefixes.
@@ -47,10 +45,10 @@ trait NamedMode: LauncherMode {
 /// all state of the other modes.
 #[derive(Default)]
 pub struct AllMode {
-    launch: LaunchMode,
-    math: MathMode,
-    search: SearchMode,
-    clipboard: ClipboardMode,
+    launch: LazyCell<LaunchMode>,
+    math: LazyCell<MathMode>,
+    search: LazyCell<SearchMode>,
+    clipboard: LazyCell<ClipboardMode>,
     /// Name of the this mode for [function@name]
     ///
     /// Since AllMode is not really a mode in itself, we set this value to whatever the name of the
@@ -64,10 +62,10 @@ impl AllMode {
         let query = query.trim();
 
         match query.chars().next() {
-            Some('=') => (&self.math, query.strip_prefix('=').unwrap()),
-            Some('?') => (&self.search, query.strip_prefix('?').unwrap()),
-            Some('&') => (&self.clipboard, query.strip_prefix('&').unwrap()),
-            _ => (&self.launch, query),
+            Some('=') => (&*self.math, query.strip_prefix('=').unwrap()),
+            Some('?') => (&*self.search, query.strip_prefix('?').unwrap()),
+            Some('&') => (&*self.clipboard, query.strip_prefix('&').unwrap()),
+            _ => (&*self.launch, query),
         }
     }
 
