@@ -8,7 +8,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use crate::mode::LauncherMode;
+use crate::mode::{LauncherMode, NamedMode};
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 
 use common::config::launcher::{LaunchApp, LauncherConfig};
@@ -79,5 +79,11 @@ impl LauncherMode for LaunchMode {
                 .spawn();
         }
         // if the result is none we just exit, the assumption being there were no valid results
+    }
+}
+
+impl NamedMode for LaunchMode {
+    fn name(&self) -> &str {
+        "launch"
     }
 }

@@ -3,7 +3,7 @@
 //! This mode allows the user to search for something on the web using [DuckDuckGo](https://duckduckgo.com/).
 use std::process::Command;
 
-use crate::mode::LauncherMode;
+use crate::mode::{LauncherMode, NamedMode};
 use common::config::launcher::LauncherConfig;
 use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 
@@ -23,5 +23,11 @@ impl LauncherMode for SearchMode {
                 utf8_percent_encode(&self.search(query, config)[0], NON_ALPHANUMERIC)
             ))
             .spawn();
+    }
+}
+
+impl NamedMode for SearchMode {
+    fn name(&self) -> &str {
+        "web"
     }
 }

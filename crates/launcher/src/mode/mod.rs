@@ -6,6 +6,8 @@ mod launch;
 mod math;
 mod search;
 
+use std::sync::Mutex;
+
 pub use clipboard::ClipboardMode;
 use common::config::launcher::LauncherConfig;
 pub use launch::LaunchMode;
@@ -26,6 +28,14 @@ pub trait LauncherMode {
     fn finish(&self, query: &str, config: &LauncherConfig, index: usize);
 }
 
+/// Trait representing a mode that has a name
+trait NamedMode: LauncherMode {
+    /// The Display name of the mode
+    fn name(&self) -> &str;
+}
+
+// TODO: look into lazy-loading the modes
+
 /// The default mode of the Launcher
 ///
 /// By itself this mode doesn't do anything, but allows the selection of other modes via prefixes.
@@ -41,11 +51,16 @@ pub struct AllMode {
     math: MathMode,
     search: SearchMode,
     clipboard: ClipboardMode,
+    /// Name of the this mode for [function@name]
+    ///
+    /// Since AllMode is not really a mode in itself, we set this value to whatever the name of the
+    /// last used mode in via the search method.
+    name: Mutex<String>,
 }
 
 impl AllMode {
     /// Helper function to pick the correct mode based on the prefix of the search query
-    fn pick_mode<'a>(&self, query: &'a str) -> (&dyn LauncherMode, &'a str) {
+    fn pick_mode<'a>(&self, query: &'a str) -> (&dyn NamedMode, &'a str) {
         let query = query.trim();
 
         match query.chars().next() {
@@ -55,11 +70,17 @@ impl AllMode {
             _ => (&self.launch, query),
         }
     }
+
+    pub fn current_name(&self) -> String {
+        self.name.lock().unwrap().clone()
+    }
 }
 
 impl LauncherMode for AllMode {
     fn search(&self, query: &str, config: &LauncherConfig) -> Vec<String> {
         let (mode, query) = self.pick_mode(query);
+
+        *self.name.lock().unwrap() = mode.name().to_string();
 
         mode.search(query, config)
     }

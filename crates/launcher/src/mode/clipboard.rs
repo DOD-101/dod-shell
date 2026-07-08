@@ -4,7 +4,7 @@
 //! to bring back into the active clipboard.
 use std::process::{Command, Stdio};
 
-use crate::mode::LauncherMode;
+use crate::mode::{LauncherMode, NamedMode};
 
 use common::config::launcher::LauncherConfig;
 use fuzzy_matcher::{
@@ -113,5 +113,11 @@ impl LauncherMode for ClipboardMode {
             }
         }
         // if the result is none we just exit, the assumption being there were no valid results
+    }
+}
+
+impl NamedMode for ClipboardMode {
+    fn name(&self) -> &str {
+        "clipboard"
     }
 }

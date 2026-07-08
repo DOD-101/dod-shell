@@ -78,6 +78,7 @@ pub enum Class {
     OuterBox,
     MainEntry,
     ResultsBox,
+    ModeName,
 
     // Osk
     OskMainWindow,

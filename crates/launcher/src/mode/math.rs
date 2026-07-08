@@ -7,7 +7,7 @@ use std::process::Command;
 use common::config::launcher::LauncherConfig;
 use evalexpr::{HashMapContext, context_map};
 
-use crate::mode::LauncherMode;
+use crate::mode::{LauncherMode, NamedMode};
 
 /// See crate level documentation
 pub struct MathMode {
@@ -42,5 +42,11 @@ impl LauncherMode for MathMode {
         let result = &self.search(query, config)[0];
 
         let _ = Command::new("wl-copy").arg(result).spawn();
+    }
+}
+
+impl NamedMode for MathMode {
+    fn name(&self) -> &str {
+        "math"
     }
 }

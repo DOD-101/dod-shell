@@ -81,7 +81,7 @@ pub enum AppMsg {
 ///
 /// Generated with [macro@relm4::component].
 #[relm4::component(pub)]
-impl SimpleComponent for App {
+impl Component for App {
     type Init = (
         Option<String>,
         common::config::launcher::LauncherConfig,
@@ -89,6 +89,7 @@ impl SimpleComponent for App {
     );
     type Input = AppMsg;
     type Output = ();
+    type CommandOutput = ();
 
     view! {
         #[name(launcher_main_window)]
@@ -112,12 +113,19 @@ impl SimpleComponent for App {
                 set_margin_all: 5,
                 add_css_class: Class::OuterBox.as_ref(),
 
-                #[name(main_entry)]
-                gtk::Entry {
-                    set_placeholder_text: Some("Enter text..."),
-                    connect_changed[sender] => move |this| { sender.input(AppMsg::SearchUpdate(this.text().to_string())); },
-                    connect_activate[sender] => move |this| { sender.input(AppMsg::SearchFinish(this.text().to_string())); },
-                    add_css_class: Class::MainEntry.as_ref(),
+                gtk::Box {
+                    #[name(main_entry)]
+                    gtk::Entry {
+                        set_placeholder_text: Some("Enter text..."),
+                        connect_changed[sender] => move |this| { sender.input(AppMsg::SearchUpdate(this.text().to_string())); },
+                        connect_activate[sender] => move |this| { sender.input(AppMsg::SearchFinish(this.text().to_string())); },
+                        add_css_class: Class::MainEntry.as_ref(),
+                        set_hexpand: true,
+                    },
+                    #[name(mode_name)]
+                    gtk::Label {
+                        add_css_class: Class::ModeName.as_ref(),
+                    }
                 },
 
                 #[local_ref]
@@ -182,20 +190,28 @@ impl SimpleComponent for App {
             entry_search = initial_search;
         }
 
-        let _ = sender
+        sender
             .input_sender()
-            .send(AppMsg::SearchUpdate(entry_search));
+            .emit(AppMsg::SearchUpdate(entry_search));
 
         widgets.main_entry.grab_focus();
 
         ComponentParts { model, widgets }
     }
 
-    fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
+    fn update_with_view(
+        &mut self,
+        widgets: &mut Self::Widgets,
+        msg: Self::Input,
+        sender: ComponentSender<Self>,
+        _root: &Self::Root,
+    ) {
         match msg {
             AppMsg::SearchUpdate(text) => {
                 self.results
                     .set_results(self.mode.search(&text, &self.config));
+
+                widgets.mode_name.set_text(&self.mode.current_name());
             }
             AppMsg::SearchFinish(text) => {
                 self.mode
@@ -218,6 +234,7 @@ impl SimpleComponent for App {
                 relm4::main_application().quit();
             }
         }
+        self.update_view(widgets, sender);
     }
 }
 
