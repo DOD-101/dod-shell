@@ -147,6 +147,7 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
             set_anchor: (Edge::Right, true),
             set_anchor: (Edge::Left, true),
             set_monitor: Some(&init.monitor),
+            set_namespace: Some("dod-shell-bar"),
             set_visible: true,
             set_css_classes: &classes!(MainWindow, BarMainWindow),
             auto_exclusive_zone_enable: (),
@@ -341,7 +342,7 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
             .unwrap()
             .iter()
             .filter_map(|w| {
-                // TODO: Create upstream method to check for special workspaces
+                // TODO: Use upstream is_special method once it's in a release
                 if w.monitor_id.is_some_and(|v| v == init.monitor_id)
                     && !w.name.contains("special:")
                 {

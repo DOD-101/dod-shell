@@ -189,6 +189,7 @@ impl SimpleAsyncComponent for App {
             set_visible: model.active,
             add_css_class: Class::OskMainWindow.as_ref(),
             set_hexpand: true,
+            set_namespace: Some("dod-shell-osk"),
             set_anchor:  (gtk4_layer_shell::Edge::Bottom, true),
             set_layer: Layer::Overlay,
 

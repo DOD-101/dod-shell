@@ -104,6 +104,7 @@ impl Component for App {
             set_anchor: (Edge::Top, false),
             set_anchor: (Edge::Left, false),
             set_title: Some("Launcher"),
+            set_namespace: Some("dod-shell-launcher"),
             set_default_size: (300, 100),
             set_css_classes: &classes!(MainWindow, LauncherMainWindow),
 
