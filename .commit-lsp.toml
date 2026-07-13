@@ -1,0 +1,39 @@
+[[scopes]]
+name = "bar"
+summary = "Changes to the bar module"
+description = "Changes to the status bar under crates/bar, including the GTK4 bar UI, workspace indicators, system info widgets, and multi-monitor support."
+
+[[scopes]]
+name = "cli"
+summary = "Changes to the cli module"
+description = "Changes to the command-line interface under crates/cli, including the launch, list, installed, and generate-config subcommands."
+
+[[scopes]]
+name = "common"
+summary = "Changes to the common module"
+description = "Changes to the shared library under crates/common, including config types, CSS classes, custom types, error types, and logger macros used across all crates."
+
+[[scopes]]
+name = "daemon"
+summary = "Changes to the daemon module"
+description = "Changes to the central daemon under crates/daemon, including system state polling, D-Bus properties and signals, config/CSS hot-reload, MPRIS playback, and Wayland text-input handling."
+
+[[scopes]]
+name = "launcher"
+summary = "Changes to the launcher module"
+description = "Changes to the application launcher under crates/launcher, including the search, math, web, and clipboard modes, as well as the overlay UI and config."
+
+[[scopes]]
+name = "osk"
+summary = "Changes to the osk module"
+description = "Changes to the on-screen keyboard under crates/osk, including keyboard rendering, modifier handling, layout switching, and Wayland input integration."
+
+[[scopes]]
+name = "nix"
+summary = "Changes to anything nix- related. (flake.nix, etc.)"
+description = "Nix flake, flake.lock, NixOS/home-manager modules, and any other Nix packaging or configuration files for building and deploying dod-shell."
+
+[[scopes]]
+name = "all"
+summary = "Changes across all (or more than one) modules."
+description = "Cross-cutting changes that affect multiple crates or the project as a whole, such as workspace-level Cargo.toml changes, shared CI/CD configuration, documentation updates, or architectural refactors touching multiple components."
