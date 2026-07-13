@@ -4,9 +4,12 @@
 //! to bring back into the active clipboard.
 use std::process::{Command, Stdio};
 
-use crate::mode::{LauncherMode, NamedMode};
+use crate::{
+    mode::{LauncherMode, NamedMode},
+    results::{ResultCategory, ResultEntry},
+};
+use std::iter::Iterator;
 
-use common::config::launcher::LauncherConfig;
 use fuzzy_matcher::{
     FuzzyMatcher,
     skim::{SkimMatcherV2, SkimScoreConfig},
@@ -15,6 +18,11 @@ use fuzzy_matcher::{
 /// See module level documentation
 pub struct ClipboardMode {
     /// Clipboard history
+    ///
+    /// String: the display name / content of the entry. What is shown to the user
+    /// u32: the index of the entry used to retrieve it later from cliphist
+    ///
+    /// Both these values are gotten by parsing the output of `cliphist list`.
     data: Vec<(String, u32)>,
     /// The fuzzy matcher used to filter results
     matcher: SkimMatcherV2,
@@ -49,15 +57,21 @@ impl Default for ClipboardMode {
 }
 
 impl LauncherMode for ClipboardMode {
-    fn search(&self, query: &str, config: &LauncherConfig) -> Vec<String> {
+    fn search(&self, query: &str) -> Vec<ResultCategory> {
         if query.is_empty() {
-            return self
-                .data
-                .iter()
-                .take(config.max_results)
-                .map(|v| &v.0)
-                .cloned()
-                .collect();
+            return vec![ResultCategory::from_entries(
+                self.data
+                    .iter()
+                    .cloned()
+                    .map(|d| {
+                        let mut entry = ResultEntry::new(d.0, None);
+
+                        entry.data.insert("id".to_string(), d.1.to_string());
+
+                        entry
+                    })
+                    .collect(),
+            )];
         }
 
         let keys = self.data.iter().map(|v| &v.0);
@@ -78,39 +92,31 @@ impl LauncherMode for ClipboardMode {
 
         options.sort_by_key(|o| o.0);
 
-        options.truncate(config.max_results);
-
-        options.into_iter().map(|o| o.1).collect()
+        return vec![ResultCategory::from_entries(
+            options
+                .into_iter()
+                .map(|d| ResultEntry::new(d.1, None))
+                .collect(),
+        )];
     }
 
-    fn finish(&self, query: &str, config: &LauncherConfig, index: usize) {
-        let results = &self.search(query, config);
-        let val = results.get(index);
+    fn finish(&self, _query: &str, result: &ResultEntry) {
+        let id = result.data.get("id").unwrap();
 
-        if let Some(val) = val {
-            let code = self
-                .data
-                .iter()
-                .find_map(|v| if v.0 == *val { Some(v.1) } else { None })
-                .expect("Value should be valid since it was just returned by search.");
+        let mut child1 = Command::new("cliphist")
+            .arg("decode")
+            .arg(id)
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("failed to spawn cliphist");
 
-            let mut child1 = Command::new("cliphist")
-                .arg("decode")
-                .arg(code.to_string())
-                .stdout(Stdio::piped())
-                .spawn()
-                .expect("failed to spawn cliphist");
+        let mut child2 = Command::new("wl-copy")
+            .stdin(child1.stdout.take().unwrap())
+            .spawn()
+            .expect("failed to spawn wl-copy");
 
-            let mut child2 = Command::new("wl-copy")
-                .stdin(child1.stdout.take().unwrap())
-                .spawn()
-                .expect("failed to spawn wl-copy");
-
-            if !(child1.wait().is_ok_and(|v| v.success())
-                && child2.wait().is_ok_and(|v| v.success()))
-            {
-                print!("ERROR: Failed to copy to clipboard.")
-            }
+        if !(child1.wait().is_ok_and(|v| v.success()) && child2.wait().is_ok_and(|v| v.success())) {
+            print!("ERROR: Failed to copy to clipboard.")
         }
         // if the result is none we just exit, the assumption being there were no valid results
     }

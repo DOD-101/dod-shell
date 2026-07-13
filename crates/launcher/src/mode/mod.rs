@@ -6,7 +6,10 @@ mod launch;
 mod math;
 mod search;
 
-use std::{cell::LazyCell, sync::Mutex};
+use std::{
+    cell::{LazyCell, OnceCell},
+    sync::Mutex,
+};
 
 pub use clipboard::ClipboardMode;
 use common::config::launcher::LauncherConfig;
@@ -14,18 +17,20 @@ pub use launch::LaunchMode;
 pub use math::MathMode;
 pub use search::SearchMode;
 
+use crate::results::{ResultCategory, ResultEntry};
+
 /// Trait representing a mode of the launcher
 ///
 /// See the module level documentation for more information.
-pub trait LauncherMode {
+pub(crate) trait LauncherMode {
     /// Function called each time the search query is updated
     ///
     /// Returns a list of results.
-    fn search(&self, query: &str, config: &LauncherConfig) -> Vec<String>;
+    fn search(&self, query: &str) -> Vec<ResultCategory>;
     /// Function called when the users accepts the result
     ///
     /// `index`: The index of the result in the results list.
-    fn finish(&self, query: &str, config: &LauncherConfig, index: usize);
+    fn finish(&self, query: &str, result: &ResultEntry);
 }
 
 /// Trait representing a mode that has a name
@@ -43,9 +48,8 @@ trait NamedMode: LauncherMode {
 /// Since the creation of this creates instances of all other modes, it should only be called once in
 /// the lifetime of the application. Dropping the returned [AllMode] will therefore also loose
 /// all state of the other modes.
-#[derive(Default)]
 pub struct AllMode {
-    launch: LazyCell<LaunchMode>,
+    launch: OnceCell<LaunchMode>,
     math: LazyCell<MathMode>,
     search: LazyCell<SearchMode>,
     clipboard: LazyCell<ClipboardMode>,
@@ -54,9 +58,22 @@ pub struct AllMode {
     /// Since AllMode is not really a mode in itself, we set this value to whatever the name of the
     /// last used mode in via the search method.
     name: Mutex<String>,
+
+    config: LauncherConfig,
 }
 
 impl AllMode {
+    pub fn new(config: LauncherConfig) -> Self {
+        Self {
+            launch: OnceCell::default(),
+            math: Default::default(),
+            search: Default::default(),
+            clipboard: Default::default(),
+            name: Default::default(),
+            config,
+        }
+    }
+
     /// Helper function to pick the correct mode based on the prefix of the search query
     fn pick_mode<'a>(&self, query: &'a str) -> (&dyn NamedMode, &'a str) {
         let query = query.trim();
@@ -65,7 +82,11 @@ impl AllMode {
             Some('=') => (&*self.math, query.strip_prefix('=').unwrap()),
             Some('?') => (&*self.search, query.strip_prefix('?').unwrap()),
             Some('&') => (&*self.clipboard, query.strip_prefix('&').unwrap()),
-            _ => (&*self.launch, query),
+            _ => (
+                self.launch
+                    .get_or_init(move || LaunchMode::new(&self.config)),
+                query,
+            ),
         }
     }
 
@@ -75,16 +96,16 @@ impl AllMode {
 }
 
 impl LauncherMode for AllMode {
-    fn search(&self, query: &str, config: &LauncherConfig) -> Vec<String> {
+    fn search(&self, query: &str) -> Vec<ResultCategory> {
         let (mode, query) = self.pick_mode(query);
 
         *self.name.lock().unwrap() = mode.name().to_string();
 
-        mode.search(query, config)
+        mode.search(query)
     }
-    fn finish(&self, query: &str, config: &LauncherConfig, index: usize) {
+    fn finish(&self, query: &str, result: &ResultEntry) {
         let (mode, query) = self.pick_mode(query);
 
-        mode.finish(query, config, index);
+        mode.finish(query, result);
     }
 }
