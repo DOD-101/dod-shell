@@ -8,29 +8,54 @@ use std::{
     process::{Command, Stdio},
 };
 
-use crate::mode::{LauncherMode, NamedMode};
+use crate::{
+    mode::{LauncherMode, NamedMode},
+    results::{ResultCategory, ResultEntry},
+};
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 
 use common::config::launcher::{LaunchApp, LauncherConfig};
 
 /// See module level documentation
-#[derive(Default)]
 pub struct LaunchMode {
     /// The fuzzy matcher used to filter results
     matcher: SkimMatcherV2,
+
+    apps: Vec<LaunchApp>,
+}
+
+impl LaunchMode {
+    pub fn new(config: &LauncherConfig) -> Self {
+        Self {
+            matcher: SkimMatcherV2::default(),
+            apps: config.launch_mode.apps.clone(),
+        }
+    }
 }
 
 impl LauncherMode for LaunchMode {
-    fn search(&self, query: &str, config: &LauncherConfig) -> Vec<String> {
-        let apps = &config.launch_mode.apps;
+    fn search(&self, query: &str) -> Vec<ResultCategory> {
         if query.is_empty() {
-            return apps[..(apps.len().min(config.max_results))]
-                .iter()
-                .map(|o| o.name.clone())
-                .collect();
+            let mut category = ResultCategory {
+                name: "Apps".to_string(),
+                ..Default::default()
+            };
+
+            {
+                let mut guard = category.entries.guard();
+                for a in self.apps.iter().cloned() {
+                    let mut entry = ResultEntry::new(a.name, None);
+
+                    entry.data.insert("cmd".to_string(), a.cmd);
+
+                    guard.push_back(entry);
+                }
+            }
+            return vec![category];
         }
 
-        let mut options: Vec<(i64, &LaunchApp)> = apps
+        let mut options: Vec<(i64, &LaunchApp)> = self
+            .apps
             .iter()
             .filter_map(|o| {
                 let score = self.matcher.fuzzy_match(&o.name, query).unwrap_or_default();
@@ -45,40 +70,35 @@ impl LauncherMode for LaunchMode {
 
         options.sort_by_key(|o| o.0);
 
-        options.truncate(config.max_results);
+        let mut category = ResultCategory {
+            name: "Apps".to_string(),
+            ..Default::default()
+        };
 
-        options.into_iter().map(|o| o.1.name.clone()).collect()
+        {
+            let mut guard = category.entries.guard();
+            for a in options.iter().map(|v| v.1.clone()) {
+                let mut entry = ResultEntry::new(a.name, None);
+
+                entry.data.insert("cmd".to_string(), a.cmd);
+
+                guard.push_back(entry);
+            }
+        }
+
+        vec![category]
     }
 
-    fn finish(&self, query: &str, config: &LauncherConfig, index: usize) {
-        let results = self.search(query, config);
-        let result = results.get(index);
+    fn finish(&self, _query: &str, result: &ResultEntry) {
+        let mut cmd_iter = result.data.get("cmd").unwrap().split_whitespace();
 
-        if let Some(result) = result {
-            let cmd = config
-                .launch_mode
-                .apps
-                .iter()
-                .find_map(|a| {
-                    if a.name == *result {
-                        Some(&a.cmd)
-                    } else {
-                        None
-                    }
-                })
-                .expect("Result has to be in self.data.apps.");
-
-            let mut cmd_iter = cmd.split_whitespace();
-
-            let _ = Command::new(cmd_iter.next().unwrap())
-                .args(cmd_iter.collect::<Vec<&str>>())
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .process_group(0)
-                .spawn();
-        }
-        // if the result is none we just exit, the assumption being there were no valid results
+        let _ = Command::new(cmd_iter.next().unwrap())
+            .args(cmd_iter.collect::<Vec<&str>>())
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .process_group(0)
+            .spawn();
     }
 }
 

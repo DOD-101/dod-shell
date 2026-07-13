@@ -15,7 +15,7 @@
 
 use core::str;
 use gtk::prelude::*;
-use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell}; // Import the additional types
+use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{
     RelmApp,
     actions::{AccelsPlus, RelmAction, RelmActionGroup},
@@ -23,38 +23,25 @@ use relm4::{
 };
 use std::env;
 
-use common::{Config, classes, config::launcher::LauncherConfig, css::Class};
+use common::{Config, classes, css::Class};
 use daemon::config::ConfigProxy;
 
 mod mode;
 mod results;
 
-pub use mode::{AllMode, LauncherMode};
-use results::LauncherResults;
+use mode::{AllMode, LauncherMode};
+use results::ResultList;
 
 /// The main [``relm4::Component``] for the launcher
 ///
 /// For more information see module level docs
-#[derive(Default)]
 pub struct App {
     /// The results of the search
-    results: LauncherResults,
+    results: ResultList,
     /// The instance of [AllMode] for the launcher
     mode: AllMode,
-    /// Config options
-    config: LauncherConfig,
     /// If the viewer is invisible
     invisible: bool,
-}
-
-impl App {
-    /// Create a new [``Config``] with an already initialized config
-    fn new_with_config(config: LauncherConfig) -> Self {
-        Self {
-            config,
-            ..Default::default()
-        }
-    }
 }
 
 relm4::new_action_group!(LauncherActionGroup, "launcher");
@@ -144,7 +131,11 @@ impl Component for App {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         relm4::set_global_css(&init.2);
-        let model = App::new_with_config(init.1);
+        let model = App {
+            results: ResultList::new(init.1.max_results),
+            mode: AllMode::new(init.1),
+            invisible: false,
+        };
 
         let results_box = model.results.results_widget();
         let widgets = view_output!();
@@ -209,14 +200,15 @@ impl Component for App {
     ) {
         match msg {
             AppMsg::SearchUpdate(text) => {
-                self.results
-                    .set_results(self.mode.search(&text, &self.config));
+                self.results.set_results(self.mode.search(&text));
 
                 widgets.mode_name.set_text(&self.mode.current_name());
             }
             AppMsg::SearchFinish(text) => {
-                self.mode
-                    .finish(&text, &self.config, self.results.get_selected_index());
+                let Some(res) = self.results.get_result() else {
+                    return;
+                };
+                self.mode.finish(&text, res);
                 self.invisible = true;
 
                 let sender = sender.clone();
@@ -226,10 +218,10 @@ impl Component for App {
                 });
             }
             AppMsg::ResultsMoveUp => {
-                self.results.decrease_active();
+                self.results.up();
             }
             AppMsg::ResultsMoveDown => {
-                self.results.increase_active();
+                self.results.down();
             }
             AppMsg::Quit => {
                 relm4::main_application().quit();

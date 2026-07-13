@@ -3,18 +3,23 @@
   font-family: FiraCode Nerd Font Mono;
 }
 
-.main-entry {
-  background-color: rgba(blue, 0.1);
+.launcher-main-window {
+  background: rgba(255, 255, 255, 0.4);
+  filter: blur(2px);
 
-  &:hover {
-    background-color: rgba(orangered, 0.3);
-    transition: 3s all;
+  .main-entry {
+    background-color: rgba(blue, 0.1);
+
+    &:hover {
+      background-color: rgba(orangered, 0.3);
+      transition: 3s all;
+    }
   }
-}
 
-.results-box {
-  label.active {
-    color: red;
+  .results-box {
+    label.active {
+      color: red;
+    }
   }
 }
 

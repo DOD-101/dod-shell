@@ -4,10 +4,10 @@
 use std::f64::consts::{E, PI};
 use std::process::Command;
 
-use common::config::launcher::LauncherConfig;
 use evalexpr::{HashMapContext, context_map};
 
 use crate::mode::{LauncherMode, NamedMode};
+use crate::results::{ResultCategory, ResultEntry};
 
 /// See crate level documentation
 pub struct MathMode {
@@ -27,21 +27,21 @@ impl Default for MathMode {
 }
 
 impl LauncherMode for MathMode {
-    fn search(&self, query: &str, _config: &LauncherConfig) -> Vec<String> {
+    fn search(&self, query: &str) -> Vec<ResultCategory> {
         if query.is_empty() {
-            return vec![String::from("0")];
+            return vec![ResultEntry::new(String::from("0"), None).into_category()];
         }
 
-        match evalexpr::eval_with_context(query, &self.context) {
-            Ok(val) => vec![val.to_string()],
-            Err(e) => vec![e.to_string()],
-        }
+        let res = match evalexpr::eval_with_context(query, &self.context) {
+            Ok(val) => val.to_string(),
+            Err(e) => e.to_string(),
+        };
+
+        vec![ResultEntry::new(res, None).into_category()]
     }
 
-    fn finish(&self, query: &str, config: &LauncherConfig, _index: usize) {
-        let result = &self.search(query, config)[0];
-
-        let _ = Command::new("wl-copy").arg(result).spawn();
+    fn finish(&self, _query: &str, result: &ResultEntry) {
+        let _ = Command::new("wl-copy").arg(result.label.clone()).spawn();
     }
 }
 

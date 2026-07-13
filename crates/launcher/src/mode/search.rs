@@ -3,8 +3,10 @@
 //! This mode allows the user to search for something on the web using [DuckDuckGo](https://duckduckgo.com/).
 use std::process::Command;
 
-use crate::mode::{LauncherMode, NamedMode};
-use common::config::launcher::LauncherConfig;
+use crate::{
+    mode::{LauncherMode, NamedMode},
+    results::{ResultCategory, ResultEntry},
+};
 use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 
 /// See module level documentation
@@ -12,15 +14,15 @@ use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 pub struct SearchMode {}
 
 impl LauncherMode for SearchMode {
-    fn search(&self, query: &str, _config: &LauncherConfig) -> Vec<String> {
-        vec![query.to_string()]
+    fn search(&self, query: &str) -> Vec<ResultCategory> {
+        vec![ResultEntry::new(query.to_string(), None).into_category()]
     }
 
-    fn finish(&self, query: &str, config: &LauncherConfig, _index: usize) {
+    fn finish(&self, query: &str, _result: &ResultEntry) {
         let _ = Command::new("xdg-open")
             .arg(format!(
                 "https://duck.com?q={}",
-                utf8_percent_encode(&self.search(query, config)[0], NON_ALPHANUMERIC)
+                utf8_percent_encode(query, NON_ALPHANUMERIC)
             ))
             .spawn();
     }
