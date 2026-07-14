@@ -4,6 +4,7 @@
 //!
 //! The applications are stored in the dod-shell config file.
 use std::{
+    collections::HashSet,
     os::unix::process::CommandExt,
     process::{Command, Stdio},
 };
@@ -22,6 +23,8 @@ pub struct LaunchMode {
     matcher: SkimMatcherV2,
 
     apps: Vec<LaunchApp>,
+
+    executables: HashSet<String>,
 }
 
 impl LaunchMode {
@@ -29,38 +32,19 @@ impl LaunchMode {
         Self {
             matcher: SkimMatcherV2::default(),
             apps: config.launch_mode.apps.clone(),
+
+            executables: path_lookup::get_executables(),
         }
     }
-}
 
-impl LauncherMode for LaunchMode {
-    fn search(&self, query: &str) -> Vec<ResultCategory> {
-        if query.is_empty() {
-            let mut category = ResultCategory {
-                name: "Apps".to_string(),
-                ..Default::default()
-            };
-
-            {
-                let mut guard = category.entries.guard();
-                for a in self.apps.iter().cloned() {
-                    let mut entry = ResultEntry::new(a.name, None);
-
-                    entry.data.insert("cmd".to_string(), a.cmd);
-
-                    guard.push_back(entry);
-                }
-            }
-            return vec![category];
-        }
-
+    fn filter_apps(&self, query: &str) -> (i64, ResultCategory) {
         let mut options: Vec<(i64, &LaunchApp)> = self
             .apps
             .iter()
             .filter_map(|o| {
                 let score = self.matcher.fuzzy_match(&o.name, query).unwrap_or_default();
 
-                if score == 0 {
+                if score == 0 && !query.is_empty() {
                     return None;
                 }
 
@@ -70,23 +54,73 @@ impl LauncherMode for LaunchMode {
 
         options.sort_by_key(|o| o.0);
 
+        let max_score = options.iter().map(|o| o.0).max().unwrap_or_default();
+
         let mut category = ResultCategory {
-            name: "Apps".to_string(),
+            name: String::from("Apps"),
             ..Default::default()
         };
 
         {
             let mut guard = category.entries.guard();
+
             for a in options.iter().map(|v| v.1.clone()) {
                 let mut entry = ResultEntry::new(a.name, None);
-
                 entry.data.insert("cmd".to_string(), a.cmd);
 
                 guard.push_back(entry);
             }
         }
 
-        vec![category]
+        (max_score, category)
+    }
+
+    fn filter_executables(&self, query: &str) -> (i64, ResultCategory) {
+        let mut options: Vec<(i64, &String)> = self
+            .executables
+            .iter()
+            .filter_map(|o| {
+                let score = self.matcher.fuzzy_match(o, query).unwrap_or_default();
+
+                if score == 0 && !query.is_empty() {
+                    return None;
+                }
+
+                Some((score, o))
+            })
+            .collect();
+
+        options.sort_by_key(|o| o.0);
+
+        let max_score = options.iter().map(|o| o.0).max().unwrap_or_default();
+
+        let mut category = ResultCategory {
+            name: String::from("Executables"),
+            ..Default::default()
+        };
+
+        {
+            let mut guard = category.entries.guard();
+
+            for a in options.iter().map(|v| v.1.clone()) {
+                let mut entry = ResultEntry::new(a.clone(), None);
+                entry.data.insert("cmd".to_string(), a);
+
+                guard.push_back(entry);
+            }
+        }
+
+        (max_score, category)
+    }
+}
+
+impl LauncherMode for LaunchMode {
+    fn search(&self, query: &str) -> Vec<ResultCategory> {
+        let mut categories = vec![self.filter_apps(query), self.filter_executables(query)];
+
+        categories.sort_by_key(|v| v.0);
+
+        categories.into_iter().map(|v| v.1).collect()
     }
 
     fn finish(&self, _query: &str, result: &ResultEntry) {

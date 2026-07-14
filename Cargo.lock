@@ -1316,6 +1316,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "is_executable"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "82cb6a9f675da968c63b6208c641b9dca58fc0133ae53375736b1767b0cab8bd"
+dependencies = [
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "is_terminal_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1402,6 +1411,7 @@ dependencies = [
  "evalexpr",
  "fuzzy-matcher",
  "gtk4-layer-shell",
+ "path_lookup",
  "percent-encoding",
  "relm4",
  "tokio",
@@ -1672,6 +1682,15 @@ name = "pastey"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b867cad97c0791bbd3aaa6472142568c6c9e8f71937e98379f584cfb0cf35bec"
+
+[[package]]
+name = "path_lookup"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b759ea458d2e276e5993299afb7bc7fcd8782057f8e6cf97c2cb29ecc1e3ffa9"
+dependencies = [
+ "is_executable",
+]
 
 [[package]]
 name = "percent-encoding"
