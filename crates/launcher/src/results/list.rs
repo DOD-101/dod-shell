@@ -62,8 +62,25 @@ impl ResultList {
             }
         }
 
-        self.selected_entry = ResultIndex::default();
+        self.selected_entry = self.first_valid_result_index();
         self.set_current_result_active(true);
+    }
+
+    fn first_valid_result_index(&self) -> ResultIndex {
+        let category = self
+            .categories
+            .iter()
+            .enumerate()
+            .find(|c| !c.1.is_empty())
+            .map(|i| i.0);
+
+        match category {
+            Some(cat) => ResultIndex {
+                category: cat,
+                entry: 0,
+            },
+            None => ResultIndex::default(),
+        }
     }
 
     pub fn get_result(&self) -> Option<&ResultEntry> {
@@ -84,6 +101,8 @@ impl ResultList {
         if self.is_empty() {
             return;
         }
+
+        dbg!(&self.selected_entry);
 
         self.categories.send(
             self.selected_entry.category,
