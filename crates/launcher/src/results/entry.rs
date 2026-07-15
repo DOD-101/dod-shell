@@ -1,3 +1,6 @@
+//! A single entry in the list of results
+//!
+//! Each result can be selected, at which point it will be returned to the [`crate::LauncherMode`].
 use std::collections::HashMap;
 
 use common::css::Class;
@@ -8,9 +11,10 @@ use crate::results::ResultCategory;
 
 /// An individual result
 #[derive(Debug, Clone, Default)]
-pub(crate) struct ResultEntry {
+pub struct ResultEntry {
     /// The label of the result (aka. what the user sees)
     pub label: String,
+    /// Icon for the entry
     #[allow(dead_code, reason = "Needed in the next feat update")]
     pub icon: Option<&'static str>,
     /// Whether the result is currently selected
@@ -19,21 +23,23 @@ pub(crate) struct ResultEntry {
     /// Additional data associated with a result entry
     ///
     /// This is arbitrary, and set by each mode individually to be used in the
-    /// [crate::mode::LauncherMode::finish] function.
+    /// [`crate::mode::LauncherMode::finish`] function.
     pub data: HashMap<String, String>,
 }
 
 impl ResultEntry {
+    /// Creates a new [`ResultEntry`].
     pub(crate) fn new(label: String, icon: Option<&'static str>) -> Self {
         Self {
             label,
             icon,
             active: false,
 
-            data: Default::default(),
+            data: HashMap::default(),
         }
     }
 
+    /// Turn this entry into a category with only this entry
     pub(crate) fn into_category(self) -> ResultCategory {
         let mut category = ResultCategory::default();
 
@@ -47,16 +53,16 @@ impl ResultEntry {
     }
 }
 
-/// Input messages for [ResultEntry]
+/// Input messages for [`ResultEntry`]
 #[derive(Debug)]
 pub enum ResultEntryInput {
-    /// Set the [ResultEntry] as (in)active
+    /// Set the [`ResultEntry`] as (in)active
     SetActive(bool),
 }
 
-/// Widget associated with the [ResultEntry] component
+/// Widget associated with the [`ResultEntry`] component
 ///
-/// Generated with [macro@relm4::component].
+/// Generated with [`macro@relm4::component`].
 #[relm4::factory(pub)]
 impl FactoryComponent for ResultEntry {
     type Init = Self;
@@ -66,6 +72,7 @@ impl FactoryComponent for ResultEntry {
     type ParentWidget = gtk::Box;
 
     view! {
+        /// Label for the name of the entry
         #[name(launch_option_label)]
         gtk::Label {
             set_label: &self.label,

@@ -17,6 +17,9 @@ tokio.workspace = true
 toml.workspace = true
 zbus.workspace = true
 
+[lints]
+workspace = true
+
 [[bin]]
 name = "dod-shell-launcher"
 path = "src/main.rs"

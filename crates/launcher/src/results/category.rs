@@ -1,16 +1,25 @@
+//! A single category within the launcher results list.
+//!
+//! See: [`ResultCategory`]
+
 use relm4::{gtk::prelude::*, prelude::*};
 
 use super::entry::{ResultEntry, ResultEntryInput};
 
+/// A category grouping multiple [`ResultEntry`]s for display in the launcher UI.
 #[derive(Debug, Clone)]
-pub(crate) struct ResultCategory {
+pub struct ResultCategory {
+    /// Display name shown to the user
     pub name: String,
+    /// Icon for the category
     #[allow(dead_code, reason = "Needed in the next feat update")]
     pub icon: Option<String>,
+    /// Entries in this category
     pub entries: FactoryVecDeque<ResultEntry>,
 }
 
 impl Default for ResultCategory {
+    /// Creates an empty category with default values (no name, no icon, no entries).
     fn default() -> Self {
         Self {
             name: String::default(),
@@ -20,28 +29,35 @@ impl Default for ResultCategory {
     }
 }
 
-impl ResultCategory {
-    pub(crate) fn from_entries(entries: Vec<ResultEntry>) -> Self {
+impl FromIterator<ResultEntry> for ResultCategory {
+    fn from_iter<T: IntoIterator<Item = ResultEntry>>(iter: T) -> Self {
         Self {
-            entries: FactoryVecDeque::from_iter(entries, gtk::Box::default()),
+            entries: FactoryVecDeque::from_iter(iter, gtk::Box::default()),
             ..Default::default()
         }
     }
+}
 
+impl ResultCategory {
+    /// Returns the number of entries in this category.
     pub(crate) fn len(&self) -> usize {
         self.entries.len()
     }
 
+    /// Returns `true` if this category contains no entries.
     pub(crate) fn is_empty(&self) -> bool {
         self.entries.len() == 0
     }
 }
 
+/// Input messages for [`ResultCategory`].
 #[derive(Debug)]
-pub(crate) enum ResultCategoryInput {
+pub enum ResultCategoryInput {
+    /// Forwards a message to a specific entry within this category.
     EntryMessage(usize, ResultEntryInput),
 }
 
+/// Widget associated with the [`ResultCategory`] component.
 #[relm4::factory(pub)]
 impl FactoryComponent for ResultCategory {
     type Init = Self;
@@ -59,6 +75,7 @@ impl FactoryComponent for ResultCategory {
                 set_label: &self.name,
             },
 
+            /// Entries for this category
             #[local_ref]
             entries -> gtk::Box {
                 set_orientation: gtk::Orientation::Vertical,

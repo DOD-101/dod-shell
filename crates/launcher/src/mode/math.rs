@@ -11,6 +11,7 @@ use crate::results::{ResultCategory, ResultEntry};
 
 /// See crate level documentation
 pub struct MathMode {
+    /// Context for calculation
     context: HashMapContext,
 }
 
@@ -46,7 +47,7 @@ impl LauncherMode for MathMode {
 }
 
 impl NamedMode for MathMode {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "math"
     }
 }

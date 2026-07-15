@@ -40,7 +40,7 @@ impl Default for ClipboardMode {
 
         let data = output
             .lines()
-            .map(|s| s.split_once("\t").unwrap())
+            .map(|s| s.split_once('\t').unwrap())
             .map(|v| (v.1.to_string(), v.0.parse().unwrap()))
             .collect();
 
@@ -59,7 +59,7 @@ impl Default for ClipboardMode {
 impl LauncherMode for ClipboardMode {
     fn search(&self, query: &str) -> Vec<ResultCategory> {
         if query.is_empty() {
-            return vec![ResultCategory::from_entries(
+            return vec![
                 self.data
                     .iter()
                     .cloned()
@@ -70,8 +70,8 @@ impl LauncherMode for ClipboardMode {
 
                         entry
                     })
-                    .collect(),
-            )];
+                    .collect::<ResultCategory>(),
+            ];
         }
 
         let keys = self.data.iter().map(|v| &v.0);
@@ -86,18 +86,22 @@ impl LauncherMode for ClipboardMode {
                 }
 
                 // multiply by the position to take into account the historical order
+                #[allow(
+                    clippy::cast_possible_wrap,
+                    reason = "The index will never be i64::MAX."
+                )]
                 Some((score * i as i64, o.clone()))
             })
             .collect();
 
         options.sort_by_key(|o| o.0);
 
-        return vec![ResultCategory::from_entries(
+        vec![
             options
                 .into_iter()
                 .map(|d| ResultEntry::new(d.1, None))
-                .collect(),
-        )];
+                .collect::<ResultCategory>(),
+        ]
     }
 
     fn finish(&self, _query: &str, result: &ResultEntry) {
@@ -116,14 +120,14 @@ impl LauncherMode for ClipboardMode {
             .expect("failed to spawn wl-copy");
 
         if !(child1.wait().is_ok_and(|v| v.success()) && child2.wait().is_ok_and(|v| v.success())) {
-            print!("ERROR: Failed to copy to clipboard.")
+            print!("ERROR: Failed to copy to clipboard.");
         }
         // if the result is none we just exit, the assumption being there were no valid results
     }
 }
 
 impl NamedMode for ClipboardMode {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "clipboard"
     }
 }

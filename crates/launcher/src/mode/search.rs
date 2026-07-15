@@ -29,7 +29,7 @@ impl LauncherMode for SearchMode {
 }
 
 impl NamedMode for SearchMode {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "web"
     }
 }

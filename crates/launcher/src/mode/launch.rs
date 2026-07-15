@@ -21,13 +21,14 @@ use common::config::launcher::{LaunchApp, LauncherConfig};
 pub struct LaunchMode {
     /// The fuzzy matcher used to filter results
     matcher: SkimMatcherV2,
-
+    /// Apps configured through [`LauncherConfig`]
     apps: Vec<LaunchApp>,
-
+    /// Executables found in the system `$PATH`
     executables: HashSet<String>,
 }
 
 impl LaunchMode {
+    /// Create a new [`LaunchMode`]
     pub fn new(config: &LauncherConfig) -> Self {
         Self {
             matcher: SkimMatcherV2::default(),
@@ -37,12 +38,22 @@ impl LaunchMode {
         }
     }
 
-    fn filter_apps(&self, query: &str) -> (i64, ResultCategory) {
-        let mut options: Vec<(i64, &LaunchApp)> = self
-            .apps
-            .iter()
+    /// Generic helper method to filter results and sort them based of their fuzzy match to `query`
+    fn filter_results<Items>(
+        &self,
+        query: &str,
+        items: Items,
+        mut category: ResultCategory,
+    ) -> (i64, ResultCategory)
+    where
+        Items: Iterator<Item = ResultEntry>,
+    {
+        let mut options: Vec<(i64, ResultEntry)> = items
             .filter_map(|o| {
-                let score = self.matcher.fuzzy_match(&o.name, query).unwrap_or_default();
+                let score = self
+                    .matcher
+                    .fuzzy_match(&o.label, query)
+                    .unwrap_or_default();
 
                 if score == 0 && !query.is_empty() {
                     return None;
@@ -56,61 +67,59 @@ impl LaunchMode {
 
         let max_score = options.iter().map(|o| o.0).max().unwrap_or_default();
 
-        let mut category = ResultCategory {
-            name: String::from("Apps"),
-            ..Default::default()
-        };
-
         {
             let mut guard = category.entries.guard();
 
-            for a in options.iter().map(|v| v.1.clone()) {
-                let mut entry = ResultEntry::new(a.name, None);
-                entry.data.insert("cmd".to_string(), a.cmd);
-
-                guard.push_back(entry);
+            for o in options.into_iter().map(|v| v.1) {
+                guard.push_back(o);
             }
         }
 
         (max_score, category)
     }
 
+    /// Helper Method to filter through [`Self::apps`] returning a [`ResultCategory`]
+    ///
+    /// See: [`Self::filter_results`]
+    fn filter_apps(&self, query: &str) -> (i64, ResultCategory) {
+        let category = ResultCategory {
+            name: String::from("Apps"),
+            ..Default::default()
+        };
+
+        self.filter_results(
+            query,
+            self.apps.iter().map(|app| {
+                let mut entry = ResultEntry::new(app.name.clone(), None);
+
+                entry.data.insert("cmd".to_string(), app.cmd.clone());
+
+                entry
+            }),
+            category,
+        )
+    }
+
+    /// Helper method to filter through [`Self::executables`] returning a [`ResultCategory`]
+    ///
+    /// See: [`Self::filter_results`]
     fn filter_executables(&self, query: &str) -> (i64, ResultCategory) {
-        let mut options: Vec<(i64, &String)> = self
-            .executables
-            .iter()
-            .filter_map(|o| {
-                let score = self.matcher.fuzzy_match(o, query).unwrap_or_default();
-
-                if score == 0 && !query.is_empty() {
-                    return None;
-                }
-
-                Some((score, o))
-            })
-            .collect();
-
-        options.sort_by_key(|o| o.0);
-
-        let max_score = options.iter().map(|o| o.0).max().unwrap_or_default();
-
-        let mut category = ResultCategory {
+        let category = ResultCategory {
             name: String::from("Executables"),
             ..Default::default()
         };
 
-        {
-            let mut guard = category.entries.guard();
+        self.filter_results(
+            query,
+            self.executables.iter().map(|exe| {
+                let mut entry = ResultEntry::new(exe.clone(), None);
 
-            for a in options.iter().map(|v| v.1.clone()) {
-                let mut entry = ResultEntry::new(a.clone(), None);
-                entry.data.insert("cmd".to_string(), a);
+                entry.data.insert("cmd".to_string(), exe.clone());
 
-                guard.push_back(entry);
-            }
-        }
-
-        (max_score, category)
+                entry
+            }),
+            category,
+        )
     }
 }
 
@@ -127,7 +136,7 @@ impl LauncherMode for LaunchMode {
         let mut cmd_iter = result.data.get("cmd").unwrap().split_whitespace();
 
         let _ = Command::new(cmd_iter.next().unwrap())
-            .args(cmd_iter.collect::<Vec<&str>>())
+            .args(cmd_iter)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -137,7 +146,7 @@ impl LauncherMode for LaunchMode {
 }
 
 impl NamedMode for LaunchMode {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "launch"
     }
 }

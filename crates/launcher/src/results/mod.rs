@@ -1,11 +1,9 @@
-//! The results of the search
+//! Items relating to the search results
 //!
-//! The main item of the modle is [LauncherResults].
-//! It wraps a [relm4::prelude::FactoryVecDeque], which contains the actual results and additionally stores the
-//! currently selected item's index
+//! See: [`list`]
 
 mod category;
 mod entry;
 mod list;
 
-pub(crate) use {category::ResultCategory, entry::ResultEntry, list::ResultList};
+pub use {category::ResultCategory, entry::ResultEntry, list::ResultList};

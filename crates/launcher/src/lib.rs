@@ -1,6 +1,6 @@
 //! The launcher component of the shell
 //!
-//! The launcher functionality is based on the idea of different [LauncherMode]s. (Modes for short)
+//! The launcher functionality is based on the idea of different [`LauncherMode`]s. (Modes for short)
 //!
 //! ## Modes
 //!
@@ -10,7 +10,7 @@
 //!
 //! WIP: Or in the future by command line arguments.
 //!
-//! The default mode is [AllMode], which is less so a mode of it's own, but more so a mode to allow
+//! The default mode is [`AllMode`], which is less so a mode of it's own, but more so a mode to allow
 //! the selection of other modes via the prefixes.
 
 use core::str;
@@ -23,7 +23,7 @@ use relm4::{
 };
 use std::env;
 
-use common::{Config, classes, css::Class};
+use common::{Config, classes, config::launcher::LauncherConfig, css::Class};
 use daemon::config::ConfigProxy;
 
 mod mode;
@@ -38,7 +38,7 @@ use results::ResultList;
 pub struct App {
     /// The results of the search
     results: ResultList,
-    /// The instance of [AllMode] for the launcher
+    /// The instance of [`AllMode`] for the launcher
     mode: AllMode,
     /// If the viewer is invisible
     invisible: bool,
@@ -66,14 +66,10 @@ pub enum AppMsg {
 
 /// Widget associated with the [App] component
 ///
-/// Generated with [macro@relm4::component].
+/// Generated with [`macro@relm4::component`].
 #[relm4::component(pub)]
 impl Component for App {
-    type Init = (
-        Option<String>,
-        common::config::launcher::LauncherConfig,
-        String,
-    );
+    type Init = (Option<String>, LauncherConfig, String);
     type Input = AppMsg;
     type Output = ();
     type CommandOutput = ();
@@ -131,7 +127,7 @@ impl Component for App {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         relm4::set_global_css(&init.2);
-        let model = App {
+        let model = Self {
             results: ResultList::new(init.1.max_results),
             mode: AllMode::new(init.1),
             invisible: false,
@@ -170,17 +166,23 @@ impl Component for App {
 
         action_group.register_for_widget(&widgets.launcher_main_window);
 
-        let mut entry_search = String::default();
-        if let Some(initial_search) = init.0 {
+        let entry_search = if let Some(initial_search) = init.0 {
             widgets.main_entry.set_text(&initial_search);
 
+            #[allow(
+                clippy::cast_possible_truncation,
+                clippy::cast_possible_wrap,
+                reason = "Search len will never be more than i32::Max."
+            )]
             let len = initial_search.len() as i32;
             widgets.main_entry.connect_has_focus_notify(move |e| {
                 e.set_position(len);
             });
 
-            entry_search = initial_search;
-        }
+            initial_search
+        } else {
+            String::default()
+        };
 
         sender
             .input_sender()
@@ -231,6 +233,15 @@ impl Component for App {
     }
 }
 
+/// Launch the launcher component.
+///
+/// # Panics
+///
+/// Panics if a tokio runtime cannot be created.
+///
+/// # Errors
+///
+/// This function will return an error if there is an issue communicating with the daemon.
 pub fn launch() -> zbus::Result<()> {
     let handle = std::thread::spawn(|| {
         let rt =
@@ -254,7 +265,8 @@ pub fn launch() -> zbus::Result<()> {
     Ok(())
 }
 
-async fn get_all_config() -> zbus::Result<(common::config::launcher::LauncherConfig, String)> {
+/// Helper function to get the [`LauncherConfig`] and css for styling.
+async fn get_all_config() -> zbus::Result<(LauncherConfig, String)> {
     let connection = zbus::Connection::session().await?;
 
     let config_proxy = ConfigProxy::new(&connection).await?;
