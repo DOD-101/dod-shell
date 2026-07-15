@@ -1,6 +1,6 @@
 //! The launcher component of the shell
 //!
-//! The launcher functionality is based on the idea of different [LauncherMode]s. (Modes for short)
+//! The launcher functionality is based on the idea of different [`LauncherMode`]s. (Modes for short)
 //!
 //! ## Modes
 //!
@@ -10,7 +10,7 @@
 //!
 //! WIP: Or in the future by command line arguments.
 //!
-//! The default mode is [AllMode], which is less so a mode of it's own, but more so a mode to allow
+//! The default mode is [`AllMode`], which is less so a mode of it's own, but more so a mode to allow
 //! the selection of other modes via the prefixes.
 
 use core::str;
@@ -23,22 +23,24 @@ use relm4::{
 };
 use std::env;
 
-use common::{Config, classes, css::Class};
+use common::{Config, classes, config::launcher::LauncherConfig, css::Class};
 use daemon::config::ConfigProxy;
 
 mod mode;
 mod results;
 
 use mode::{AllMode, LauncherMode};
-use results::ResultList;
+use results::{ResultList, ResultListInput};
+
+use crate::results::ResultEntry;
 
 /// The main [``relm4::Component``] for the launcher
 ///
 /// For more information see module level docs
 pub struct App {
     /// The results of the search
-    results: ResultList,
-    /// The instance of [AllMode] for the launcher
+    results: Controller<ResultList>,
+    /// The instance of [`AllMode`] for the launcher
     mode: AllMode,
     /// If the viewer is invisible
     invisible: bool,
@@ -54,8 +56,10 @@ relm4::new_stateless_action!(ResultsMoveDownAction, LauncherActionGroup, "down")
 pub enum AppMsg {
     /// Sent when the search query is updated
     SearchUpdate(String),
-    /// Sent when the search query is accepted
-    SearchFinish(String),
+    /// Sent when the search query is accepted (enter is pressed)
+    SearchFinish,
+    /// Received by the [`ResultList`] widget, after the search is finished
+    SearchResult(Option<ResultEntry>),
     /// Move the selected result up by one
     ResultsMoveUp,
     /// Move the selected result down by one
@@ -66,14 +70,10 @@ pub enum AppMsg {
 
 /// Widget associated with the [App] component
 ///
-/// Generated with [macro@relm4::component].
+/// Generated with [`macro@relm4::component`].
 #[relm4::component(pub)]
 impl Component for App {
-    type Init = (
-        Option<String>,
-        common::config::launcher::LauncherConfig,
-        String,
-    );
+    type Init = (Option<String>, LauncherConfig, String);
     type Input = AppMsg;
     type Output = ();
     type CommandOutput = ();
@@ -106,7 +106,7 @@ impl Component for App {
                     gtk::Entry {
                         set_placeholder_text: Some("Enter text..."),
                         connect_changed[sender] => move |this| { sender.input(AppMsg::SearchUpdate(this.text().to_string())); },
-                        connect_activate[sender] => move |this| { sender.input(AppMsg::SearchFinish(this.text().to_string())); },
+                        connect_activate[sender] => move |_| { sender.input(AppMsg::SearchFinish); },
                         add_css_class: Class::MainEntry.as_ref(),
                         set_hexpand: true,
                     },
@@ -116,11 +116,7 @@ impl Component for App {
                     }
                 },
 
-                #[local_ref]
-                results_box -> gtk::Box {
-                    set_orientation: gtk::Orientation::Vertical,
-                    add_css_class: Class::ResultsBox.as_ref(),
-                },
+                model.results.widget() {},
             }
         }
     }
@@ -131,13 +127,15 @@ impl Component for App {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         relm4::set_global_css(&init.2);
-        let model = App {
-            results: ResultList::new(init.1.max_results),
+        let results = ResultList::builder()
+            .launch(init.1.clone())
+            .forward(sender.input_sender(), AppMsg::SearchResult);
+        let model = Self {
+            results,
             mode: AllMode::new(init.1),
             invisible: false,
         };
 
-        let results_box = model.results.results_widget();
         let widgets = view_output!();
 
         // Make launcher exit on pressing Escape
@@ -170,17 +168,23 @@ impl Component for App {
 
         action_group.register_for_widget(&widgets.launcher_main_window);
 
-        let mut entry_search = String::default();
-        if let Some(initial_search) = init.0 {
+        let entry_search = if let Some(initial_search) = init.0 {
             widgets.main_entry.set_text(&initial_search);
 
+            #[allow(
+                clippy::cast_possible_truncation,
+                clippy::cast_possible_wrap,
+                reason = "Search len will never be more than i32::Max."
+            )]
             let len = initial_search.len() as i32;
             widgets.main_entry.connect_has_focus_notify(move |e| {
                 e.set_position(len);
             });
 
-            entry_search = initial_search;
-        }
+            initial_search
+        } else {
+            String::default()
+        };
 
         sender
             .input_sender()
@@ -200,28 +204,32 @@ impl Component for App {
     ) {
         match msg {
             AppMsg::SearchUpdate(text) => {
-                self.results.set_results(self.mode.search(&text));
+                self.results
+                    .emit(ResultListInput::SetResults(self.mode.search(&text)));
 
                 widgets.mode_name.set_text(&self.mode.current_name());
             }
-            AppMsg::SearchFinish(text) => {
-                let Some(res) = self.results.get_result() else {
-                    return;
-                };
-                self.mode.finish(&text, res);
-                self.invisible = true;
+            AppMsg::SearchFinish => self.results.sender().emit(ResultListInput::GetResult),
+            AppMsg::SearchResult(Some(res)) => {
+                let query = widgets.main_entry.text();
+                self.mode.finish(&query, res);
 
-                let sender = sender.clone();
+                self.invisible = true;
+                // HACK: Find a way to properly start programs without this
                 tokio::task::spawn(async move {
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    sender.input(AppMsg::Quit);
+                    // HACK: since AppMsg is !Send, because of Rc<ResultCategory> in entry, we
+                    // can't use a AppMsg::Quit here, which would be cleaner
+                    relm4::main_application().quit();
+                    std::process::exit(0);
                 });
             }
+            AppMsg::SearchResult(None) => sender.input(AppMsg::Quit),
             AppMsg::ResultsMoveUp => {
-                self.results.up();
+                self.results.emit(ResultListInput::Up);
             }
             AppMsg::ResultsMoveDown => {
-                self.results.down();
+                self.results.emit(ResultListInput::Down);
             }
             AppMsg::Quit => {
                 relm4::main_application().quit();
@@ -231,6 +239,15 @@ impl Component for App {
     }
 }
 
+/// Launch the launcher component.
+///
+/// # Panics
+///
+/// Panics if a tokio runtime cannot be created.
+///
+/// # Errors
+///
+/// This function will return an error if there is an issue communicating with the daemon.
 pub fn launch() -> zbus::Result<()> {
     let handle = std::thread::spawn(|| {
         let rt =
@@ -254,7 +271,8 @@ pub fn launch() -> zbus::Result<()> {
     Ok(())
 }
 
-async fn get_all_config() -> zbus::Result<(common::config::launcher::LauncherConfig, String)> {
+/// Helper function to get the [`LauncherConfig`] and css for styling.
+async fn get_all_config() -> zbus::Result<(LauncherConfig, String)> {
     let connection = zbus::Connection::session().await?;
 
     let config_proxy = ConfigProxy::new(&connection).await?;

@@ -77,7 +77,10 @@ pub enum Class {
     LauncherMainWindow,
     OuterBox,
     MainEntry,
-    ResultsBox,
+    ResultBox,
+    ResultList,
+    ResultCategoryLabel,
+    ResultEntryLabel,
     ModeName,
 
     // Osk

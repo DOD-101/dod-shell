@@ -4,9 +4,6 @@
 }
 
 .launcher-main-window {
-  background: rgba(255, 255, 255, 0.4);
-  filter: blur(2px);
-
   .main-entry {
     background-color: rgba(blue, 0.1);
 
@@ -16,9 +13,20 @@
     }
   }
 
-  .results-box {
-    label.active {
-      color: red;
+  .result-box {
+    .result-list {
+      background-color: #8271c277;
+    }
+    .result-category-label {
+      color: darkmagenta;
+      font-weight: bold;
+    }
+    .result-entry-label {
+      margin-left: 1rem;
+
+      &.active {
+        color: red;
+      }
     }
   }
 }

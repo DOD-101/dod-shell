@@ -68,6 +68,7 @@
           buildInputs = with pkgs; [
             gtk4
             gtk4-layer-shell
+            libadwaita
             alsa-lib
             libxkbcommon
           ];

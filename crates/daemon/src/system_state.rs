@@ -197,7 +197,7 @@ impl SystemState {
         Ok(false)
     }
 
-    /// Get's information about the battery, if one is set in the shell [Config](``common::config::Config``)
+    /// Gets information about the battery, if one is set in the shell [Config](``common::config::Config``)
     ///
     /// Used in [``Self::update``]
     async fn update_battery(&self) -> Option<Result<BatteryData>> {
@@ -362,7 +362,7 @@ impl SystemState {
         Ok((capslock_brightness_sum > 0, numlock_brightness_sum > 0))
     }
 
-    /// Get's the current volume of the default audio output
+    /// Gets the current volume of the default audio output
     ///
     /// If the default audio sink is muted returns `-1`
     ///

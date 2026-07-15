@@ -7,6 +7,7 @@ use std::{
     collections::HashSet,
     os::unix::process::CommandExt,
     process::{Command, Stdio},
+    rc::Rc,
 };
 
 use crate::{
@@ -22,15 +23,16 @@ use common::config::launcher::{LaunchApp, LauncherConfig};
 pub struct LaunchMode {
     /// The fuzzy matcher used to filter results
     matcher: SkimMatcherV2,
-
+    /// Apps configured through [`LauncherConfig`]
     apps: Vec<LaunchApp>,
-
+    /// Executables found in the system `$PATH`
     executables: HashSet<String>,
     /// Desktop entries found on the system
     desktop_entries: Vec<DesktopEntry>,
 }
 
 impl LaunchMode {
+    /// Create a new [`LaunchMode`]
     pub fn new(config: &LauncherConfig) -> Self {
         let locales = get_languages_from_env();
         let desktop_entries = desktop_entries(&locales);
@@ -44,12 +46,17 @@ impl LaunchMode {
         }
     }
 
-    fn filter_apps(&self, query: &str) -> (i64, ResultCategory) {
-        let mut options: Vec<(i64, &LaunchApp)> = self
-            .apps
-            .iter()
+    /// Generic helper method to filter results and sort them based of their fuzzy match to `query`
+    fn filter_results<Items>(&self, query: &str, items: Items) -> Vec<ResultEntry>
+    where
+        Items: Iterator<Item = ResultEntry>,
+    {
+        let mut options: Vec<(i64, ResultEntry)> = items
             .filter_map(|o| {
-                let score = self.matcher.fuzzy_match(&o.name, query).unwrap_or_default();
+                let score = self
+                    .matcher
+                    .fuzzy_match(&o.label, query)
+                    .unwrap_or_default();
 
                 if score == 0 && !query.is_empty() {
                     return None;
@@ -61,74 +68,51 @@ impl LaunchMode {
 
         options.sort_by_key(|o| o.0);
 
-        let max_score = options.iter().map(|o| o.0).max().unwrap_or_default();
-
-        let mut category = ResultCategory {
-            name: String::from("Apps"),
-            ..Default::default()
-        };
-
-        {
-            let mut guard = category.entries.guard();
-
-            for a in options.iter().map(|v| v.1.clone()) {
-                let mut entry = ResultEntry::new(a.name, None);
-                entry.data.insert("cmd".to_string(), a.cmd);
-
-                guard.push_back(entry);
-            }
-        }
-
-        (max_score, category)
+        options.into_iter().map(|o| o.1).collect()
     }
 
-    fn filter_executables(&self, query: &str) -> (i64, ResultCategory) {
-        let mut options: Vec<(i64, &String)> = self
-            .executables
-            .iter()
-            .filter_map(|o| {
-                let score = self.matcher.fuzzy_match(o, query).unwrap_or_default();
-
-                if score == 0 && !query.is_empty() {
-                    return None;
-                }
-
-                Some((score, o))
-            })
-            .collect();
-
-        options.sort_by_key(|o| o.0);
-
-        let max_score = options.iter().map(|o| o.0).max().unwrap_or_default();
-
-        let mut category = ResultCategory {
-            name: String::from("Executables"),
-            ..Default::default()
-        };
-
-        {
-            let mut guard = category.entries.guard();
-
-            for a in options.iter().map(|v| v.1.clone()) {
-                let mut entry = ResultEntry::new(a.clone(), None);
-                entry.data.insert("cmd".to_string(), a);
-
-                guard.push_back(entry);
-            }
-        }
-
-        (max_score, category)
-    }
-
-    /// Helper method to filter through [`Self::desktop_entries`] returning a [`ResultCategory`]
+    /// Helper method to filter through [`Self::apps`]
     ///
     /// See: [`Self::filter_results`]
-    fn filter_desktop_entries(&self, query: &str) -> (i64, ResultCategory) {
+    fn filter_apps(&self, query: &str) -> Vec<ResultEntry> {
+        let category = Rc::new(ResultCategory::new("Apps", None));
+
+        self.filter_results(
+            query,
+            self.apps.iter().map(|app| {
+                let mut entry = ResultEntry::new(app.name.clone(), None, Some(category.clone()));
+
+                entry.data.insert("cmd".to_string(), app.cmd.clone());
+
+                entry
+            }),
+        )
+    }
+
+    /// Helper method to filter through [`Self::executables`]
+    ///
+    /// See: [`Self::filter_results`]
+    fn filter_executables(&self, query: &str) -> Vec<ResultEntry> {
+        let category = Rc::new(ResultCategory::new("Executables", None));
+
+        self.filter_results(
+            query,
+            self.executables.iter().map(|exe| {
+                let mut entry = ResultEntry::new(exe.clone(), None, Some(category.clone()));
+
+                entry.data.insert("cmd".to_string(), exe.clone());
+
+                entry
+            }),
+        )
+    }
+
+    /// Helper method to filter through [`Self::desktop_entries`]
+    ///
+    /// See: [`Self::filter_results`]
+    fn filter_desktop_entries(&self, query: &str) -> Vec<ResultEntry> {
         let locales = get_languages_from_env();
-        let category = ResultCategory {
-            name: String::from("Desktop Entries"),
-            ..Default::default()
-        };
+        let category = Rc::new(ResultCategory::new("Desktop Entries", None));
 
         self.filter_results(
             query,
@@ -140,34 +124,32 @@ impl LaunchMode {
                 let name = de.name(&locales)?.into_owned();
                 let exec = de.exec()?.to_owned();
 
-                let mut entry = ResultEntry::new(name, None);
+                let mut entry = ResultEntry::new(name, None, Some(category.clone()));
                 entry.data.insert("cmd".to_string(), exec);
 
                 Some(entry)
             }),
-            category,
         )
     }
 }
 
 impl LauncherMode for LaunchMode {
-    fn search(&self, query: &str) -> Vec<ResultCategory> {
-        let mut categories = vec![
+    fn search(&self, query: &str) -> Vec<ResultEntry> {
+        vec![
             self.filter_apps(query),
             self.filter_desktop_entries(query),
             self.filter_executables(query),
-        ];
-
-        categories.sort_by_key(|v| v.0);
-
-        categories.into_iter().map(|v| v.1).collect()
+        ]
+        .into_iter()
+        .flatten()
+        .collect()
     }
 
-    fn finish(&self, _query: &str, result: &ResultEntry) {
+    fn finish(&self, _query: &str, result: ResultEntry) {
         let mut cmd_iter = result.data.get("cmd").unwrap().split_whitespace();
 
         let _ = Command::new(cmd_iter.next().unwrap())
-            .args(cmd_iter.collect::<Vec<&str>>())
+            .args(cmd_iter)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -177,7 +159,7 @@ impl LauncherMode for LaunchMode {
 }
 
 impl NamedMode for LaunchMode {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "launch"
     }
 }

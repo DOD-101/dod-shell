@@ -4,8 +4,11 @@ use serde::{Deserialize, Serialize};
 /// See module level documentation
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct LauncherConfig {
-    /// Maximum amount of results to show
-    pub max_results: usize,
+    /// Max height for the list of results
+    pub results_height: i32,
+    /// If results (and category headers) should be centered
+    #[serde(default)]
+    pub center_results: bool,
     /// See [``LaunchModeConfig``]
     pub launch_mode: LaunchModeConfig,
 }
