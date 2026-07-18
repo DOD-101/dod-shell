@@ -13,6 +13,7 @@ use crate::{
     mode::{LauncherMode, NamedMode},
     results::{ResultCategory, ResultEntry},
 };
+use freedesktop_desktop_entry::{DesktopEntry, desktop_entries, get_languages_from_env};
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 
 use common::config::launcher::{LaunchApp, LauncherConfig};
@@ -25,16 +26,22 @@ pub struct LaunchMode {
     apps: Vec<LaunchApp>,
     /// Executables found in the system `$PATH`
     executables: HashSet<String>,
+    /// Desktop entries found on the system
+    desktop_entries: Vec<DesktopEntry>,
 }
 
 impl LaunchMode {
     /// Create a new [`LaunchMode`]
     pub fn new(config: &LauncherConfig) -> Self {
+        let locales = get_languages_from_env();
+        let desktop_entries = desktop_entries(&locales);
+
         Self {
             matcher: SkimMatcherV2::default(),
             apps: config.launch_mode.apps.clone(),
 
             executables: path_lookup::get_executables(),
+            desktop_entries,
         }
     }
 
@@ -121,11 +128,44 @@ impl LaunchMode {
             category,
         )
     }
+
+    /// Helper method to filter through [`Self::desktop_entries`] returning a [`ResultCategory`]
+    ///
+    /// See: [`Self::filter_results`]
+    fn filter_desktop_entries(&self, query: &str) -> (i64, ResultCategory) {
+        let locales = get_languages_from_env();
+        let category = ResultCategory {
+            name: String::from("Desktop Entries"),
+            ..Default::default()
+        };
+
+        self.filter_results(
+            query,
+            self.desktop_entries.iter().filter_map(|de| {
+                if de.no_display() || de.hidden() {
+                    return None;
+                }
+
+                let name = de.name(&locales)?.into_owned();
+                let exec = de.exec()?.to_owned();
+
+                let mut entry = ResultEntry::new(name, None);
+                entry.data.insert("cmd".to_string(), exec);
+
+                Some(entry)
+            }),
+            category,
+        )
+    }
 }
 
 impl LauncherMode for LaunchMode {
     fn search(&self, query: &str) -> Vec<ResultCategory> {
-        let mut categories = vec![self.filter_apps(query), self.filter_executables(query)];
+        let mut categories = vec![
+            self.filter_apps(query),
+            self.filter_desktop_entries(query),
+            self.filter_executables(query),
+        ];
 
         categories.sort_by_key(|v| v.0);
 
