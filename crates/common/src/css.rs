@@ -82,6 +82,7 @@ pub enum Class {
     ResultCategoryLabel,
     ResultEntryLabel,
     ModeName,
+    PositionLabel,
 
     // Osk
     OskMainWindow,

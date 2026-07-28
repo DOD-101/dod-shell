@@ -32,7 +32,7 @@ mod results;
 use mode::{AllMode, LauncherMode};
 use results::{ResultList, ResultListInput};
 
-use crate::results::ResultEntry;
+use crate::results::{ResultEntry, ResultListOuput};
 
 /// The main [``relm4::Component``] for the launcher
 ///
@@ -44,6 +44,12 @@ pub struct App {
     mode: AllMode,
     /// If the viewer is invisible
     invisible: bool,
+    /// Length of the current results
+    ///
+    /// Does not include headers
+    results_len: u32,
+    /// Currently selected index in the results
+    results_index: u32,
 }
 
 relm4::new_action_group!(LauncherActionGroup, "launcher");
@@ -58,8 +64,10 @@ pub enum AppMsg {
     SearchUpdate(String),
     /// Sent when the search query is accepted (enter is pressed)
     SearchFinish,
-    /// Received by the [`ResultList`] widget, after the search is finished
+    /// Received by [`ResultList`], after the search is finished
     SearchResult(Option<ResultEntry>),
+    /// Received by [`ResultList`], when the selection changes
+    Selected(u32),
     /// Move the selected result up by one
     ResultsMoveUp,
     /// Move the selected result down by one
@@ -117,6 +125,13 @@ impl Component for App {
                 },
 
                 model.results.widget() {},
+
+                gtk::Label {
+                    set_align: gtk::Align::End,
+                    add_css_class: Class::PositionLabel.as_ref(),
+                    #[watch]
+                    set_label: &format!("{}/{}", model.results_index + 1, model.results_len)
+                }
             }
         }
     }
@@ -127,13 +142,19 @@ impl Component for App {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         relm4::set_global_css(&init.2);
-        let results = ResultList::builder()
-            .launch(init.1.clone())
-            .forward(sender.input_sender(), AppMsg::SearchResult);
+        let results =
+            ResultList::builder()
+                .launch(init.1.clone())
+                .forward(sender.input_sender(), |msg| match msg {
+                    ResultListOuput::Result(result_entry) => AppMsg::SearchResult(result_entry),
+                    ResultListOuput::Selected(index) => AppMsg::Selected(index),
+                });
         let model = Self {
             results,
             mode: AllMode::new(init.1),
             invisible: false,
+            results_index: 0,
+            results_len: 0,
         };
 
         let widgets = view_output!();
@@ -203,8 +224,10 @@ impl Component for App {
     ) {
         match msg {
             AppMsg::SearchUpdate(text) => {
-                self.results
-                    .emit(ResultListInput::SetResults(self.mode.search(&text)));
+                let results = self.mode.search(&text);
+                self.results_len = results.len() as u32;
+
+                self.results.emit(ResultListInput::SetResults(results));
 
                 widgets.mode_name.set_text(&self.mode.current_name());
             }
@@ -224,6 +247,7 @@ impl Component for App {
                 });
             }
             AppMsg::SearchResult(None) => sender.input(AppMsg::Quit),
+            AppMsg::Selected(index) => self.results_index = index,
             AppMsg::ResultsMoveUp => {
                 self.results.emit(ResultListInput::Up);
             }

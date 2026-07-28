@@ -180,12 +180,23 @@ pub enum ResultListInput {
     Down,
 }
 
+/// Output messages for [`ResultList`].
+#[derive(Debug)]
+pub enum ResultListOuput {
+    /// Sent when the search is finished
+    ///
+    /// Contains the selected result, if one exists.
+    Result(Option<ResultEntry>),
+    /// Currently selected index
+    Selected(u32),
+}
+
 /// Widget associated with the [`ResultList`] component.
 #[relm4::component(pub)]
 impl Component for ResultList {
     type Init = LauncherConfig;
     type Input = ResultListInput;
-    type Output = Option<ResultEntry>;
+    type Output = ResultListOuput;
     type CommandOutput = ();
 
     view! {
@@ -223,6 +234,17 @@ impl Component for ResultList {
         let row_height = measure_row_height();
         let header_height = measure_header_height();
 
+        selection.connect_selected_notify({
+            let sender = sender.output_sender().clone();
+
+            move |selection| {
+                let index = selection.selected();
+                if index != gtk::INVALID_LIST_POSITION {
+                    sender.emit(ResultListOuput::Selected(index));
+                }
+            }
+        });
+
         let model = Self {
             store,
             max_height: config.results_height,
@@ -240,7 +262,9 @@ impl Component for ResultList {
     fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>, _root: &Self::Root) {
         match msg {
             ResultListInput::SetResults(entries) => self.set_results(entries),
-            ResultListInput::GetResult => sender.output_sender().emit(self.get_result()),
+            ResultListInput::GetResult => sender
+                .output_sender()
+                .emit(ResultListOuput::Result(self.get_result())),
             ResultListInput::Up => self.up(),
             ResultListInput::Down => self.down(),
         }
