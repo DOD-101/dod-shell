@@ -5,7 +5,6 @@
 //! The applications are stored in the dod-shell config file.
 use std::{
     collections::HashSet,
-    os::unix::process::CommandExt,
     process::{Command, Stdio},
     rc::Rc,
 };
@@ -147,13 +146,13 @@ impl LauncherMode for LaunchMode {
 
     fn finish(&self, _query: &str, result: ResultEntry) {
         let mut cmd_iter = result.data.get("cmd").unwrap().split_whitespace();
-
-        let _ = Command::new(cmd_iter.next().unwrap())
+        let _ = Command::new("systemd-run")
+            .args(["--user", "--scope", "--collect", "--quiet"])
+            .arg(cmd_iter.next().unwrap())
             .args(cmd_iter)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
-            .process_group(0)
             .spawn();
     }
 }

@@ -236,15 +236,7 @@ impl Component for App {
                 let query = widgets.main_entry.text();
                 self.mode.finish(&query, res);
 
-                self.invisible = true;
-                // HACK: Find a way to properly start programs without this
-                tokio::task::spawn(async move {
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    // HACK: since AppMsg is !Send, because of Rc<ResultCategory> in entry, we
-                    // can't use a AppMsg::Quit here, which would be cleaner
-                    relm4::main_application().quit();
-                    std::process::exit(0);
-                });
+                sender.input(AppMsg::Quit);
             }
             AppMsg::SearchResult(None) => sender.input(AppMsg::Quit),
             AppMsg::Selected(index) => self.results_index = index,
