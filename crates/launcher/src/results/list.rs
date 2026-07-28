@@ -139,7 +139,6 @@ impl ResultList {
     /// given just the rows, is less than `self.max_height`. In practice this means iteration of the
     /// entries only occurs if the list is short.
     #[allow(
-        clippy::cast_possible_truncation,
         clippy::cast_possible_wrap,
         reason = "There will never be that many entries"
     )]

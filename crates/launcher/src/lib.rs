@@ -172,7 +172,6 @@ impl Component for App {
             widgets.main_entry.set_text(&initial_search);
 
             #[allow(
-                clippy::cast_possible_truncation,
                 clippy::cast_possible_wrap,
                 reason = "Search len will never be more than i32::Max."
             )]
