@@ -5,10 +5,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct LauncherConfig {
     /// Max height for the list of results
+    #[serde(default = "results_height_default")]
     pub results_height: i32,
     /// If results (and category headers) should be centered
     #[serde(default)]
     pub center_results: bool,
+    #[serde(default)]
     /// See [``LaunchModeConfig``]
     pub launch_mode: LaunchModeConfig,
 }
@@ -34,4 +36,9 @@ pub struct LaunchApp {
     ///
     /// Not currently used
     pub description: Option<String>,
+}
+
+/// Default for [`LauncherConfig::results_height`]
+const fn results_height_default() -> i32 {
+    400
 }
