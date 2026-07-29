@@ -12,7 +12,6 @@ use std::{
     sync::LazyLock,
 };
 
-use alsa::mixer::{SelemChannelId, SelemId};
 use anyhow::Result;
 use hyprland::shared::HyprDataActive;
 use regex::Regex;
@@ -26,7 +25,7 @@ use zbus::{
     zvariant::{self, Array, ObjectPath, OwnedObjectPath, OwnedValue, Value},
 };
 
-use common::{err::Error, types::Percentage};
+use common::types::Percentage;
 
 /// Dbus service name for `NetworkManager` used by [``SystemState::update_network``]
 const NM_SERVICE_NAME: &str = "org.freedesktop.NetworkManager";
@@ -62,7 +61,7 @@ pub struct SystemState {
     /// The current config
     config: common::Config,
     /// Used in [`Self::update_volume`]
-    mixer: mixer_ref::AlsaMixerRef,
+    pulse_volume: pulse_ref::PulseRef,
 }
 
 impl SystemState {
@@ -148,10 +147,7 @@ impl SystemState {
             None => (),
         }
 
-        self.data.volume = self
-            .update_volume()
-            .inspect_err(|e| log::error!("Failed to update volume information: {e}"))
-            .unwrap_or_default();
+        self.data.volume = self.pulse_volume.get_volume();
     }
 
     /// Checks if any devices are connected via bluetooth
@@ -361,41 +357,6 @@ impl SystemState {
 
         Ok((capslock_brightness_sum > 0, numlock_brightness_sum > 0))
     }
-
-    /// Gets the current volume of the default audio output
-    ///
-    /// If the default audio sink is muted returns `-1`
-    ///
-    /// Used in [``Self::update``]
-    fn update_volume(&self) -> Result<Percentage> {
-        self.mixer.with_mixer(|mixer| {
-
-            // Update the mixer
-            mixer.handle_events()?;
-
-            let selem_id = SelemId::new("Master", 0);
-            let selem = mixer.find_selem(&selem_id).ok_or(Error::NoDefaultCard)?;
-
-            let max = selem.get_playback_volume_range().1;
-            for o in SelemChannelId::all() {
-                if let Ok(volume) = selem.get_playback_volume(*o) {
-                    let muted = selem.get_playback_switch(*o)? == 0;
-
-                    if muted {
-                        return Ok(Percentage::from(-1.0));
-                    }
-
-                    #[allow(
-                        clippy::cast_precision_loss,
-                        reason = "Precision loss only occurs for calculating a percentage, where we don't care since they are just for display."
-                    )]
-                    return Ok((volume as f64 / max as f64).into());
-                }
-            }
-
-            Ok(Percentage::default())
-        })?
-    }
 }
 
 #[interface(
@@ -585,85 +546,159 @@ impl From<&str> for BatteryStatus {
     }
 }
 
-mod mixer_ref {
-    //! See: [`AlsaMixerRef`]
-    use alsa::Mixer;
-    use std::{
-        sync::Mutex,
-        thread::{JoinHandle, spawn},
+mod pulse_ref {
+    //! See [`PulseRef`]
+    use libpulse_binding::{
+        callbacks::ListResult,
+        context::{Context, FlagSet, State, introspect::SinkInfo},
+        mainloop::threaded::Mainloop,
+        volume::Volume,
     };
-    use strum::EnumIs;
+    use std::{
+        sync::mpsc,
+        thread::{JoinHandle, spawn},
+        time::Duration,
+    };
 
-    /// Thread initialized mixer
+    /// Lazily-initialized `PulseAudio` volume querier.
     ///
-    /// Because ALSA does not document thread-safety guarantees for mixers, this type assumes the
-    /// mixer is **not safe to access concurrently** and does not expose it for sharing.
-    ///
-    /// Access to the mixer is provided through [`Self::with_mixer`] to ensure the mixer is only used in a
-    /// controlled, serialized manner.
+    /// Spawns a background thread that owns the `!Send` [`Mainloop`] and provides volume
+    /// queries via a channel interface.
     #[derive(Debug)]
-    pub struct AlsaMixerRef(Mutex<AlsaMixerRefInner>);
-
-    /// Inner states of [`AlsaMixerRef`]
-    #[derive(Debug, EnumIs)]
-    enum AlsaMixerRefInner {
-        /// The thread for creating the [`Mixer`] has been created, but not yet joined
-        ///
-        /// This is the first state the mixer is in.
-        Join(JoinHandle<Result<Mixer, alsa::Error>>),
-        /// The thread for creating the [`Mixer`] has finished and has been joined
-        ///
-        /// This state will be switched to the first time [`AlsaMixerRef::with_mixer`] is called
-        /// and will remain for the rest of the lifetime of [`AlsaMixerRef`]
-        Received(Result<Mixer, alsa::Error>),
-        /// This variant is only used in [`AlsaMixerRef::with_mixer`] and should never exists
-        /// outside of it.
-        ///
-        /// This is placed into the [`std::sync::MutexGuard`] with [`std::mem::replace`] temporarily.
-        Replaced,
+    pub struct PulseRef {
+        /// Used to send messages to background thread
+        sender: mpsc::Sender<Command>,
+        /// Used to stop background thread on [`Drop`]
+        join_handle: Option<JoinHandle<()>>,
     }
 
-    impl Default for AlsaMixerRef {
+    /// Commands sent to the background thread
+    enum Command {
+        /// Get the current volume
+        ///
+        /// See: [`PulseRef::get_volume`]
+        GetVolume {
+            /// Used to send back response
+            respond_to: mpsc::Sender<Option<(u32, bool)>>,
+        },
+        /// Used to stop the background thread before dropping
+        Shutdown,
+    }
+
+    impl Default for PulseRef {
         fn default() -> Self {
-            Self(Mutex::new(AlsaMixerRefInner::Join(spawn(|| {
-                Mixer::new("default", true)
-            }))))
+            let (tx, rx) = mpsc::channel::<Command>();
+
+            let handle = spawn(move || {
+                let Some(mut mainloop) = Mainloop::new() else {
+                    log::error!("Failed to create PulseAudio mainloop");
+                    return;
+                };
+                let Some(mut context) = Context::new(&mainloop, "dod-shell-daemon") else {
+                    log::error!("Failed to create PulseAudio context");
+                    return;
+                };
+                if let Err(e) = context.connect(None, FlagSet::NOFLAGS, None) {
+                    log::error!("Failed to connect to PulseAudio: {e:?}");
+                    return;
+                }
+                if let Err(e) = mainloop.start() {
+                    log::error!("Failed to start PulseAudio mainloop: {e:?}");
+                    return;
+                }
+
+                let mut ready = false;
+                for _ in 0..200 {
+                    match context.get_state() {
+                        State::Ready => {
+                            ready = true;
+                            break;
+                        }
+                        State::Failed | State::Terminated => {
+                            log::error!("PulseAudio connection failed");
+                            return;
+                        }
+                        _ => std::thread::sleep(Duration::from_millis(10)),
+                    }
+                }
+                if !ready {
+                    log::error!("Timed out waiting for PulseAudio connection");
+                    return;
+                }
+
+                for cmd in rx {
+                    match cmd {
+                        Command::GetVolume { respond_to } => {
+                            let result = query_volume(&context);
+                            let _ = respond_to.send(result);
+                        }
+                        Command::Shutdown => break,
+                    }
+                }
+            });
+
+            Self {
+                sender: tx,
+                join_handle: Some(handle),
+            }
         }
     }
 
-    impl AlsaMixerRef {
-        /// Runs the given closure with a reference to the internal [`Mixer`]
-        pub fn with_mixer<F, R>(&self, f: F) -> Result<R, alsa::Error>
-        where
-            F: FnOnce(&Mixer) -> R,
-        {
-            let mut guard = self.0.lock().unwrap();
-
-            let inner = std::mem::replace(&mut *guard, AlsaMixerRefInner::Replaced);
-
-            match inner {
-                AlsaMixerRefInner::Join(join_handle) => {
-                    *guard = AlsaMixerRefInner::Received(join_handle.join().unwrap());
-
-                    // Drop the guard to prevent a deadlock
-                    drop(guard);
-
-                    // Recursively call self again
-                    self.with_mixer(f)
+    impl PulseRef {
+        /// Get the current volume
+        ///
+        /// If the volume is muted the [`Percentage`] has value -1.0.
+        /// If no information could be gathered it is 0 and an error is logged.
+        pub fn get_volume(&self) -> common::types::Percentage {
+            let (tx, rx) = mpsc::channel();
+            if self
+                .sender
+                .send(Command::GetVolume { respond_to: tx })
+                .is_err()
+            {
+                log::error!("PulseAudio thread died");
+                return common::types::Percentage::default();
+            }
+            match rx.recv_timeout(Duration::from_secs(1)) {
+                Ok(Some((_raw_vol, true))) => common::types::Percentage::from(-1.0),
+                Ok(Some((raw_vol, false))) => {
+                    let ratio = f64::from(raw_vol) / f64::from(Volume::NORMAL.0);
+                    common::types::Percentage::from(ratio)
                 }
-                AlsaMixerRefInner::Received(result) => {
-                    let returned = match result {
-                        Ok(ref mixer) => Ok(f(mixer)),
-                        Err(err) => Err(err),
-                    };
-
-                    *guard = AlsaMixerRefInner::Received(result);
-
-                    returned
+                Ok(None) => {
+                    log::error!("PulseAudio returned no sink info");
+                    common::types::Percentage::default()
                 }
-                AlsaMixerRefInner::Replaced => {
-                    unreachable!("Inner should never be Replaced. This is a bug.")
+                Err(_) => {
+                    log::error!("PulseAudio volume query timed out");
+                    common::types::Percentage::default()
                 }
+            }
+        }
+    }
+
+    /// Helper function to get the volume from the given [`Context`]
+    ///
+    /// Returns the volume and mute status.
+    fn query_volume(context: &Context) -> Option<(u32, bool)> {
+        let (tx, rx) = mpsc::channel();
+        let introspector = context.introspect();
+        introspector.get_sink_info_by_name(
+            "@DEFAULT_SINK@",
+            move |res: ListResult<&SinkInfo<'_>>| {
+                if let ListResult::Item(info) = res {
+                    let _ = tx.send((info.volume.avg().0, info.mute));
+                }
+            },
+        );
+        rx.recv_timeout(Duration::from_secs(1)).ok()
+    }
+
+    impl Drop for PulseRef {
+        fn drop(&mut self) {
+            let _ = self.sender.send(Command::Shutdown);
+            if let Some(handle) = self.join_handle.take() {
+                let _ = handle.join();
             }
         }
     }

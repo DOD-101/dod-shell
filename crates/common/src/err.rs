@@ -9,8 +9,6 @@ use thiserror::Error;
     reason = "The error macro gives a good description already"
 )]
 pub enum Error {
-    #[error("no default audio card")]
-    NoDefaultCard,
     #[error("failed to init WaylandInterface: {0}")]
     WaylandInterfaceFailedInit(String),
     #[error("failed getting the requested osk layout")]

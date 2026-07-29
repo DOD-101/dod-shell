@@ -68,8 +68,8 @@
           buildInputs = with pkgs; [
             gtk4
             gtk4-layer-shell
+            libpulseaudio
             libadwaita
-            alsa-lib
             libxkbcommon
           ];
 

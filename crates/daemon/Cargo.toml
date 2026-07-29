@@ -5,12 +5,12 @@ name = "daemon"
 version.workspace = true
 
 [dependencies]
-alsa = "0.10.0"
 anyhow.workspace = true
 common.workspace = true
 futures-util.workspace = true
 grass.workspace = true
 hyprland.workspace = true
+libpulse-binding.workspace = true
 log.workspace = true
 mpris2-zbus.workspace = true
 paste = { version = "0.2.1", package = "pastey" }
