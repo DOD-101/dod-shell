@@ -16,35 +16,44 @@ env_logger = "0.11.8"
 freedesktop-desktop-entry = "0.8.1"
 futures-util = "0.3.32"
 grass = { version = "0.13.4", default-features = false }
-gtk4-layer-shell = "0.7.1"
-hyprland = "0.4.0-beta.3"
+gtk4-layer-shell = "0.8.0"
+hyprland = { version = "0.4.0-beta.3", default-features = false, features = [
+  "data",
+  "dispatch",
+] }
 libpulse-binding = "2.30.1"
 log = "0.4.27"
 mpris2-zbus = { git = "https://github.com/pop-os/dbus-settings-bindings", version = "0.1.0" }
-relm4 = { version = "0.10.0", default-features = false, features = [
+relm4 = { version = "0.11.0", default-features = false, features = [
   "gnome_45",
   "macros",
 ] }
-relm4-icons = "0.10.0"
-relm4-icons-build = "0.10.0"
+relm4-icons = "0.11.0"
+relm4-icons-build = "0.11.0"
 schemars.version = "1.0.4"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.145"
-strum = { version = "0.27.2", features = ["derive"] }
-sysinfo = { version = "0.37.0", default-features = false, features = [
+strum = { version = "0.28.0", features = ["derive"] }
+sysinfo = { version = "0.39.6", default-features = false, features = [
   "disk",
   "system",
 ] }
 tempfile = "3.23.0"
 thiserror = "2.0.16"
 time = { version = "0.3.41", features = ["formatting", "local-offset"] }
-tokio = { version = "1.47.1", features = ["full"] }
-toml = "0.9.5"
+tokio = { version = "1.47.1", features = [
+  "fs",
+  "macros",
+  "rt-multi-thread",
+  "sync",
+  "time",
+] }
+toml = "1.1.4"
 wayland-client = "0.31.11"
 wayland-protocols = { version = "0.32.9", features = ["client", "unstable"] }
 wayland-protocols-misc = { version = "0.3.9", features = ["client"] }
 xkbcommon = "0.9.0"
-zbus = { version = "5.9.0", features = [
+zbus = { version = "5.18.0", features = [
   "option-as-array",
   "tokio",
 ], default-features = false }
@@ -68,3 +77,6 @@ too_long_first_doc_paragraph = "warn"
 
 [workspace.metadata]
 crane.name = "dod-shell"
+
+[profile.release]
+lto = true
