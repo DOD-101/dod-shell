@@ -15,11 +15,17 @@ use std::collections::HashSet;
 
 use common::{config::launcher::LauncherConfig, css::Class};
 use relm4::{
+    Sender,
     gtk::{self, gio, glib::BoxedAnyObject, prelude::*},
     prelude::*,
 };
 
 use super::ResultEntry;
+
+/// Default height estimate for a row before we get a measurement
+const DEFAULT_ROW_HEIGHT: i32 = 19;
+/// Default height estimate for a header before we get a measurement
+const DEFAULT_HEADER_HEIGHT: i32 = 19;
 
 /// The result list component using a [`gtk::ListView`].
 pub struct ResultList {
@@ -33,10 +39,12 @@ pub struct ResultList {
     selection: gtk::SingleSelection,
     /// Maximum height of the results list
     max_height: i32,
-    /// Height of a single row
-    row_height: i32,
-    /// Height of a header row
+    /// Height of a single entry row
+    entry_height: i32,
+    /// Height of a single category header row
     header_height: i32,
+    /// Number of categories
+    categories: i32,
 }
 
 impl ResultList {
@@ -45,8 +53,6 @@ impl ResultList {
         self.store.remove_all();
 
         if !entries.is_empty() {
-            self.scrolled_window
-                .set_height_request(self.compute_list_height(&entries));
             self.store.extend_from_slice(
                 &entries
                     .into_iter()
@@ -54,8 +60,8 @@ impl ResultList {
                     .collect::<Vec<BoxedAnyObject>>(),
             );
             self.selection.set_selected(0);
+            self.scroll(0);
         }
-        self.scroll(0);
     }
 
     /// Move selection down by one.
@@ -142,26 +148,12 @@ impl ResultList {
         clippy::cast_possible_wrap,
         reason = "There will never be that many entries"
     )]
-    fn compute_list_height(&self, entries: &[ResultEntry]) -> i32 {
-        let mut total = entries.len() as i32 * self.row_height;
+    fn update_list_height(&self) {
+        let total =
+            self.store.n_items() as i32 * self.entry_height + self.header_height * self.categories;
 
-        if total > self.max_height {
-            return self.max_height;
-        }
-
-        let mut categories = HashSet::new();
-
-        for entry in entries {
-            if let Some(ref category) = entry.category {
-                categories.insert(&category.name);
-            }
-        }
-
-        let n_sections = categories.len() as i32;
-
-        total += self.header_height * n_sections;
-
-        total.min(self.max_height)
+        self.scrolled_window
+            .set_height_request(total.min(self.max_height));
     }
 }
 
@@ -178,6 +170,10 @@ pub enum ResultListInput {
     Up,
     /// Move the selection down by one.
     Down,
+    /// Sent by the first category header to accurately know it's height
+    CategoryHeaderHeight(i32),
+    /// Sent by the entry to accurately know it's height
+    EntryHeight(i32),
 }
 
 /// Output messages for [`ResultList`].
@@ -211,6 +207,7 @@ impl Component for ResultList {
                 set_vscrollbar_policy: gtk::PolicyType::Automatic,
                 set_hscrollbar_policy: gtk::PolicyType::Never,
 
+                /// List containing the results
                 #[local_ref]
                 list_view -> gtk::ListView {
                     connect_activate[sender] => move |_, _| sender.input(ResultListInput::GetResult),
@@ -227,12 +224,10 @@ impl Component for ResultList {
     ) -> ComponentParts<Self> {
         let store = gio::ListStore::new::<BoxedAnyObject>();
 
-        let (list_view, selection) = build_list_view(&store, &config);
+        let (list_view, selection) =
+            build_list_view(&store, &config, sender.input_sender().clone());
 
         let scrolled_window = gtk::ScrolledWindow::new();
-
-        let row_height = measure_row_height();
-        let header_height = measure_header_height();
 
         selection.connect_selected_notify({
             let sender = sender.output_sender().clone();
@@ -251,8 +246,9 @@ impl Component for ResultList {
             selection,
             list_view: list_view.clone(),
             scrolled_window: scrolled_window.clone(),
-            row_height,
-            header_height,
+            entry_height: DEFAULT_ROW_HEIGHT,
+            header_height: DEFAULT_HEADER_HEIGHT,
+            categories: 0,
         };
 
         let widgets = view_output!();
@@ -260,13 +256,37 @@ impl Component for ResultList {
     }
 
     fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>, _root: &Self::Root) {
+        if matches!(
+            msg,
+            ResultListInput::CategoryHeaderHeight(_) | ResultListInput::EntryHeight(_)
+        ) {
+            self.update_list_height();
+        }
+
         match msg {
-            ResultListInput::SetResults(entries) => self.set_results(entries),
+            #[allow(
+                clippy::cast_possible_wrap,
+                reason = "There will never be that many entries"
+            )]
+            ResultListInput::SetResults(entries) => {
+                self.categories = {
+                    let hash_set: HashSet<&String> = entries
+                        .iter()
+                        .filter_map(|e| e.category.as_ref().map(|c| &c.name))
+                        .collect::<HashSet<_>>();
+
+                    hash_set.len() as i32
+                };
+                self.set_results(entries);
+                self.update_list_height();
+            }
             ResultListInput::GetResult => sender
                 .output_sender()
                 .emit(ResultListOuput::Result(self.get_result())),
             ResultListInput::Up => self.up(),
             ResultListInput::Down => self.down(),
+            ResultListInput::CategoryHeaderHeight(h) => self.header_height = h,
+            ResultListInput::EntryHeight(h) => self.entry_height = h,
         }
     }
 }
@@ -290,6 +310,7 @@ macro_rules! to_entry {
 fn build_list_view(
     store: &gio::ListStore,
     config: &LauncherConfig,
+    input_sender: Sender<ResultListInput>,
 ) -> (gtk::ListView, gtk::SingleSelection) {
     // sorter only needed for the sections (categories)
     let section_sorter = gtk::CustomSorter::new(|obj1, obj2| {
@@ -313,6 +334,8 @@ fn build_list_view(
     } else {
         gtk::Align::Start
     };
+    let item_bound = std::cell::Cell::new(false);
+    let sender = input_sender.clone();
     item_factory.connect_setup(move |_, item| {
         let item = item.downcast_ref::<gtk::ListItem>().unwrap();
 
@@ -324,6 +347,14 @@ fn build_list_view(
 
             label.set_class_active(Class::Active.as_ref(), item.is_selected());
         });
+
+        if !item_bound.replace(true) {
+            let sender = sender.clone();
+            label.connect_realize(move |w| {
+                let height = w.measure(gtk::Orientation::Vertical, -1).1;
+                sender.emit(ResultListInput::EntryHeight(height));
+            });
+        }
     });
     item_factory.connect_bind(|_, item| {
         let item = item.downcast_ref::<gtk::ListItem>().unwrap();
@@ -335,12 +366,22 @@ fn build_list_view(
 
     // creates the category headers
     let header_factory = gtk::SignalListItemFactory::new();
+    let header_bound = std::cell::Cell::new(false);
     header_factory.connect_setup(move |_, header| {
         let label = create_header(align);
+
         header
             .downcast_ref::<gtk::ListHeader>()
             .unwrap()
             .set_child(Some(&label));
+
+        if !header_bound.replace(true) {
+            let sender = input_sender.clone();
+            label.connect_realize(move |w| {
+                let height = w.measure(gtk::Orientation::Vertical, -1).1;
+                sender.emit(ResultListInput::CategoryHeaderHeight(height));
+            });
+        }
     });
     header_factory.connect_bind(|_, header| {
         let header = header.downcast_ref::<gtk::ListHeader>().unwrap();
@@ -381,31 +422,4 @@ fn create_header(align: gtk::Align) -> gtk::Label {
         }
     }
     label
-}
-
-/// Measure the natural height of a single result row
-///
-/// This is done by building a throwaway instance of the row widget and asking it how tall it wants
-/// to be.
-fn measure_row_height() -> i32 {
-    let sample = create_row_label(gtk::Align::Start);
-    sample.set_label("Sample");
-
-    let (_minimum, natural, _min_baseline, _nat_baseline) =
-        sample.measure(gtk::Orientation::Vertical, -1);
-
-    natural
-}
-
-/// Measure the natural height of a single category header row.
-///
-/// See: [`measure_row_height`]
-fn measure_header_height() -> i32 {
-    let sample = create_header(gtk::Align::Start);
-    sample.set_label("Sample");
-
-    let (_minimum, natural, _min_baseline, _nat_baseline) =
-        sample.measure(gtk::Orientation::Vertical, -1);
-
-    natural
 }
