@@ -2,3 +2,10 @@
 [yanked]
 enabled = false      # Warn for yanked crates in Cargo.lock (default: true)
 update_index = false # Auto-update the crates.io index (default: true)
+
+[advisories]
+ignore = [
+  "RUSTSEC-2026-0194",
+  "RUSTSEC-2026-0195",
+] # wait for gvdb to fix this by updating quick-xml
+# not a risk for us
