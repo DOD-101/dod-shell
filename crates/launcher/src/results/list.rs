@@ -178,7 +178,7 @@ pub enum ResultListInput {
 
 /// Output messages for [`ResultList`].
 #[derive(Debug)]
-pub enum ResultListOuput {
+pub enum ResultListOutput {
     /// Sent when the search is finished
     ///
     /// Contains the selected result, if one exists.
@@ -192,7 +192,7 @@ pub enum ResultListOuput {
 impl Component for ResultList {
     type Init = LauncherConfig;
     type Input = ResultListInput;
-    type Output = ResultListOuput;
+    type Output = ResultListOutput;
     type CommandOutput = ();
 
     view! {
@@ -235,7 +235,7 @@ impl Component for ResultList {
             move |selection| {
                 let index = selection.selected();
                 if index != gtk::INVALID_LIST_POSITION {
-                    sender.emit(ResultListOuput::Selected(index));
+                    sender.emit(ResultListOutput::Selected(index));
                 }
             }
         });
@@ -282,7 +282,7 @@ impl Component for ResultList {
             }
             ResultListInput::GetResult => sender
                 .output_sender()
-                .emit(ResultListOuput::Result(self.get_result())),
+                .emit(ResultListOutput::Result(self.get_result())),
             ResultListInput::Up => self.up(),
             ResultListInput::Down => self.down(),
             ResultListInput::CategoryHeaderHeight(h) => self.header_height = h,

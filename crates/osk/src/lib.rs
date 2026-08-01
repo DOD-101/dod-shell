@@ -220,6 +220,7 @@ impl SimpleAsyncComponent for App {
                     },
                 },
 
+                /// Row of keys in the osk
                 #[local_ref]
                 row -> gtk::Box {
                     add_css_class: Class::OskMainBox.as_ref(),

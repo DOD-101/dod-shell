@@ -49,7 +49,7 @@ impl Osk {
     ///
     /// 1. We fail to connect to the Wayland server (compositor).
     ///
-    /// 2. There is an issue with internal [initialization](`common::types::DeferedInit`).
+    /// 2. There is an issue with internal [initialization](`common::types::DeferredInit`).
     pub fn new() -> Result<Self> {
         let connection = Connection::connect_to_env()?;
         let (mut wayland_interface, state_receiver) = WaylandInterface::new();
@@ -147,7 +147,7 @@ impl Osk {
     ///
     /// This method should only be used if you need to
     ///
-    /// 1. press a non-charcter key (eg. `Escape`)
+    /// 1. press a non-character key (eg. `Escape`)
     ///
     /// 2. need to use a modifiers with the key
     ///
@@ -168,7 +168,7 @@ impl Osk {
     ///
     /// This method should only be used if you need to
     ///
-    /// 1. press a non-charcter key (eg. `Escape`)
+    /// 1. press a non-character key (eg. `Escape`)
     ///
     /// 2. need to use a modifiers with the key
     ///

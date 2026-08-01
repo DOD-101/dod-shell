@@ -79,9 +79,9 @@ impl From<u8> for Percentage {
 /// Create the actual variable
 ///
 /// ```
-/// # use common::types::DeferedInit;
+/// # use common::types::DeferredInit;
 ///
-/// let a: DeferedInit<String> = DeferedInit::default();
+/// let a: DeferredInit<String> = DeferredInit::default();
 ///
 /// // ! Using `a.get_value()` or dereferencing `a` here will panic !
 ///
@@ -94,9 +94,9 @@ impl From<u8> for Percentage {
 /// Actually populate wit with data (initialize it)
 ///
 /// ```
-/// # use common::types::DeferedInit;
+/// # use common::types::DeferredInit;
 ///
-/// # let a: DeferedInit<String> = DeferedInit::default();
+/// # let a: DeferredInit<String> = DeferredInit::default();
 ///
 /// a.init("Hello World".to_string());
 ///
@@ -111,16 +111,16 @@ impl From<u8> for Percentage {
 /// such as a Typestate pattern wouldn't work.
 ///
 /// For an example usage see `crates/daemon/src/osk/wayland.rs`.
-pub struct DeferedInit<T> {
+pub struct DeferredInit<T> {
     /// The data to be initialized
     data: UnsafeCell<Option<T>>,
     /// A lock to ensure initialization only happens once
     once: Once,
 }
 
-unsafe impl<T: Sync> Sync for DeferedInit<T> {}
+unsafe impl<T: Sync> Sync for DeferredInit<T> {}
 
-impl<T> Default for DeferedInit<T> {
+impl<T> Default for DeferredInit<T> {
     fn default() -> Self {
         Self {
             data: UnsafeCell::new(None),
@@ -129,17 +129,17 @@ impl<T> Default for DeferedInit<T> {
     }
 }
 
-impl<T: Debug> Debug for DeferedInit<T> {
+impl<T: Debug> Debug for DeferredInit<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         unsafe {
-            f.debug_struct("DeferedInit")
+            f.debug_struct("DeferredInit")
                 .field("data", self.data.get().as_ref().expect(Self::POINTER_MSG))
                 .finish_non_exhaustive()
         }
     }
 }
 
-impl<T> Deref for DeferedInit<T> {
+impl<T> Deref for DeferredInit<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -147,7 +147,7 @@ impl<T> Deref for DeferedInit<T> {
     }
 }
 
-impl<T> DeferedInit<T> {
+impl<T> DeferredInit<T> {
     /// Error message for [`Result::expect`] when dealing with pointers
     const POINTER_MSG: &str = "Value pointer should never be null. This is a bug.";
 
@@ -166,7 +166,7 @@ impl<T> DeferedInit<T> {
         }
     }
 
-    /// Sets the value of this [`DeferedInit<T>`].
+    /// Sets the value of this [`DeferredInit<T>`].
     ///
     /// # Errors
     ///
@@ -182,7 +182,7 @@ impl<T> DeferedInit<T> {
         Ok(())
     }
 
-    /// Returns a reference to the get value of this [`DeferedInit<T>`].
+    /// Returns a reference to the get value of this [`DeferredInit<T>`].
     ///
     /// # Panics
     ///
@@ -310,17 +310,17 @@ mod test {
     }
 
     #[test]
-    fn defered_init() {
-        let defered_init: DeferedInit<&'static str> = DeferedInit::default();
+    fn deferred_init() {
+        let deferred_init: DeferredInit<&'static str> = DeferredInit::default();
 
-        assert!(!defered_init.is_set());
+        assert!(!deferred_init.is_set());
 
-        defered_init
+        deferred_init
             .init("Hello")
             .expect("First call to init. Shouldn't fail.");
 
-        assert!(defered_init.is_set());
+        assert!(deferred_init.is_set());
 
-        assert_eq!(defered_init.get_value(), &"Hello");
+        assert_eq!(deferred_init.get_value(), &"Hello");
     }
 }

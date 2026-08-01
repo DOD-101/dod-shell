@@ -125,12 +125,16 @@ pub enum AppMsg {
     OskLocked(bool),
 }
 
-/// Auto-generated widget for [`App`]
 // NOTE: Should we allow users to config the icons?
 #[allow(
     clippy::float_cmp,
     reason = "Float comparison shouldn't lead to issues in this case"
 )]
+#[allow(
+    clippy::missing_docs_in_private_items,
+    reason = "Auto-generated code. No way / need to document properly"
+)]
+/// Auto-generated widget for [`App`]
 #[relm4::component(async, pub)]
 impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
     type Init = AppInit<I>;
@@ -163,6 +167,7 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
                     gtk::Box {
                         add_css_class: Class::HardwareInfo.as_ref(),
 
+                        /// Current cpu usage
                         #[name(cpu)]
                         LabelIcon {
                             add_css_class: Class::Cpu.as_ref(),
@@ -171,6 +176,7 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
                             set_icon: icon::PROCESSOR,
                         },
 
+                        /// Current ram usage
                         #[name(ram)]
                         LabelIcon {
                             add_css_class: Class::Ram.as_ref(),
@@ -179,6 +185,7 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
                             set_icon: icon::RAM_FILLED,
                         },
 
+                        /// Drive utilization
                         #[name(drive)]
                         LabelIcon {
                             #[watch]
@@ -187,6 +194,7 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
                         },
                     },
 
+                    /// Hyprland Workspaces
                     #[local_ref]
                     workspaces_widget -> gtk::Box {}
                 },
@@ -194,12 +202,12 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
                 #[wrap(Some)]
                 set_center_widget = &gtk::Box {
                     add_css_class: Class::Center.as_ref(),
+                    /// Current time and date and playback information all in one
                     #[local_ref]
                     time_playing_widget -> gtk::Box {}
                 },
 
                 #[wrap(Some)]
-                #[name(end_box)]
                 set_end_widget = &gtk::Box {
                     add_css_class: Class::Right.as_ref(),
                     set_orientation: gtk::Orientation::Horizontal,
@@ -216,6 +224,7 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
                         connect_clicked => AppMsg::ToggleOsk,
                     },
 
+                    /// Revealer to show the current network SSID
                     #[name(internet_revealer)]
                     gtk::Revealer {
                         add_css_class: Class::InternetNameRevealer.as_ref(),
@@ -227,6 +236,7 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
 
                         }
                     },
+                    /// Icon showing the internet connection status
                     #[name(internet_icon)]
                     gtk::Image {
                         set_css_classes: &classes!(Icon, InternetIcon),
@@ -245,7 +255,6 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
                         }),
                     },
 
-                    #[name(bluetooth_icon)]
                     gtk::Image {
                         set_css_classes: &classes!(Icon, BluetoothIcon),
                         #[watch]
@@ -253,7 +262,6 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
                         set_icon_name: Some(icon::BLUETOOTH),
                     },
 
-                    #[name(capslock_icon)]
                     gtk::Image {
                         set_css_classes: &classes!(Icon, CapsLockIcon),
                         #[watch]
@@ -263,7 +271,6 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
                         set_icon_name: Some(icon::KEYBOARD_CAPS_LOCK),
                     },
 
-                    #[name(numlock_icon)]
                     gtk::Image {
                         set_css_classes: &classes!(Icon, NumLockIcon),
                         #[watch]
@@ -273,7 +280,7 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
                         set_icon_name: Some(icon::DOCUMENT_PAGE_NUMBER_FILLED_SYMBOLIC),
                     },
 
-                    #[name(volume_label_icon)]
+
                     LabelIcon {
                         #[watch]
                         set_label: &(if *model.system_state.volume > 0.0 { model.system_state.volume.to_string() } else { String::new() }),
@@ -290,7 +297,7 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
                                     _ => unreachable!(),
                                   }
                     },
-                    #[name(battery_label_icon)]
+
                     LabelIcon {
                         #[watch]
                         set_label:

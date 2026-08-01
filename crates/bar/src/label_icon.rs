@@ -33,7 +33,7 @@ impl Default for LabelIcon {
 }
 
 impl LabelIcon {
-    /// Set the lable part [`Self`]
+    /// Set the label part [`Self`]
     pub fn set_label(&self, label: &str) {
         let imp = imp::LabelIcon::from_obj(self);
 

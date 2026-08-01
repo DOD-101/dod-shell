@@ -1,0 +1,46 @@
+---
+name: Rust checks
+
+"on":
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        rust: [stable]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Cache
+        uses: actions/cache@v5
+        with:
+          # A list of files, directories, and
+          # wildcard patterns to cache and restore
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Install dependencies for ubuntu
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkitgtk-6.0-dev esbuild
+
+      - uses: j178/prek-action@v1

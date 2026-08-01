@@ -95,7 +95,7 @@ impl Playback {
                 return;
         };
 
-        let players: Vec<Player> = stream::iter(media_players.into_iter())
+        let players: Vec<Player> = stream::iter(media_players)
             .filter_map(async |v| (v.player().await).ok())
             .collect()
             .await;

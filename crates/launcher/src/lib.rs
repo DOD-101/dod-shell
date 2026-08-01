@@ -32,7 +32,7 @@ mod results;
 use mode::{AllMode, LauncherMode};
 use results::{ResultList, ResultListInput};
 
-use crate::results::{ResultEntry, ResultListOuput};
+use crate::results::{ResultEntry, ResultListOutput};
 
 /// The main [``relm4::Component``] for the launcher
 ///
@@ -146,8 +146,8 @@ impl Component for App {
             ResultList::builder()
                 .launch(init.1.clone())
                 .forward(sender.input_sender(), |msg| match msg {
-                    ResultListOuput::Result(result_entry) => AppMsg::SearchResult(result_entry),
-                    ResultListOuput::Selected(index) => AppMsg::Selected(index),
+                    ResultListOutput::Result(result_entry) => AppMsg::SearchResult(result_entry),
+                    ResultListOutput::Selected(index) => AppMsg::Selected(index),
                 });
         let model = Self {
             results,

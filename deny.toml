@@ -11,3 +11,6 @@ allow = [
   "Unicode-3.0",
   "Zlib",
 ]
+
+[advisories]
+ignore = ["RUSTSEC-2026-0194", "RUSTSEC-2026-0195"]

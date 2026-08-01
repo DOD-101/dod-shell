@@ -29,7 +29,7 @@ use xkbcommon::xkb;
 use zbus::zvariant;
 
 use crate::osk::Mod;
-use common::types::DeferedInit;
+use common::types::DeferredInit;
 
 /// State object for [`wayland_client::Dispatch`] methods.
 ///
@@ -37,12 +37,12 @@ use common::types::DeferedInit;
 #[derive(Debug)]
 pub struct WaylandInterface {
     /// Protocol for the creation of other protocols.
-    wl_seat: DeferedInit<WlSeat>,
+    wl_seat: DeferredInit<WlSeat>,
     /// Protocol for sending characters to the server for input and getting information on the
     /// current input field.
-    input_method: DeferedInit<ZwpInputMethodV2>,
+    input_method: DeferredInit<ZwpInputMethodV2>,
     /// Protocol for sending individual key codes and modifiers to the server.
-    keyboard: DeferedInit<ZwpVirtualKeyboardV1>,
+    keyboard: DeferredInit<ZwpVirtualKeyboardV1>,
 
     /// Sends updates to the Osk-related state
     ///
@@ -60,9 +60,9 @@ impl WaylandInterface {
 
         (
             Self {
-                wl_seat: DeferedInit::default(),
-                input_method: DeferedInit::default(),
-                keyboard: DeferedInit::default(),
+                wl_seat: DeferredInit::default(),
+                input_method: DeferredInit::default(),
+                keyboard: DeferredInit::default(),
                 state_sender: rx,
             },
             tx,

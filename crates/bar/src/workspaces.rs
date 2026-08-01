@@ -1,7 +1,7 @@
 //! Workspace Component
 //!
 //! This [``relm4::SimpleComponent``] displays a list of workspaces and allows clicking on
-//! indiviual icons for each to change to that workspace.
+//! individual icons for each to change to that workspace.
 //!
 //! <div class="warning">
 //!
@@ -27,9 +27,11 @@ pub struct Workspaces {
 /// Messages sent to [``Workspaces``]
 #[derive(Debug)]
 pub enum WorkspacesMsg {
-    /// Change wich workspace is shown as the active one
+    /// Change which workspace is shown as the active one
     UpdateActiveWorkspace(i32),
 }
+
+// TODO: See if we can't get rid of the extra box
 
 /// Auto-generated widget for [`Workspaces`]
 #[relm4::component(pub)]
@@ -44,6 +46,7 @@ impl SimpleComponent for Workspaces {
         #[name(workspaces)]
         gtk::Box {
             add_css_class: Class::Workspaces.as_ref(),
+            /// Inner containing box for workspaces
             #[local_ref]
             workspace_box -> gtk::Box {
                 add_css_class: Class::WorkspacesInner.as_ref(),

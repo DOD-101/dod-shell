@@ -101,6 +101,7 @@ impl AsyncComponent for TimePlaying {
                 add_css_class: Class::TimePlayingLabel.as_ref(),
             },
 
+            /// Progress bar for the current playback
             append: progress_bar = &gtk::ProgressBar {
                 add_css_class: Class::TimePlayingProgressbar.as_ref(),
                 #[watch]

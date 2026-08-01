@@ -7,5 +7,5 @@ mod list;
 
 pub use {
     entry::{ResultCategory, ResultEntry},
-    list::{ResultList, ResultListInput, ResultListOuput},
+    list::{ResultList, ResultListInput, ResultListOutput},
 };

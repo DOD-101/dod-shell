@@ -60,7 +60,7 @@ pub struct SystemState {
     data: SystemStateData,
     /// The current config
     config: common::Config,
-    /// Used in [`Self::update_volume`]
+    /// Used to update the volume
     pulse_volume: pulse_ref::PulseRef,
 }
 
@@ -524,7 +524,7 @@ pub struct BatteryData {
     zvariant::Type,
 )]
 pub enum BatteryStatus {
-    /// Loosing charge
+    /// Losing charge
     Discharging,
     /// Being charged
     Charging,
@@ -647,7 +647,7 @@ mod pulse_ref {
     impl PulseRef {
         /// Get the current volume
         ///
-        /// If the volume is muted the [`Percentage`] has value -1.0.
+        /// If the volume is muted the [`common::types::Percentage`] has value -1.0.
         /// If no information could be gathered it is 0 and an error is logged.
         pub fn get_volume(&self) -> common::types::Percentage {
             let (tx, rx) = mpsc::channel();

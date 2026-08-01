@@ -37,11 +37,11 @@ impl Init for Primary {
 
         // We need to use spawn_local here to avoid panics when setting the css
         relm4::spawn_local(async move {
-            let unwraped: StateBroker<SendingUpdates>;
+            let unwrapped: StateBroker<SendingUpdates>;
             loop {
                 match Arc::try_unwrap(state_broker) {
                     Ok(broker) => {
-                        unwraped = broker.finish();
+                        unwrapped = broker.finish();
                         break;
                     }
                     Err(arc) => {
@@ -55,7 +55,7 @@ impl Init for Primary {
                 }
             }
 
-            if let Err(e) = unwraped.start_updating().await {
+            if let Err(e) = unwrapped.start_updating().await {
                 log::error!("Getting updates from the daemon has failed: {e}");
                 log::error!("No more updates will be received.");
             }

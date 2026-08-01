@@ -31,7 +31,7 @@ pub struct SendingUpdates;
 
 /// Manages updates from the daemon for all instances of the [`super::App`]
 pub struct StateBroker<State = GatheringSubscribers> {
-    /// The zbus connection used to talk to the deamon
+    /// The zbus connection used to talk to the daemon
     connection: Connection,
     /// Senders of components updates will be sent to
     subscribers: RwLock<Vec<relm4::Sender<AppMsg>>>,

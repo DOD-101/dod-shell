@@ -67,7 +67,7 @@ enum Component {
     Launcher,
     /// The bar component. See `bar` crate.
     Bar,
-    /// The daemon component. See `deamon` crate.
+    /// The daemon component. See `daemon` crate.
     Daemon,
     /// The osk component. See`osk` crate.
     Osk,

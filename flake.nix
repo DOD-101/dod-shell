@@ -3,15 +3,8 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-
     crane.url = "github:ipetkov/crane";
-
     flake-utils.url = "github:numtide/flake-utils";
-
-    advisory-db = {
-      url = "github:rustsec/advisory-db";
-      flake = false;
-    };
   };
 
   outputs =
@@ -20,7 +13,6 @@
       nixpkgs,
       crane,
       flake-utils,
-      advisory-db,
       ...
     }:
     flake-utils.lib.eachDefaultSystem (
@@ -72,9 +64,6 @@
             libadwaita
             libxkbcommon
           ];
-
-          # Additional environment variables can be set directly
-          # MY_CUSTOM_VAR = "some value";
         };
 
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
@@ -172,46 +161,9 @@
 
       in
       {
-        checks = {
-          inherit
-            launcher
-            cli
-            bar
-            daemon
-            osk
-            ;
-
-          clippy = craneLib.cargoClippy (
-            commonArgs
-            // {
-              inherit cargoArtifacts;
-              cargoClippyExtraArgs = "--all-targets -- --deny warnings";
-            }
-          );
-
-          docs = craneLib.cargoDoc (
-            commonArgs
-            // {
-              inherit cargoArtifacts;
-            }
-          );
-
-          fmt = craneLib.cargoFmt {
-            inherit src;
-          };
-
-          toml-fmt = craneLib.taploFmt {
-            src = pkgs.lib.sources.sourceFilesBySuffices src [ ".toml" ];
-          };
-
-          audit = craneLib.cargoAudit {
-            inherit src advisory-db;
-          };
-
-          deny = craneLib.cargoDeny {
-            inherit src;
-          };
-        };
+        checks = lib.attrsets.genAttrs' (filter-packages false) (
+          p: lib.nameValuePair (p.name + "-build") p
+        );
 
         packages = {
           inherit
@@ -232,24 +184,29 @@
 
         devShells = {
           default = craneLib.devShell {
-            # Inherit inputs from checks.
-            checks = self.checks.${system};
+            packages =
+              with pkgs;
+              [
+                wev
+                watchexec
+                prek
+                cargo-deny
+                cargo-audit
+                typos-lsp
+                (writeShellScriptBin "dod-watch" (builtins.readFile ./dod-watch.sh))
+              ]
+              ++ commonArgs.buildInputs
+              ++ commonArgs.nativeBuildInputs;
 
-            packages = with pkgs; [
-              wev
-              watchexec
-              (writeShellScriptBin "dod-watch" (builtins.readFile ./dod-watch.sh))
-            ];
+            shellHook = ''
+              prek install
+            '';
           };
-
           full = craneLib.devShell {
-            checks = self.checks.${system};
             packages = filter-packages false;
-
           };
 
           full-release = craneLib.devShell {
-            checks = self.checks.${system};
             packages = filter-packages true;
           };
         };
