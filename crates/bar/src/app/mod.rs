@@ -200,11 +200,9 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
                 },
 
                 #[wrap(Some)]
-                set_center_widget = &gtk::Box {
+                #[local_ref]
+                set_center_widget = time_playing_widget -> gtk::Box {
                     add_css_class: Class::Center.as_ref(),
-                    /// Current time and date and playback information all in one
-                    #[local_ref]
-                    time_playing_widget -> gtk::Box {}
                 },
 
                 #[wrap(Some)]

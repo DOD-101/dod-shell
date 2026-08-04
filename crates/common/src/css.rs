@@ -60,7 +60,6 @@ pub enum Class {
     NumLockIcon,
 
     Workspaces,
-    WorkspacesInner,
     Workspace,
     WorkspaceButton,
 

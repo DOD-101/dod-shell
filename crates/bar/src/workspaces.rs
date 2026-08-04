@@ -31,8 +31,6 @@ pub enum WorkspacesMsg {
     UpdateActiveWorkspace(i32),
 }
 
-// TODO: See if we can't get rid of the extra box
-
 /// Auto-generated widget for [`Workspaces`]
 #[relm4::component(pub)]
 impl SimpleComponent for Workspaces {
@@ -46,12 +44,7 @@ impl SimpleComponent for Workspaces {
         #[name(workspaces)]
         gtk::Box {
             add_css_class: Class::Workspaces.as_ref(),
-            /// Inner containing box for workspaces
-            #[local_ref]
-            workspace_box -> gtk::Box {
-                add_css_class: Class::WorkspacesInner.as_ref(),
-                set_orientation: gtk::Orientation::Horizontal,
-            },
+            set_orientation: gtk::Orientation::Horizontal,
         }
     }
 
@@ -60,9 +53,7 @@ impl SimpleComponent for Workspaces {
         root: Self::Root,
         _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let workspaces = FactoryVecDeque::builder()
-            .launch(gtk::Box::default())
-            .detach();
+        let workspaces = FactoryVecDeque::builder().launch(root.clone()).detach();
 
         let mut model = Self { workspaces };
 
@@ -74,7 +65,6 @@ impl SimpleComponent for Workspaces {
             }
         }
 
-        let workspace_box = model.workspaces.widget();
         let widgets = view_output!();
 
         ComponentParts { model, widgets }
