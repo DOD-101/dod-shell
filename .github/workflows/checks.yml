@@ -35,6 +35,6 @@ jobs:
 
       - uses: cachix/install-nix-action@v31
       - name: Install dependencies
-        run: nix profile install .#devShells.x86_64-linux.default
+        uses: nicknovitski/nix-develop@v1
 
       - uses: j178/prek-action@v1
