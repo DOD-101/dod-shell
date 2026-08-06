@@ -23,22 +23,22 @@ pub struct LaunchMode {
     /// The fuzzy matcher used to filter results
     matcher: SkimMatcherV2,
     /// Apps configured through [`LauncherConfig`]
-    apps: Vec<LaunchApp>,
+    apps: Box<[LaunchApp]>,
     /// Executables found in the system `$PATH`
     executables: HashSet<String>,
     /// Desktop entries found on the system
-    desktop_entries: Vec<DesktopEntry>,
+    desktop_entries: Box<[DesktopEntry]>,
 }
 
 impl LaunchMode {
     /// Create a new [`LaunchMode`]
     pub fn new(config: &LauncherConfig) -> Self {
         let locales = get_languages_from_env();
-        let desktop_entries = desktop_entries(&locales);
+        let desktop_entries = desktop_entries(&locales).into_boxed_slice();
 
         Self {
             matcher: SkimMatcherV2::default(),
-            apps: config.launch_mode.apps.clone(),
+            apps: config.launch_mode.apps.clone().into_boxed_slice(),
 
             executables: path_lookup::get_executables(),
             desktop_entries,
@@ -65,7 +65,7 @@ impl LaunchMode {
             })
             .collect();
 
-        options.sort_by_key(|o| o.0);
+        options.sort_unstable_by_key(|o| std::cmp::Reverse(o.0));
 
         options.into_iter().map(|o| o.1).collect()
     }

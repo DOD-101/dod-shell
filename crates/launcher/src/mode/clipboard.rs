@@ -23,7 +23,7 @@ pub struct ClipboardMode {
     /// u32: the index of the entry used to retrieve it later from cliphist
     ///
     /// Both these values are gotten by parsing the output of `cliphist list`.
-    data: Vec<(String, u32)>,
+    data: Box<[(String, u32)]>,
     /// The fuzzy matcher used to filter results
     matcher: SkimMatcherV2,
 }
@@ -93,7 +93,7 @@ impl LauncherMode for ClipboardMode {
             })
             .collect();
 
-        options.sort_by_key(|o| o.0);
+        options.sort_unstable_by_key(|o| std::cmp::Reverse(o.0));
 
         options
             .into_iter()
