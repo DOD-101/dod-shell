@@ -160,6 +160,7 @@ impl Config {
         }
 
         // -- css --
+        // TODO: Wait for upstream GtkCompressed output style
         match grass::from_path(scss_path, &grass::Options::default()) {
             Ok(s) if self.css != s => {
                 self.css = s;
