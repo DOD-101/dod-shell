@@ -68,8 +68,6 @@ impl From<u8> for Percentage {
     }
 }
 
-// TODO: Look into Maybeuninit for this
-
 /// A type to be initialized at a later time.
 ///
 /// Using this type necessitates having a 2 Step creation process.

@@ -13,9 +13,6 @@ use std::{
 };
 use zbus::Connection;
 
-// NOTE: We should probably generalize this to all type 1 components and move it to common
-// See comment above.
-
 /// Default state of [`StateBroker`]
 ///
 /// This is the default state. Here components can be added, by adding them with
