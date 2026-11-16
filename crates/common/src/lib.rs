@@ -14,13 +14,16 @@ pub use config::{Config, layouts::Layouts};
 ///
 /// Changes depending on weather the build is for release or debug.
 pub static CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
-    if cfg!(debug_assertions) {
-        return PathBuf::from("test");
+    cfg_select! {
+        debug_assertions => {
+            PathBuf::from("test")
+        }
+        _ => {
+            dirs::config_dir()
+                .expect("Failed to get config dir.")
+                .join("dod-shell")
+        }
     }
-
-    dirs::config_dir()
-        .expect("Failed to get config dir.")
-        .join("dod-shell")
 });
 
 /// Calls [`function@logger`] with `CARGO_PKG_NAME`

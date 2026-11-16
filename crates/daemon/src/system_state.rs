@@ -4,7 +4,8 @@
 //! It can be thought of as an interface between information gathered from outside the shell and
 //! the components which need that information.
 //!
-//! The main type is [``SystemState``]
+//! The main types are [``SystemState``] (the dbus interface) and [``SystemCollector``] (which
+//! gathers the data without holding any dbus interface locks).
 use std::{
     collections::HashMap,
     convert::TryInto,
@@ -19,6 +20,7 @@ use sysinfo::{CpuRefreshKind, Disks, MemoryRefreshKind, RefreshKind, System};
 use tokio::fs;
 use zbus::{
     Proxy,
+    connection::Connection,
     fdo::PropertiesProxy,
     interface,
     names::InterfaceName,
@@ -37,34 +39,63 @@ static CAPSLOCK_PATTERN: LazyLock<Regex> =
 static NUMLOCK_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"input\d+::numlock").unwrap());
 
-/// All of the State (aka. Information) gathered from the system
+/// Published dbus state of the system
 ///
-/// Provides the [``Self::update``] method for updating said state.
-///
-/// Internally holds [``SystemStateData``] to actually hold all of the data.
-///
-/// Other than the data itself it contains Objects needed to update parts of the state, which
-/// shouldn't be re-created each time [``Self::update``] is run due to performance reasons
-///
-/// # Dbus
+/// ## Dbus
 ///
 /// This struct implements [``zbus::object_server::Interface``], which means it acts as a dbus
 /// interface. For available zbus methods and properties see [``SystemStateProxy``]
+///
+/// This only holds the *published* data. Gathering is done by [``SystemCollector``] so that this
+/// interface never holds a lock while slow work is ongoing (see the module docs).
 #[derive(Debug, Default)]
 pub struct SystemState {
-    /// Used in [``Self::update``]
-    sys: System,
-    /// Used in [``Self::update``]
-    disks: Disks,
     /// Actual data
     data: SystemStateData,
+}
+
+impl SystemState {
+    /// Overwrite the published data with freshly-collected data.
+    pub fn set_data(&mut self, data: SystemStateData) {
+        self.data = data;
+    }
+}
+
+/// Gathers system state without holding any dbus interface locks
+///
+/// Owns every object needed to update parts of the state, which shouldn't be re-created each time
+/// [``Self::collect``] is run due to performance reasons (eg. the system dbus connection).
+pub struct SystemCollector {
+    /// Used in [``Self::collect``]
+    sys: System,
+    /// Used in [``Self::collect``]
+    disks: Disks,
+    /// Used to talk to `NetworkManager` & `BlueZ` over the system bus.
+    ///
+    /// Reused across calls to [``Self::collect``] rather than re-connecting every tick.
+    connection: Connection,
     /// The current config
     config: common::Config,
+    /// Last successfully collected battery data, kept so transient read errors don't clear it.
+    last_battery: zvariant::Optional<BatteryData>,
     /// Used to update the volume
     pulse_volume: pulse_ref::PulseRef,
 }
 
-impl SystemState {
+impl SystemCollector {
+    /// Creates a new [`SystemCollector`].
+    #[must_use]
+    pub fn new(connection: Connection) -> Self {
+        Self {
+            sys: System::new(),
+            disks: Disks::new_with_refreshed_list(),
+            connection,
+            config: common::Config::default(),
+            last_battery: zvariant::Optional::default(),
+            pulse_volume: pulse_ref::PulseRef::default(),
+        }
+    }
+
     /// Set the internal [``common::Config``]
     ///
     /// This is used primarily if there has been a change to the on-disk config file.
@@ -74,20 +105,19 @@ impl SystemState {
         self.config = config;
     }
 
-    /// Used for updating the state
+    /// Collects the updated data
     ///
     /// ## Performance
     ///
     /// Currently this method takes 6-10ms to run.
-    /// It is critical that care is taken to maintain optimal performance, since this function
-    /// hanging will cause large parts of the shell to hang themselves or break.
+    /// It is critical that care is taken to maintain optimal performance of this method since it is
+    /// called often and the data returned is relied upon my large parts of the shell.
     #[allow(
         clippy::cast_precision_loss,
         reason = "Precision loss only occurs when calculating percentages, where we don't care since they are just for display."
     )]
-    #[allow(clippy::missing_panics_doc, reason = "See expect msg.")]
-    pub async fn update(&mut self) {
-        let connection = zbus::Connection::system().await.expect("Shouldn't fail to connect to system dbus, since we have interacted with dbus before this point already.");
+    pub async fn collect(&mut self) -> SystemStateData {
+        let mut data = SystemStateData::default();
 
         self.sys.refresh_specifics(
             RefreshKind::nothing()
@@ -95,17 +125,24 @@ impl SystemState {
                 .with_memory(MemoryRefreshKind::nothing().with_ram()),
         );
 
-        self.data.cpu_usage = (f64::from(self.sys.global_cpu_usage()) / 100.0).into();
-        self.data.used_mem = self.sys.used_memory();
-        self.data.total_mem = self.sys.total_memory();
-        self.data.mem_usage = (self.data.used_mem as f64 / self.data.total_mem as f64).into();
-        self.data.workspace = hyprland::data::Workspace::get_active()
-            .inspect_err(|e| log::error!("Failed to get an active workspace: {e}"))
-            .map_or(0, |w| w.id);
+        data.cpu_usage = (f64::from(self.sys.global_cpu_usage()) / 100.0).into();
+        data.used_mem = self.sys.used_memory();
+        data.total_mem = self.sys.total_memory();
+        data.mem_usage = (data.used_mem as f64 / data.total_mem as f64).into();
+
+        // hyprland's socket read is blocking, so move it off the async runtime
+        let workspace = tokio::task::spawn_blocking(|| {
+            hyprland::data::Workspace::get_active()
+                .inspect_err(|e| log::error!("Failed to get an active workspace: {e}"))
+                .map_or(0, |w| w.id)
+        })
+        .await
+        .unwrap_or_default();
+        data.workspace = workspace;
 
         self.disks.refresh(true);
 
-        self.data.disks = self
+        data.disks = self
             .disks
             .list()
             .iter()
@@ -123,31 +160,39 @@ impl SystemState {
             .collect();
 
         let (bluetooth, network, key_states, battery_data) = tokio::join!(
-            self.update_bluetooth(&connection),
-            self.update_network(&connection),
+            self.update_bluetooth(&self.connection),
+            self.update_network(&self.connection),
             Self::update_key_states(),
             self.update_battery()
         );
 
-        self.data.bluetooth = bluetooth
+        data.bluetooth = bluetooth
             .inspect_err(|e| log::error!("Failed to update bluetooth information: {e}"))
             .unwrap_or_default();
 
-        self.data.network = network
+        data.network = network
             .inspect_err(|e| log::error!("Failed to update network information: {e}"))
             .unwrap_or_default();
 
-        (self.data.capslock, self.data.numlock) = key_states
+        (data.capslock, data.numlock) = key_states
             .inspect_err(|e| log::error!("Failed to update key state information: {e}"))
             .unwrap_or_default();
 
         match battery_data {
-            Some(Ok(data)) => self.data.battery = zvariant::Optional::from(Some(data)),
-            Some(Err(e)) => log::error!("Failed to update battery information: {e}"),
-            None => (),
+            Some(Ok(battery)) => {
+                self.last_battery = zvariant::Optional::from(Some(battery));
+                data.battery = self.last_battery.clone();
+            }
+            Some(Err(e)) => {
+                log::error!("Failed to update battery information: {e}");
+                data.battery = self.last_battery.clone();
+            }
+            None => self.last_battery = zvariant::Optional::default(),
         }
 
-        self.data.volume = self.pulse_volume.get_volume();
+        data.volume = self.pulse_volume.get_volume().await;
+
+        data
     }
 
     /// Checks if any devices are connected via bluetooth
@@ -559,11 +604,13 @@ mod pulse_ref {
         thread::{JoinHandle, spawn},
         time::Duration,
     };
+    use tokio::sync::oneshot;
 
     /// Lazily-initialized `PulseAudio` volume querier.
     ///
     /// Spawns a background thread that owns the `!Send` [`Mainloop`] and provides volume
-    /// queries via a channel interface.
+    /// queries via a channel interface. Queries are answered asynchronously through
+    /// [``tokio::sync::oneshot``] channels so the caller never blocks on the runtime.
     #[derive(Debug)]
     pub struct PulseRef {
         /// Used to send messages to background thread
@@ -579,7 +626,7 @@ mod pulse_ref {
         /// See: [`PulseRef::get_volume`]
         GetVolume {
             /// Used to send back response
-            respond_to: mpsc::Sender<Option<(u32, bool)>>,
+            respond_to: oneshot::Sender<Option<(u32, bool)>>,
         },
         /// Used to stop the background thread before dropping
         Shutdown,
@@ -649,8 +696,11 @@ mod pulse_ref {
         ///
         /// If the volume is muted the [`common::types::Percentage`] has value -1.0.
         /// If no information could be gathered it is 0 and an error is logged.
-        pub fn get_volume(&self) -> common::types::Percentage {
-            let (tx, rx) = mpsc::channel();
+        ///
+        /// This is async so the (potentially slow) `PulseAudio` round-trip never blocks the
+        /// calling task.
+        pub async fn get_volume(&self) -> common::types::Percentage {
+            let (tx, rx) = oneshot::channel();
             if self
                 .sender
                 .send(Command::GetVolume { respond_to: tx })
@@ -659,14 +709,18 @@ mod pulse_ref {
                 log::error!("PulseAudio thread died");
                 return common::types::Percentage::default();
             }
-            match rx.recv_timeout(Duration::from_secs(1)) {
-                Ok(Some((_raw_vol, true))) => common::types::Percentage::from(-1.0),
-                Ok(Some((raw_vol, false))) => {
+            match tokio::time::timeout(Duration::from_secs(1), rx).await {
+                Ok(Ok(Some((_raw_vol, true)))) => common::types::Percentage::from(-1.0),
+                Ok(Ok(Some((raw_vol, false)))) => {
                     let ratio = f64::from(raw_vol) / f64::from(Volume::NORMAL.0);
                     common::types::Percentage::from(ratio)
                 }
-                Ok(None) => {
+                Ok(Ok(None)) => {
                     log::error!("PulseAudio returned no sink info");
+                    common::types::Percentage::default()
+                }
+                Ok(Err(_)) => {
+                    log::error!("PulseAudio volume query dropped");
                     common::types::Percentage::default()
                 }
                 Err(_) => {

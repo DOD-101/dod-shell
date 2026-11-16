@@ -21,6 +21,7 @@ hyprland = { version = "0.4.0-beta.3", default-features = false, features = [
   "data",
   "dispatch",
 ] }
+inotify = "0.11.5"
 libpulse-binding = "2.30.1"
 log = "0.4.27"
 mpris2-zbus = { git = "https://github.com/pop-os/dbus-settings-bindings", version = "0.1.0" }

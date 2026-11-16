@@ -8,7 +8,7 @@ use futures_util::{StreamExt, stream};
 
 use mpris2_zbus::{media_player, player::Player};
 use strum::{Display, EnumIs};
-use zbus::{interface, zvariant};
+use zbus::{connection::Connection, interface, zvariant};
 
 /// State relating to the active media playback
 ///
@@ -20,6 +20,9 @@ use zbus::{interface, zvariant};
 ///
 /// This struct implements [``zbus::object_server::Interface``], which means it acts as a dbus
 /// interface. For available zbus methods and properties see [``PlaybackProxy``]
+///
+/// This only holds the *published* data. Gathering is done by [``PlaybackCollector``] so that this
+/// interface never holds a lock while slow work is ongoing.
 #[derive(Default)]
 pub struct Playback {
     /// Total length of the playback
@@ -35,6 +38,49 @@ pub struct Playback {
     title: String,
     /// The status of the playback
     status: PlaybackStatus,
+}
+
+impl Playback {
+    /// Create a new [`Self`] from a [Player]
+    async fn from_player(player: Player) -> Self {
+        let Ok(metadata) = player.metadata().await else {
+            log::debug!("Failed to get player metadata");
+            return Self::default();
+        };
+
+        let length = metadata
+            .length()
+            .map(|l| l.as_secs_f64())
+            .unwrap_or_default();
+
+        let artists = metadata.artists().unwrap_or_default();
+
+        let title = metadata.title().unwrap_or_default();
+
+        let position = player
+            .position()
+            .await
+            .inspect_err(|e| log::debug!("Failed to get player position: {e}"))
+            .ok()
+            .flatten()
+            .unwrap_or_default()
+            .as_secs_f64();
+
+        let status = player
+            .playback_status()
+            .await
+            .inspect_err(|e| log::debug!("Failed to get player playback status: {e}"))
+            .map(PlaybackStatus::from)
+            .unwrap_or_default();
+
+        Self {
+            length,
+            position,
+            artists,
+            title,
+            status,
+        }
+    }
 }
 
 #[interface(
@@ -86,13 +132,33 @@ impl Playback {
     }
 }
 
-impl Playback {
-    /// Update playback related state
-    #[allow(clippy::missing_panics_doc, reason = "See expect msg.")]
-    pub async fn update(&mut self, ctxt: &zbus::object_server::SignalEmitter<'_>) {
-        let Ok(media_players)  = media_player::MediaPlayer::new_all(&zbus::Connection::session().await.expect("Shouldn't fail to connect to system dbus, since we have interacted with dbus before this point already.")).await else {
+/// Gathers the current playback state without holding any dbus interface locks
+///
+/// Reuses the passed session [`Connection`] across calls to [``Self::collect``] rather than
+/// re-connecting every tick.
+pub struct PlaybackCollector {
+    /// Connection to the session bus, reused across [``Self::collect``] calls.
+    session_connection: Connection,
+}
+
+impl PlaybackCollector {
+    /// Creates a new [`PlaybackCollector`].
+    #[must_use]
+    pub const fn new(session_connection: Connection) -> Self {
+        Self { session_connection }
+    }
+
+    /// Gather the current playback state.
+    ///
+    /// ## MPRIS
+    ///
+    /// It is a best-effort approach: when no data is available the default (empty) state is
+    /// returned.
+    pub async fn collect(&mut self) -> Playback {
+        let Ok(media_players) = media_player::MediaPlayer::new_all(&self.session_connection).await
+        else {
             log::error!("Failed to find media players.");
-                return;
+            return Playback::default();
         };
 
         let players: Vec<Player> = stream::iter(media_players)
@@ -101,99 +167,57 @@ impl Playback {
             .await;
 
         match find_active_player(players).await {
-            Ok(Some(p)) => {
-                let new = Self::from_player(p).await;
-                self.update_values(new, ctxt).await;
-            }
+            Ok(Some(p)) => Playback::from_player(p).await,
             Err(err) => {
                 log::error!("Failed to find the active player: {err}");
+                Playback::default()
             }
             Ok(None) => {
                 log::debug!("No active player found.");
-                self.update_values(Self::default(), ctxt).await;
+                Playback::default()
             }
         }
     }
+}
 
-    /// Helper function used to take `new` and update the values of `self`
-    async fn update_values(&mut self, new: Self, ctxt: &zbus::object_server::SignalEmitter<'_>) {
-        self.values_changed(&new, ctxt).await;
-        *self = new;
+/// Helper to diff an existing [`Playback`] with a new one and emit the appropriate property
+/// changed signals.
+pub async fn publish_playback(
+    iface: &zbus::object_server::InterfaceRef<Playback>,
+    old: &Playback,
+    new: &Playback,
+) {
+    #![allow(
+        clippy::useless_let_if_seq,
+        reason = "The second if statement relies on this."
+    )]
+    let ctxt = iface.signal_emitter();
+    let mut progress_changed = false;
+
+    if (old.length - new.length).abs() > 0.1 {
+        let _ = new.length_changed(ctxt).await;
+        progress_changed = true;
     }
 
-    /// Helper function emit property changed signals
-    ///
-    /// See: [`Self::update`]
-    async fn values_changed(&self, new: &Self, ctxt: &zbus::object_server::SignalEmitter<'_>) {
-        #![allow(clippy::useless_let_if_seq, reason = "The second if statement.")]
-        let mut progress_changed = false;
-
-        if (self.length - new.length).abs() > 0.1 {
-            let _ = new.length_changed(ctxt).await;
-            progress_changed = true;
-        }
-
-        if (self.position - new.position).abs() > 0.1 {
-            let _ = new.position_changed(ctxt).await;
-            progress_changed = true;
-        }
-
-        if progress_changed {
-            let _ = new.progress_changed(ctxt).await;
-        }
-
-        if self.artists != new.artists {
-            let _ = new.artists_changed(ctxt).await;
-        }
-
-        if self.title != new.title {
-            let _ = new.title_changed(ctxt).await;
-        }
-
-        if self.status != new.status {
-            let _ = new.status_changed(ctxt).await;
-        }
+    if (old.position - new.position).abs() > 0.1 {
+        let _ = new.position_changed(ctxt).await;
+        progress_changed = true;
     }
 
-    /// Create a new [`Self`] from a [Player]
-    async fn from_player(player: Player) -> Self {
-        let Ok(metadata) = player.metadata().await else {
-            log::debug!("Failed to get player metadata");
-            return Self::default();
-        };
+    if progress_changed {
+        let _ = new.progress_changed(ctxt).await;
+    }
 
-        let length = metadata
-            .length()
-            .map(|l| l.as_secs_f64())
-            .unwrap_or_default();
+    if old.artists != new.artists {
+        let _ = new.artists_changed(ctxt).await;
+    }
 
-        let artists = metadata.artists().unwrap_or_default();
+    if old.title != new.title {
+        let _ = new.title_changed(ctxt).await;
+    }
 
-        let title = metadata.title().unwrap_or_default();
-
-        let position = player
-            .position()
-            .await
-            .inspect_err(|e| log::debug!("Failed to get player position: {e}"))
-            .ok()
-            .flatten()
-            .unwrap_or_default()
-            .as_secs_f64();
-
-        let status = player
-            .playback_status()
-            .await
-            .inspect_err(|e| log::debug!("Failed to get player playback status: {e}"))
-            .map(PlaybackStatus::from)
-            .unwrap_or_default();
-
-        Self {
-            length,
-            position,
-            artists,
-            title,
-            status,
-        }
+    if old.status != new.status {
+        let _ = new.status_changed(ctxt).await;
     }
 }
 

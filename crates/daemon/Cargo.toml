@@ -10,6 +10,7 @@ common.workspace = true
 futures-util.workspace = true
 grass.workspace = true
 hyprland.workspace = true
+inotify.workspace = true
 libpulse-binding.workspace = true
 log.workspace = true
 mpris2-zbus.workspace = true

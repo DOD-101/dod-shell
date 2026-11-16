@@ -37,7 +37,7 @@ pub struct Osk {
     /// Event Queue for the [`WaylandInterface`]
     event_queue: Mutex<EventQueue<WaylandInterface>>,
     /// Receiver for state changes emitted by [`Self::wayland_interface`]
-    state_receiver: Mutex<Receiver<WaylandStateMsg>>,
+    state_rx: Mutex<Receiver<WaylandStateMsg>>,
 }
 
 impl Osk {
@@ -61,7 +61,7 @@ impl Osk {
             event_queue: event_queue.into(),
             wayland_interface: wayland_interface.into(),
 
-            state_receiver: state_receiver.into(),
+            state_rx: state_receiver.into(),
         })
     }
 
@@ -83,7 +83,7 @@ impl Osk {
         event_queue.roundtrip(&mut *self.wayland_interface.write().await)?;
 
         loop {
-            let value = self.state_receiver.lock().await.try_recv();
+            let value = self.state_rx.lock().await.try_recv();
             match value {
                 Ok(msg) => {
                     state_iface

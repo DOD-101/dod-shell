@@ -3,6 +3,10 @@
 //! "Config" in this context means anything located in [``common::CONFIG_PATH``].
 //!
 //! The main type is [``Config``].
+use anyhow::{Context, Result};
+use futures_util::{Stream, future};
+use inotify::{Inotify, StreamExt, WatchMask};
+use std::path::Path;
 use tokio::fs;
 use zbus::{interface, zvariant};
 
@@ -197,4 +201,64 @@ impl Config {
 
         changes
     }
+}
+
+/// Create an inotify-backed stream that yields once for every change to the config directory (or
+/// any directory beneath it), filtering out read errors.
+///
+/// # Errors
+///
+/// Errors if the config directory can't be created or watched.
+pub fn create_config_update_stream() -> Result<impl Stream<Item = ()>> {
+    std::fs::create_dir_all(&*CONFIG_PATH)
+        .with_context(|| format!("Failed to create config dir {}.", CONFIG_PATH.display()))?;
+
+    let inotify = Inotify::init().context("Failed to initialize inotify instance.")?;
+
+    add_watches(
+        &inotify,
+        &CONFIG_PATH,
+        WatchMask::CLOSE_WRITE
+            | WatchMask::CREATE
+            | WatchMask::DELETE
+            | WatchMask::MOVED_FROM
+            | WatchMask::MOVED_TO,
+    )?;
+
+    let arr = [0; 1024];
+    Ok(inotify
+        .into_event_stream(arr)
+        .context("Failed to create inotify event stream.")?
+        .filter(|event| {
+            future::ready(
+                event
+                    .as_ref()
+                    .inspect_err(|err| {
+                        log::warn!("Error while watching config dir: {err}");
+                    })
+                    .is_ok(),
+            )
+        })
+        .map(|_| ()))
+}
+
+/// Add a watch for `mask` to `dir` and every directory beneath it.
+///
+/// Symlinked directories are skipped so symlink cycles can't cause infinite recursion.
+fn add_watches(inotify: &Inotify, dir: &Path, mask: WatchMask) -> Result<()> {
+    inotify
+        .watches()
+        .add(dir, mask)
+        .with_context(|| format!("Failed to watch {}.", dir.display()))?;
+
+    let entries = std::fs::read_dir(dir)
+        .with_context(|| format!("Failed to read directory {}.", dir.display()))?;
+
+    for entry in entries.flatten() {
+        if entry.file_type().is_ok_and(|file_type| file_type.is_dir()) {
+            add_watches(inotify, &entry.path(), mask)?;
+        }
+    }
+
+    Ok(())
 }
