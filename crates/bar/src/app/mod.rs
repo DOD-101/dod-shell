@@ -347,11 +347,8 @@ impl<I: Init + 'static> SimpleAsyncComponent for App<I> {
             .unwrap()
             .iter()
             .filter_map(|w| {
-                // TODO: Use upstream is_special method once it's in a release
-                if w.monitor_id.is_some_and(|v| v == init.monitor_id)
-                    && !w.name.contains("special:")
-                {
-                    return Some(w.id);
+                if w.monitor_id.is_some_and(|v| v == init.monitor_id) && !w.is_special() {
+                    return w.id().ok();
                 }
                 None
             })

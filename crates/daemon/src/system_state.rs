@@ -134,7 +134,8 @@ impl SystemCollector {
         let workspace = tokio::task::spawn_blocking(|| {
             hyprland::data::Workspace::get_active()
                 .inspect_err(|e| log::error!("Failed to get an active workspace: {e}"))
-                .map_or(0, |w| w.id)
+                .and_then(|w| w.id())
+                .unwrap_or_default()
         })
         .await
         .unwrap_or_default();
