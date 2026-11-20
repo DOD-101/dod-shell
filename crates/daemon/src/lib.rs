@@ -4,4 +4,5 @@
 pub mod config;
 pub mod osk;
 pub mod playback;
+pub mod system;
 pub mod system_state;
