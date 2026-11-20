@@ -125,11 +125,6 @@ impl SystemCollector {
                 .with_memory(MemoryRefreshKind::nothing().with_ram()),
         );
 
-        data.cpu_usage = (f64::from(self.sys.global_cpu_usage()) / 100.0).into();
-        data.used_mem = self.sys.used_memory();
-        data.total_mem = self.sys.total_memory();
-        data.mem_usage = (data.used_mem as f64 / data.total_mem as f64).into();
-
         // hyprland's socket read is blocking, so move it off the async runtime
         let workspace = tokio::task::spawn_blocking(|| {
             hyprland::data::Workspace::get_active()

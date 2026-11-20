@@ -14,6 +14,7 @@ use daemon::{
     config::{Config, ConfigValuesChanged},
     osk::{Osk, state::State as OskState},
     playback::{Playback, PlaybackCollector},
+    system::{self, System},
     system_state::{SystemCollector, SystemState},
 };
 
@@ -53,10 +54,11 @@ async fn main() -> Result<()> {
 
     let obj_server = connection.object_server();
 
-    let (state_iface, config_iface, osk_iface, osk_state_iface, playback_iface) = create_ifaces!(
+    let (state_iface, system_iface, config_iface, osk_iface, osk_state_iface, playback_iface) = create_ifaces!(
         obj_server,
         DBUS_PATH,
         SystemState,
+        System,
         Config,
         Osk,
         OskState,
@@ -79,12 +81,13 @@ async fn main() -> Result<()> {
     // Osk Wayland event pump: event-driven, entirely separate from polling.
     set.spawn(osk_task(osk_iface.clone(), osk_state_iface.clone()));
 
+    system::system_task(system_iface, config_rx);
+
     // System-state / playback poller: ticks on a fixed interval.
     set.spawn(poll_task(
         state_iface.clone(),
         playback_iface.clone(),
         system_connection,
-        config_rx,
     ));
 
     // Supervisor: any worker exiting is fatal, so wait for the first one to finish.
@@ -178,7 +181,6 @@ async fn poll_task(
     state_iface: InterfaceRef<SystemState>,
     playback_iface: InterfaceRef<Playback>,
     system_connection: Connection,
-    mut config_rx: mpsc::Receiver<common::Config>,
 ) -> Result<()> {
     let mut collector = SystemCollector::new(system_connection);
     let mut playback_collector =
@@ -188,13 +190,6 @@ async fn poll_task(
 
     loop {
         tokio::select! {
-            // Apply any incoming config changes *before* the next poll.
-            config = config_rx.recv() => {
-                match config {
-                    Some(config) => collector.set_config(config),
-                    None => return Ok(()),
-                }
-            }
             _ = interval.tick() => {
                 update_state(&state_iface, &mut collector).await?;
                 update_playback(&playback_iface, &mut playback_collector).await;

@@ -1,7 +1,12 @@
 mod hardware;
 
-use common::types::Percentage;
-use zbus::zvariant;
+use common::{Config, types::Percentage};
+use tokio::sync::mpsc::Receiver;
+use zbus::{object_server::InterfaceRef, zvariant};
+
+pub fn system_task(interface: InterfaceRef<System>, config_rx: Receiver<Config>) {
+    hardware::hardware_thread(interface, config_rx);
+}
 
 /// Generates the [`System`] state struct together with its D-Bus property getters.
 ///
